@@ -50,6 +50,7 @@ Answer: x = 1
 | sequences | sum of 1 to 100, the 20th term of, sum of the first n terms of, sum to infinity of | arithmetic or geometric, read off three or more terms (never guessed from two) |
 | percentages and growth | what percent of, percentage change from, increase by, invested at ... for, compounding | `calculate the compounding at 10% per day for a full month` -> about 17.449 times; calendar conventions (a month = 30 days) come from `rules.toml` and are stated with the answer |
 | trig | (evaluate, simplify, solve) | `cos(45 degrees)`, `sin^2 x + cos^2 x`, `2 sin x cos x`, `solve 2cos x - 1 = 0`, `solve sin x = -1/2 for x between 0 and 2pi` |
+| logic and sets | prove, show that, is a tautology, is equivalent to; not/~, and, or, ->, <->; union/∪, intersection/∩, A', A \ B, subset/⊆; forall/∃; by truth table, by element chasing | `(p -> q) <-> (~q -> ~p)`, `((p -> q) and p) -> q` (assume, modus ponens), `A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)` (element chasing), `A ∩ B ⊆ A`, `not forall x P(x) <-> exists x not P(x)`; a law as asked (`not (p and q) is equivalent to not p or not q`) is proved by its truth table, never by citing itself; a false statement is refused with the case that breaks it |
 
 Math can be typed (`2x^2 - 3x + 1 = 0`) or spoken (`x squared minus 4 equals 0`). `2x` means 2·x, `sin 2x` means sin(2x), and `-x^2` means -(x²).
 
@@ -85,6 +86,7 @@ sentence -> lexicon -> parser -> beam search over solution paths -> checks -> wo
    - **Trig equations:** every answer satisfies the equation (a general solution for k = -3..3), and a fine scan of the interval, or of one turn, finds no solution the answer missed.
    - **Inequalities:** the original is tested at its boundaries, just either side of each, between them and far out.
    - **Systems:** the answer goes back into every original equation exactly; the number of solutions comes from the determinant.
+   - **Logic and sets:** the statement holds in every row of its truth table (every region of its Venn diagram), all 2^n of them: an exact, exhaustive proof. With quantifiers over one-place predicates, in every kind of domain (which combinations of the predicates occur, 2^(2^k) - 1 of them), which for such statements is also every case there is. Every step keeps every truth value in every case.
    - **Named operations** (gcd, mean, n choose k, compound growth...): the worked answer equals a direct reference computation (`calls.rs`) that shares no code with the rules.
    - **Every step** of an expression keeps its value at the sample points.
 

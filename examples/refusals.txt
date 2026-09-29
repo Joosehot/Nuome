@@ -29,3 +29,10 @@ prove (a + b)^2 = a^2 + b^2
 prove 1 + 2 + ... + n = n^2
 prove n^2 + 1 is even
 prove a^2 + b^2 >= 3ab
+prove (p -> q) -> p
+prove (p -> q) <-> (q -> p)
+prove p or q is equivalent to p and q
+prove A ∪ B = A
+prove A ⊆ A ∩ B
+prove (exists x P(x) and exists x Q(x)) -> exists x (P(x) and Q(x))
+prove forall x (P(x) or Q(x)) -> forall x P(x) or forall x Q(x)

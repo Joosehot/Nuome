@@ -54,7 +54,7 @@ expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribut
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors", "factor_theorem"]
 solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict", "trig_exact", "trig_solve"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
-prove = ["sides_equal", "induction", "divides_factor", "consecutive", "residues", "ineq_zero", "square_form", "nonneg", "clear_denominators", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "add_fractions", "rational_cancel", "trig_identity", "trig_exact", "func_exact", "log_laws", "log_eval"]
+prove = ["sides_equal", "induction", "divides_factor", "consecutive", "residues", "ineq_zero", "square_form", "nonneg", "clear_denominators", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "add_fractions", "rational_cancel", "trig_identity", "trig_exact", "func_exact", "log_laws", "log_eval", "impl_elim", "iff_elim", "de_morgan", "double_negation", "distributive", "absorption", "idempotence", "excluded_middle", "logic_identity", "domination", "negate_constant", "modus_ponens", "set_difference", "assume", "element_chase", "equiv_end", "entails_end", "truth_table", "quant_negation", "quant_distribution"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
 # calculus and trig (agent B). int_constant goes last: C is written once the rest is done.
@@ -68,6 +68,10 @@ tangent = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff
 quadratic = ["factor_solve", "quadratic_formula", "square_root", "complete_square"]
 # ---- Algebra: methods ----
 system = ["eliminate", "substitution"]
+
+# ---- Proofs: logic and sets ----
+# "by truth table" / "by element chasing": a proof of logic or sets by one method or the other
+logic_proof = ["truth_table", "element_chase"]
 
 [method_follow]
 complete_square = ["square_root"]
@@ -724,6 +728,156 @@ days_per_week = 7
 days_per_month = 30
 days_per_year = 365
 months_per_year = 12
+
+# ---- Proofs: logic and sets ----
+# One Boolean algebra: each law works on statements (not, and, or) and on sets
+# (complement, intersection, union). A law never proves itself: when the
+# statement is a single instance of a law, the truth table proves it.
+
+[rules.impl_elim]          # P -> Q is ~P or Q
+weight = 1.0
+[rules.impl_elim.variants.or]
+
+[rules.iff_elim]          # P <-> Q: both ways, or by cases (longer)
+weight = 1.0
+[rules.iff_elim.variants.both_ways]
+clarity = 0.1
+[rules.iff_elim.variants.cases]
+clarity = -0.2
+
+[rules.de_morgan]          # ~(P and Q) is ~P or ~Q; ~(P or Q) is ~P and ~Q (and for sets)
+weight = 1.0
+[rules.de_morgan.variants.and]
+clarity = 0.1
+[rules.de_morgan.variants.or]
+clarity = 0.1
+
+[rules.double_negation]          # ~~P is P
+weight = 1.0
+minor = true
+[rules.double_negation.variants.twice]
+
+[rules.distributive]          # spreading grows the statement; taking a common part out shrinks it
+weight = 1.0
+[rules.distributive.variants.and_over_or]
+elegance = -0.2
+[rules.distributive.variants.or_over_and]
+elegance = -0.2
+[rules.distributive.variants.factor_and]
+elegance = 0.2
+[rules.distributive.variants.factor_or]
+elegance = 0.2
+
+[rules.absorption]          # P or (P and Q) is P
+weight = 1.0
+[rules.absorption.variants.or]
+elegance = 0.2
+[rules.absorption.variants.and]
+elegance = 0.2
+
+[rules.idempotence]          # P or P is P
+weight = 1.0
+[rules.idempotence.variants.and]
+[rules.idempotence.variants.or]
+
+[rules.excluded_middle]          # P or ~P is T; P and ~P is F
+weight = 1.0
+[rules.excluded_middle.variants.middle]
+clarity = 0.1
+[rules.excluded_middle.variants.contradiction]
+clarity = 0.1
+
+[rules.logic_identity]          # P and T is P; P or F is P
+weight = 1.0
+minor = true
+[rules.logic_identity.variants.and_true]
+[rules.logic_identity.variants.or_false]
+
+[rules.domination]          # P or T is T; P and F is F
+weight = 1.0
+[rules.domination.variants.or_true]
+[rules.domination.variants.and_false]
+
+[rules.negate_constant]          # ~T is F; ~F is T
+weight = 1.0
+minor = true
+[rules.negate_constant.variants.flip]
+
+[rules.modus_ponens]          # (P -> Q) and P is Q and P; (P -> Q) and ~Q is ~P and ~Q
+weight = 1.0
+[rules.modus_ponens.variants.ponens]
+clarity = 0.2
+elegance = 0.3
+[rules.modus_ponens.variants.tollens]
+clarity = 0.2
+elegance = 0.3
+
+[rules.set_difference]          # X \ Y = X intersect Y'
+weight = 1.0
+[rules.set_difference.variants.complement]
+
+[rules.assume]          # to prove P -> Q, assume P and show Q
+weight = 1.0
+[rules.assume.variants.hypothesis]
+clarity = 0.2
+elegance = 0.3
+[rules.assume.variants.again]
+clarity = 0.2
+elegance = 0.3
+
+[rules.element_chase]          # sets equal when any element is in one exactly when in the other: the textbook default
+weight = 1.0
+[rules.element_chase.variants.equal]
+clarity = 0.3
+[rules.element_chase.variants.subset]
+clarity = 0.3
+
+[rules.equiv_end]          # both sides the same up to order, or T
+weight = 1.0
+[rules.equiv_end.variants.same]
+[rules.equiv_end.variants.true]
+
+[rules.entails_end]          # the goal is among the assumptions, or the assumption among the alternatives
+weight = 1.0
+[rules.entails_end.variants.same]
+[rules.entails_end.variants.conjunct]
+[rules.entails_end.variants.disjunct]
+[rules.entails_end.variants.part]
+[rules.entails_end.variants.instance]
+[rules.entails_end.variants.trivial]
+
+[rules.truth_table]          # every row written out: a proof, but brute force; the laws are preferred unless asked for (or the statement IS a law)
+weight = 1.0
+[rules.truth_table.variants.truth]
+brevity = 0.2
+clarity = -1.0
+elegance = -2.5
+[rules.truth_table.variants.membership]
+brevity = 0.2
+clarity = -1.0
+elegance = -2.5
+
+[rules.quant_negation]          # ~(forall x P(x)) is exists x ~P(x); ~(exists x P(x)) is forall x ~P(x)
+weight = 1.0
+[rules.quant_negation.variants.forall]
+clarity = 0.1
+[rules.quant_negation.variants.exists]
+clarity = 0.1
+
+[rules.quant_distribution]      # forall over and, exists over or; or gathered back under one quantifier
+weight = 1.0
+[rules.quant_distribution.variants.forall_and]
+[rules.quant_distribution.variants.exists_or]
+[rules.quant_distribution.variants.gather_forall]
+elegance = 0.1
+[rules.quant_distribution.variants.gather_exists]
+elegance = 0.1
+
+[logic]
+table_letters = 3          # the most letters a truth table written out as the proof may have (8 rows)
+check_letters = 16         # the most letters a statement may have: every one of the 2^n rows is checked
+predicates = 3             # the most one-place predicates with quantifiers: checked in all 2^(2^k) - 1 kinds of domain
+growth = 1.5               # a step may make the statement at most 1.5 times its size as asked (+2): distributing can grow without end
 
 # ---- Open problems ---------------------------------------------------------------
 # Problems Nuome can recognise by name but has no rules to prove. Asking for

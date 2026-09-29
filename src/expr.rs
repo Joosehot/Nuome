@@ -83,6 +83,24 @@ pub enum Expr {
     Limit(Box<Expr>, String, Box<Expr>),
     /// The inner expression with (var) = the point: f(1), f'(1).
     At(Box<Expr>, String, Box<Expr>),
+    // logic and sets (agent L)
+    /// A statement built with a connective: not (one part), and, or (two or
+    /// more, flat), implies, iff (two).
+    Logic(Conn, Vec<Expr>),
+    /// true (T) or false (F).
+    Truth(bool),
+    /// A set built with an operation: complement (one part), union,
+    /// intersection (two or more, flat), difference (two).
+    Set(SetOp, Vec<Expr>),
+    /// The universal set U (true) or the empty set (false).
+    SetConst(bool),
+    /// "x is in A": the element's letter and the set.
+    Member(String, Box<Expr>),
+    /// "for all x" (true) or "there exists x" (false), the letter it binds,
+    /// and the statement about it.
+    Quant(bool, String, Box<Expr>),
+    /// A one-place predicate of a letter: P(x).
+    Pred(String, String),
 }
 
 use Expr::*;
@@ -138,6 +156,10 @@ impl Expr {
             Integral(a, _) => vec![a],
             Bounds(f, _, a, b) => vec![f, a, b],
             Limit(a, _, p) | At(a, _, p) => vec![a, p],
+            // logic and sets (agent L)
+            Logic(_, v) | Set(_, v) => v.iter().collect(),
+            Truth(_) | SetConst(_) | Pred(..) => vec![],
+            Member(_, a) | Quant(_, _, a) => vec![a],
         }
     }
     fn child_mut(&mut self, i: usize) -> &mut Expr {
@@ -165,6 +187,10 @@ impl Expr {
                     p
                 }
             }
+            // logic and sets (agent L)
+            Logic(_, v) | Set(_, v) => &mut v[i],
+            Truth(_) | SetConst(_) | Pred(..) => unreachable!("leaf has no children"),
+            Member(_, a) | Quant(_, _, a) => a,
         }
     }
     pub fn get(&self, path: &[usize]) -> &Expr {
@@ -294,6 +320,8 @@ impl Expr {
             Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
             Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
             Integral(..) | Limit(..) => None,
+            // logic and sets (agent L): truth values, not numbers
+            Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) | Quant(..) | Pred(..) => None,
             At(e, v, p) => {
                 let at = p.eval_q(env)?;
                 e.eval_q(&|n| if n == v { Some(at) } else { env(n) })
@@ -385,6 +413,8 @@ impl Expr {
             }
             // an indefinite integral has no single value; a limit is estimated by the checks
             Integral(..) | Limit(..) => f64::NAN,
+            // logic and sets (agent L): truth values, not numbers
+            Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) | Quant(..) | Pred(..) => f64::NAN,
             At(e, v, p) => {
                 let at = p.eval_f(env);
                 e.eval_f(&|n| if n == v { at } else { env(n) })
@@ -511,6 +541,45 @@ pub fn tidy(e: Expr) -> Expr {
         Bounds(f, v, a, b) => Bounds(Box::new(tidy(*f)), v, Box::new(tidy(*a)), Box::new(tidy(*b))),
         Limit(a, v, p) => Limit(Box::new(tidy(*a)), v, Box::new(tidy(*p))),
         At(a, v, p) => At(Box::new(tidy(*a)), v, Box::new(tidy(*p))),
+        // logic and sets (agent L): and, or, union, intersection are flat
+        Logic(c, v) => {
+            let v: Vec<Expr> = v.into_iter().map(tidy).collect();
+            if matches!(c, Conn::And | Conn::Or) {
+                let mut out = Vec::new();
+                for x in v {
+                    match x {
+                        Logic(d, inner) if d == c => out.extend(inner),
+                        x => out.push(x),
+                    }
+                }
+                if out.len() == 1 {
+                    return out.pop().unwrap();
+                }
+                Logic(c, out)
+            } else {
+                Logic(c, v)
+            }
+        }
+        Set(o, v) => {
+            let v: Vec<Expr> = v.into_iter().map(tidy).collect();
+            if matches!(o, SetOp::Union | SetOp::Inter) {
+                let mut out = Vec::new();
+                for x in v {
+                    match x {
+                        Set(d, inner) if d == o => out.extend(inner),
+                        x => out.push(x),
+                    }
+                }
+                if out.len() == 1 {
+                    return out.pop().unwrap();
+                }
+                Set(o, out)
+            } else {
+                Set(o, v)
+            }
+        }
+        Member(x, a) => Member(x, Box::new(tidy(*a))),
+        Quant(q, x, a) => Quant(q, x, Box::new(tidy(*a))),
         x => x,
     }
 }
@@ -599,6 +668,15 @@ pub enum Math {
     System(Vec<(Expr, Expr)>),
     /// The end of a proof: the statement holds.
     Proved,
+    // logic and sets (agent L)
+    /// A statement to prove true for every choice of its letters (a tautology).
+    Taut(Expr),
+    /// Two statements to prove logically equivalent.
+    Equiv(Expr, Expr),
+    /// Assuming the left statement, prove the right one.
+    Entails(Expr, Expr),
+    /// One set inside another.
+    Subset(Expr, Expr),
 }
 
 impl Math {
@@ -613,6 +691,9 @@ impl Math {
             Math::Ineq(l, _, r) => vec![l, r],
             Math::Intervals(_, v) => v.iter().flat_map(|i| i.lo.iter().chain(i.hi.iter()).map(|b| &b.at)).collect(),
             Math::System(v) => v.iter().flat_map(|(l, r)| [l, r]).collect(),
+            // logic and sets (agent L)
+            Math::Taut(e) => vec![e],
+            Math::Equiv(l, r) | Math::Entails(l, r) | Math::Subset(l, r) => vec![l, r],
         }
     }
     pub fn with_slot(&self, i: usize, e: Expr) -> Math {
@@ -662,6 +743,29 @@ impl Math {
                     v[i / 2].1 = e;
                 }
                 Math::System(v)
+            }
+            // logic and sets (agent L)
+            Math::Taut(_) => Math::Taut(e),
+            Math::Equiv(l, r) => {
+                if i == 0 {
+                    Math::Equiv(e, r.clone())
+                } else {
+                    Math::Equiv(l.clone(), e)
+                }
+            }
+            Math::Entails(l, r) => {
+                if i == 0 {
+                    Math::Entails(e, r.clone())
+                } else {
+                    Math::Entails(l.clone(), e)
+                }
+            }
+            Math::Subset(l, r) => {
+                if i == 0 {
+                    Math::Subset(e, r.clone())
+                } else {
+                    Math::Subset(l.clone(), e)
+                }
             }
             m => m.clone(),
         }
@@ -792,6 +896,27 @@ pub fn exact_log(b: &Q, a: &Q) -> Option<Q> {
         }
     }
     None
+}
+
+// ---- logic and sets (agent L) ----
+
+/// A connective of propositional logic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Conn {
+    Not,
+    And,
+    Or,
+    Implies,
+    Iff,
+}
+
+/// An operation on sets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum SetOp {
+    Complement,
+    Union,
+    Inter,
+    Diff,
 }
 
 #[cfg(test)]

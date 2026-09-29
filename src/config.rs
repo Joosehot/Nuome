@@ -187,6 +187,25 @@ pub struct Config {
     pub numbers: Numbers,
     pub algebra: AlgebraCfg,
     pub calculus: CalcCfg,
+    // logic and sets (agent L)
+    pub logic: LogicCfg,
+}
+
+/// Logic and sets (agent L): how big a truth table gets.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LogicCfg {
+    /// The most letters a truth table written out as a proof may have.
+    pub table_letters: usize,
+    /// The most letters a statement may have: every row of its truth table
+    /// is checked.
+    pub check_letters: usize,
+    /// A step may make the statement at most this many times as big as it
+    /// was asked (plus 2): spreading and over or can grow without end.
+    pub growth: f64,
+    /// The most one-place predicates a statement with quantifiers may have:
+    /// it is checked in every kind of domain, 2^(2^k) - 1 of them.
+    pub predicates: usize,
 }
 
 /// Algebra checks (inequalities).
@@ -296,6 +315,17 @@ impl Config {
         }
         if c.limit_far.len() < 2 || !c.limit_far.windows(2).all(|w| w[1] > w[0] && w[0] > 0.0) {
             bail!("[calculus] limit_far: at least 2 positive points, near to far (increasing)");
+        }
+        // logic and sets (agent L)
+        let l = &self.logic;
+        if l.table_letters == 0 || l.table_letters > l.check_letters || l.check_letters > 20 {
+            bail!("[logic]: need 1 <= table_letters <= check_letters <= 20");
+        }
+        if !(l.growth.is_finite() && l.growth >= 1.0) {
+            bail!("[logic]: growth must be at least 1");
+        }
+        if l.predicates == 0 || l.predicates > 4 {
+            bail!("[logic]: predicates must be 1 to 4");
         }
         Ok(())
     }

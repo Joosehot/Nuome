@@ -87,6 +87,10 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
 }
 
 pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Config) -> Result<Request, Vec<Diag>> {
+    // logic and sets (agent L): a statement of logic or about sets has its own grammar
+    if let Some(r) = crate::logic::parse(sentence, cfg) {
+        return r;
+    }
     let toks = lexicon::lex(sentence).map_err(|e| vec![Diag::new(e)])?;
     // a famous problem: name it, say where it stands, and why Nuome stops
     // written out in full: Hodge classes and algebraic cycles together are the Hodge conjecture
@@ -300,6 +304,10 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
             // word-grammar tokens left over: they didn't fit a construction
             Tok::List(_) | Tok::Ordinal(_) | Tok::SumOf | Tok::First | Tok::TermsOf | Tok::TermOf | Tok::InfSum | Tok::Pick(_) | Tok::Remainder | Tok::Grow | Tok::Per | Tok::Period(_) | Tok::Every(_) | Tok::Change(_) | Tok::By | Tok::WhatPct | Tok::IsWhatPct | Tok::PctChange => {
                 diags.push(Diag::new(format!("\"{}\" doesn't fit here", t.words)).hint("--vocabulary lists every word; see the README for the phrasings Nuome understands"));
+            }
+            // logic and sets (agent L): only inside a statement to prove
+            Tok::Logic(_) => {
+                diags.push(Diag::new(format!("\"{}\" belongs in a statement of logic or about sets", t.words)).hint("e.g. \"prove (p -> q) <-> (~q -> ~p)\" or \"prove (A union B)' = A' intersect B'\""));
             }
             _ => unreachable!("math tokens handled above"),
         }

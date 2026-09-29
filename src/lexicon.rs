@@ -106,6 +106,10 @@ pub enum Tok {
     Order(u32),
     /// "degrees", "°": the number before it is an angle in degrees.
     Degrees,
+    // logic and sets (agent L)
+    /// A word of logic or of sets ("implies", "union", "is a tautology"): it
+    /// only means something inside a statement to prove (logic.rs).
+    Logic(&'static str),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -657,6 +661,45 @@ const PHRASES: &[(&str, Tok)] = &[
     ("by elimination", Method("eliminate")),
     ("using elimination", Method("eliminate")),
     ("by the elimination method", Method("eliminate")),
+    // logic and sets (agent L): read by logic.rs inside a statement to prove
+    ("not", Logic("not")),
+    ("or", Logic("or")),
+    ("implies", Logic("implies")),
+    ("iff", Logic("iff")),
+    ("if and only if", Logic("iff")),
+    ("is equivalent to", Logic("equiv")),
+    ("equivalent to", Logic("equiv")),
+    ("is logically equivalent to", Logic("equiv")),
+    ("logically equivalent to", Logic("equiv")),
+    ("is a tautology", Logic("tautology")),
+    ("a tautology", Logic("tautology")),
+    ("tautology", Logic("tautology")),
+    ("is always true", Logic("tautology")),
+    ("true", Logic("true")),
+    ("false", Logic("false")),
+    ("union", Logic("union")),
+    ("union with", Logic("union")),
+    ("intersect", Logic("inter")),
+    ("complement of", Logic("complement")),
+    ("the complement of", Logic("complement")),
+    ("is a subset of", Logic("subset")),
+    ("subset of", Logic("subset")),
+    ("is contained in", Logic("subset")),
+    ("empty set", Logic("empty")),
+    ("the empty set", Logic("empty")),
+    ("by truth table", Method("truth_table")),
+    ("by a truth table", Method("truth_table")),
+    ("by truth tables", Method("truth_table")),
+    ("using a truth table", Method("truth_table")),
+    ("using the truth table", Method("truth_table")),
+    ("using truth tables", Method("truth_table")),
+    ("with a truth table", Method("truth_table")),
+    ("by a membership table", Method("truth_table")),
+    ("using a membership table", Method("truth_table")),
+    ("with a membership table", Method("truth_table")),
+    ("by element chasing", Method("element_chase")),
+    ("using element chasing", Method("element_chase")),
+    ("by chasing elements", Method("element_chase")),
 ];
 
 enum Raw {
@@ -906,6 +949,12 @@ fn distance(a: &str, b: &str) -> usize {
     prev[b.len()]
 }
 
+/// A phrase of the vocabulary, if it is one (logic and sets, agent L: the
+/// statement grammar in logic.rs reads the same vocabulary).
+pub fn phrase(p: &str) -> Option<&'static Tok> {
+    PHRASES.iter().find(|(w, _)| *w == p).map(|(_, t)| t)
+}
+
 /// Every word and phrase, for --vocabulary.
 /// Every key an `Open` token can carry: rules.toml must describe each.
 pub const OPEN_KEYS: &[&str] = &["hodge", "riemann", "p_vs_np", "navier_stokes", "yang_mills", "bsd", "poincare", "goldbach", "twin_primes", "collatz"];
@@ -914,6 +963,8 @@ pub fn vocabulary() -> Vec<String> {
     let mut v: Vec<String> = PHRASES.iter().map(|(p, _)| p.to_string()).collect();
     v.extend(["any single letter (a variable)", "e", "d/dx", "+ - * / ^ ( ) = % ² ³ √ π × ÷", "< <= > >= ≤ ≥ | _"].map(String::from));
     v.extend(["dx (after an integrand)", "-> → ° ∞"].map(String::from));
+    // logic and sets (agent L)
+    v.extend([r"~ ¬ ! & ^ ∧ /\ | ∨ \/ -> => → <-> <=> ↔ ≡ T F (in a statement of logic)", r"∪ ∩ ' ^c \ ∖ ⊆ ⊂ ∅ {} U, capital letters (in a statement about sets)", "forall, for all, for every, exists, there exists, for some, such that, ∀ ∃, P(x) (in a statement with quantifiers)"].map(String::from));
     v.sort();
     v.dedup();
     v

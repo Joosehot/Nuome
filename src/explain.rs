@@ -12,7 +12,12 @@ use std::fmt::Write as _;
 pub fn explain(req: &Request, out: &Outcome, cfg: &Config) -> String {
     let mut s = String::new();
     let _ = writeln!(s, "tokens");
-    if let Ok(toks) = lexicon::lex(&req.sentence) {
+    // logic and sets (agent L): a statement of logic has its own tokens
+    let logic_toks = if crate::logic::is_statement(&req.problem.value) { crate::logic::tokens(&req.sentence) } else { vec![] };
+    for line in logic_toks.chunks(4) {
+        let _ = writeln!(s, "  {}", line.join("   "));
+    }
+    if let (true, Ok(toks)) = (logic_toks.is_empty(), lexicon::lex(&req.sentence)) {
         let t: Vec<String> = toks
             .iter()
             .map(|t| match &t.tok {
