@@ -107,3 +107,38 @@ error: "from 0 to 1": bounds go with an integral or with solving in an interval
 error: none of my rules can solve sin(x) = 3/10
   hint: Nuome v0 solves sin, cos or tan of ax + b = c at the table's angles, and sin x, cos x, tan x = c in general with arcsin, arccos, arctan (not in an interval or in degrees)
 
+### prove the Hodge conjecture
+
+error: The Hodge conjecture is not something Nuome can prove: it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)
+  statement: on a non-singular complex projective variety X, every rational cohomology class in H^(2p)(X, Q) of Hodge type (p, p) is a rational linear combination of classes of algebraic cycles of codimension p
+  known: p = 1: true, the Lefschetz (1,1) theorem (1924)
+  known: p = dim X - 1: true, from p = 1 by the hard Lefschetz theorem; so every X of dimension at most 3 satisfies it
+  known: false with integer instead of rational coefficients (Atiyah and Hirzebruch, 1962)
+  known: false for general compact Kahler manifolds, which need not be projective (Voisin, 2002)
+  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+
+### Let X be a non-singular complex projective variety. Prove that every Hodge class in H^(2p)(X, Q) intersected with H^(p,p)(X) is a rational linear combination of classes of algebraic cycles of X
+
+error: The Hodge conjecture (recognised from its statement) is not something Nuome can prove: it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)
+  statement: on a non-singular complex projective variety X, every rational cohomology class in H^(2p)(X, Q) of Hodge type (p, p) is a rational linear combination of classes of algebraic cycles of codimension p
+  known: p = 1: true, the Lefschetz (1,1) theorem (1924)
+  known: p = dim X - 1: true, from p = 1 by the hard Lefschetz theorem; so every X of dimension at most 3 satisfies it
+  known: false with integer instead of rational coefficients (Atiyah and Hirzebruch, 1962)
+  known: false for general compact Kahler manifolds, which need not be projective (Voisin, 2002)
+  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+
+### prove the riemann hypothesis
+
+error: The Riemann hypothesis is not something Nuome can prove: it has been open since 1859 and is a Millennium Prize Problem
+  statement: every nontrivial zero of the Riemann zeta function has real part 1/2
+  known: the first 10^13 nontrivial zeros lie on the critical line (computer verification)
+  known: more than 40% of all nontrivial zeros lie on it (Conrey, 1989, and later work)
+  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+
+### prove the poincare conjecture
+
+error: The Poincare conjecture is not something Nuome can prove: it was proved by Grigori Perelman (2002-2003), the only Millennium Problem solved so far; the proof uses Ricci flow with surgery, far beyond Nuome's rules
+  statement: every simply connected, closed 3-manifold is homeomorphic to the 3-sphere
+  known: dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)
+  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+

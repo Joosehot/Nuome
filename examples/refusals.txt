@@ -20,3 +20,7 @@ limit of abs(x)/x as x approaches 0
 limit of sin x as x approaches infinity
 differentiate x^2 from 0 to 1
 solve sin x = 0.3 for x between 0 and 2pi
+prove the Hodge conjecture
+Let X be a non-singular complex projective variety. Prove that every Hodge class in H^(2p)(X, Q) intersected with H^(p,p)(X) is a rational linear combination of classes of algebraic cycles of X
+prove the riemann hypothesis
+prove the poincare conjecture

@@ -83,6 +83,10 @@ pub enum Tok {
     PctChange,
     /// Built by the word grammar (words.rs): a finished expression.
     Built(crate::expr::Expr),
+    /// A famous problem Nuome can name but not solve (details in rules.toml [open]).
+    Open(&'static str),
+    /// A word from an area of mathematics Nuome has no rules for.
+    Topic(&'static str),
     /// < <= > >=, "less than", "at least".
     Rel(Rel),
     /// "log": base 10 unless "_b" follows.
@@ -482,6 +486,84 @@ const PHRASES: &[(&str, Tok)] = &[
     ("acos", Func(Func::Acos)),
     ("arctan", Func(Func::Atan)),
     ("atan", Func(Func::Atan)),
+    // open problems and areas without rules: known words, so the refusal can say why
+    ("hodge conjecture", Open("hodge")),
+    ("the hodge conjecture", Open("hodge")),
+    ("riemann hypothesis", Open("riemann")),
+    ("the riemann hypothesis", Open("riemann")),
+    ("p vs np", Open("p_vs_np")),
+    ("p versus np", Open("p_vs_np")),
+    ("the p vs np problem", Open("p_vs_np")),
+    ("p vs np problem", Open("p_vs_np")),
+    ("navier-stokes", Open("navier_stokes")),
+    ("navier-stokes problem", Open("navier_stokes")),
+    ("navier-stokes equations", Open("navier_stokes")),
+    ("the navier-stokes problem", Open("navier_stokes")),
+    ("yang-mills", Open("yang_mills")),
+    ("yang-mills mass gap", Open("yang_mills")),
+    ("the yang-mills mass gap", Open("yang_mills")),
+    ("mass gap", Open("yang_mills")),
+    ("birch and swinnerton-dyer conjecture", Open("bsd")),
+    ("the birch and swinnerton-dyer conjecture", Open("bsd")),
+    ("bsd conjecture", Open("bsd")),
+    ("poincare conjecture", Open("poincare")),
+    ("the poincare conjecture", Open("poincare")),
+    ("goldbach conjecture", Open("goldbach")),
+    ("goldbach's conjecture", Open("goldbach")),
+    ("the goldbach conjecture", Open("goldbach")),
+    ("twin prime conjecture", Open("twin_primes")),
+    ("the twin prime conjecture", Open("twin_primes")),
+    ("collatz conjecture", Open("collatz")),
+    ("the collatz conjecture", Open("collatz")),
+    ("3n + 1 problem", Open("collatz")),
+    ("variety", Topic("algebraic geometry")),
+    ("varieties", Topic("algebraic geometry")),
+    ("projective variety", Topic("algebraic geometry")),
+    ("projective", Topic("algebraic geometry")),
+    ("non-singular", Topic("algebraic geometry")),
+    ("nonsingular", Topic("algebraic geometry")),
+    ("cohomology", Topic("algebraic geometry")),
+    ("cohomology class", Topic("algebraic geometry")),
+    ("hodge", Topic("algebraic geometry")),
+    ("hodge class", Topic("algebraic geometry")),
+    ("hodge classes", Topic("algebraic geometry")),
+    ("algebraic cycle", Topic("algebraic geometry")),
+    ("algebraic cycles", Topic("algebraic geometry")),
+    ("cycle", Topic("algebraic geometry")),
+    ("cycles", Topic("algebraic geometry")),
+    ("class", Topic("algebraic geometry")),
+    ("classes", Topic("algebraic geometry")),
+    ("rational linear combination", Topic("algebraic geometry")),
+    ("linear combination", Topic("algebraic geometry")),
+    ("combination", Topic("algebraic geometry")),
+    ("intersection", Topic("algebraic geometry")),
+    ("intersected with", Topic("algebraic geometry")),
+    ("subset", Topic("algebraic geometry")),
+    ("rationals", Topic("algebraic geometry")),
+    ("complex numbers", Topic("algebraic geometry")),
+    ("manifold", Topic("algebraic geometry")),
+    ("kahler manifold", Topic("algebraic geometry")),
+    ("span", Topic("algebraic geometry")),
+    ("codimension", Topic("algebraic geometry")),
+    ("subvariety", Topic("algebraic geometry")),
+    ("subvarieties", Topic("algebraic geometry")),
+    ("zeta function", Topic("number theory beyond arithmetic")),
+    ("zeros", Topic("number theory beyond arithmetic")),
+    ("nontrivial zeros", Topic("number theory beyond arithmetic")),
+    ("critical line", Topic("number theory beyond arithmetic")),
+    ("elliptic curve", Topic("number theory beyond arithmetic")),
+    ("elliptic curves", Topic("number theory beyond arithmetic")),
+    ("primes", Topic("number theory beyond arithmetic")),
+    ("twin primes", Topic("number theory beyond arithmetic")),
+    ("polynomial time", Topic("complexity theory")),
+    ("np-complete", Topic("complexity theory")),
+    ("let", Filler),
+    ("be", Filler),
+    ("prove that", Filler),
+    ("show that", Filler),
+    ("that", Filler),
+    ("is a", Filler),
+    ("type", Filler),
     // recognisably math, not in v0
     ("matrix", Unsupported("matrix algebra")),
     ("matrices", Unsupported("matrix algebra")),
@@ -606,6 +688,16 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
             // calculus and trig (agent B): x -> 2
             out.push(Raw::Word("approaches".into()));
             i += if c == '→' { 1 } else { 2 };
+        } else if let Some(w) = match c {
+            // set and number-system symbols, read as the words they stand for
+            '∩' => Some("intersection"),
+            '⊂' | '⊆' => Some("subset"),
+            'ℚ' => Some("rationals"),
+            'ℂ' => Some("complex numbers"),
+            _ => None,
+        } {
+            out.push(Raw::Word(w.into()));
+            i += 1;
         } else if c == '∞' {
             out.push(Raw::Word("infinity".into()));
             i += 1;
@@ -775,6 +867,9 @@ fn distance(a: &str, b: &str) -> usize {
 }
 
 /// Every word and phrase, for --vocabulary.
+/// Every key an `Open` token can carry: rules.toml must describe each.
+pub const OPEN_KEYS: &[&str] = &["hodge", "riemann", "p_vs_np", "navier_stokes", "yang_mills", "bsd", "poincare", "goldbach", "twin_primes", "collatz"];
+
 pub fn vocabulary() -> Vec<String> {
     let mut v: Vec<String> = PHRASES.iter().map(|(p, _)| p.to_string()).collect();
     v.extend(["any single letter (a variable)", "e", "d/dx", "+ - * / ^ ( ) = % ² ³ √ π × ÷", "< <= > >= ≤ ≥ | _"].map(String::from));

@@ -88,6 +88,24 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
 
 pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Config) -> Result<Request, Vec<Diag>> {
     let toks = lexicon::lex(sentence).map_err(|e| vec![Diag::new(e)])?;
+    // a famous problem: name it, say where it stands, and why Nuome stops
+    // written out in full: Hodge classes and algebraic cycles together are the Hodge conjecture
+    let said = |w: &str| toks.iter().any(|t| matches!(t.tok, Tok::Topic(_)) && t.words.starts_with(w));
+    let spelled_out = (said("hodge") && said("algebraic cycle")).then_some("hodge");
+    if let Some(key) = toks.iter().find_map(|t| if let Tok::Open(k) = t.tok { Some(k) } else { None }).or(spelled_out) {
+        let p = &cfg.open[key];
+        let named = if toks.iter().any(|t| matches!(t.tok, Tok::Open(_))) { p.name.clone() } else { format!("{} (recognised from its statement)", p.name) };
+        let mut m = format!("{named} is not something Nuome can prove: {}\n  statement: {}", p.status, p.statement);
+        for k in &p.known {
+            m.push_str(&format!("\n  known: {k}"));
+        }
+        return Err(vec![Diag::new(m).hint("Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution")]);
+    }
+    let topics: Vec<&Token> = toks.iter().filter(|t| matches!(t.tok, Tok::Topic(_))).collect();
+    if let Some(Token { tok: Tok::Topic(area), .. }) = topics.first() {
+        let words: Vec<String> = topics.iter().map(|t| format!("\"{}\"", t.words)).collect();
+        return Err(vec![Diag::new(format!("{}: {area} has no rules in Nuome", words.join(", "))).hint("Nuome covers arithmetic, algebra, calculus, trigonometry, number theory basics, statistics and sequences")]);
+    }
     let (toks, notes) = crate::words::rewrite(toks, cfg).map_err(|d| vec![d])?;
     let mut diags = Vec::new();
     let mut task: Option<Said<Task>> = None;
@@ -268,7 +286,7 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
             }
             Tok::Approaches | Tok::Degrees => unreachable!("handled above"),
             Tok::Sep | Tok::Filler | Tok::Is | Tok::To | Tok::Of => {}
-            Tok::Unsupported(what) => diags.push(Diag::new(format!("\"{}\": {what} is not in Nuome v0", t.words)).hint("v0 evaluates, simplifies, expands, factors, solves one equation in one unknown, and differentiates")),
+            Tok::Unsupported(what) => diags.push(Diag::new(format!("\"{}\": {what} is not in Nuome v0", t.words)).hint("Nuome covers arithmetic, algebra, calculus, trigonometry, number theory basics, statistics and sequences; `--vocabulary` lists every word")),
             Tok::Unknown => {
                 if !opts.lenient {
                     let mut d = Diag::new(format!("unknown word \"{}\"", t.words));

@@ -96,6 +96,17 @@ pub struct Numbers {
     pub write_out_factorial: u64,
 }
 
+/// An open (or famously hard) problem, described so a refusal can say why.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpenProblem {
+    pub name: String,
+    pub statement: String,
+    pub status: String,
+    #[serde(default)]
+    pub known: Vec<String>,
+}
+
 /// Calendar conventions for growth over time ("a month is 30 days").
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -156,6 +167,8 @@ pub struct Config {
     pub check: CheckCfg,
     pub display: Display,
     pub finance: Finance,
+    /// Famous problems Nuome recognises: what they say and where they stand.
+    pub open: BTreeMap<String, OpenProblem>,
     pub numbers: Numbers,
     pub algebra: AlgebraCfg,
     pub calculus: CalcCfg,
@@ -187,6 +200,11 @@ impl Config {
         Ok(cfg)
     }
     fn validate(&self) -> Result<()> {
+        for k in crate::lexicon::OPEN_KEYS {
+            if !self.open.contains_key(*k) {
+                bail!("[open.{k}] is missing");
+            }
+        }
         for m in Modifier::ALL {
             if !self.modifiers.contains_key(m.key()) {
                 bail!("[modifiers.{}] is missing", m.key());

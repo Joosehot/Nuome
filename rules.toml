@@ -723,3 +723,93 @@ days_per_week = 7
 days_per_month = 30
 days_per_year = 365
 months_per_year = 12
+
+# ---- Open problems ---------------------------------------------------------------
+# Problems Nuome can recognise by name but has no rules to prove. Asking for
+# one gives this description instead of an unknown-word error; nothing here
+# is ever presented as solved by Nuome.
+
+[open.hodge]
+name = "The Hodge conjecture"
+statement = "on a non-singular complex projective variety X, every rational cohomology class in H^(2p)(X, Q) of Hodge type (p, p) is a rational linear combination of classes of algebraic cycles of codimension p"
+status = "it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)"
+known = [
+    "p = 1: true, the Lefschetz (1,1) theorem (1924)",
+    "p = dim X - 1: true, from p = 1 by the hard Lefschetz theorem; so every X of dimension at most 3 satisfies it",
+    "false with integer instead of rational coefficients (Atiyah and Hirzebruch, 1962)",
+    "false for general compact Kahler manifolds, which need not be projective (Voisin, 2002)",
+]
+
+[open.riemann]
+name = "The Riemann hypothesis"
+statement = "every nontrivial zero of the Riemann zeta function has real part 1/2"
+status = "it has been open since 1859 and is a Millennium Prize Problem"
+known = [
+    "the first 10^13 nontrivial zeros lie on the critical line (computer verification)",
+    "more than 40% of all nontrivial zeros lie on it (Conrey, 1989, and later work)",
+]
+
+[open.p_vs_np]
+name = "P versus NP"
+statement = "is every problem whose solutions can be checked in polynomial time also solvable in polynomial time?"
+status = "it has been open since 1971 and is a Millennium Prize Problem"
+known = [
+    "relativization (1975), natural proofs (1994) and algebrization (2008) rule out whole families of proof techniques",
+]
+
+[open.navier_stokes]
+name = "Navier-Stokes existence and smoothness"
+statement = "in three dimensions, do smooth initial velocity fields always give smooth solutions of the Navier-Stokes equations for all time?"
+status = "it is open and is a Millennium Prize Problem"
+known = [
+    "true in two dimensions",
+    "weak solutions exist in three dimensions (Leray, 1934)",
+    "true for small enough initial data",
+]
+
+[open.yang_mills]
+name = "Yang-Mills existence and mass gap"
+statement = "quantum Yang-Mills theory exists on four-dimensional space-time for every compact simple gauge group, with a positive mass gap"
+status = "it is open and is a Millennium Prize Problem"
+
+[open.bsd]
+name = "The Birch and Swinnerton-Dyer conjecture"
+statement = "the rank of an elliptic curve over the rationals equals the order of vanishing of its L-function at s = 1"
+status = "it has been open since the 1960s and is a Millennium Prize Problem"
+known = [
+    "true when the analytic rank is 0 or 1 (Gross and Zagier, 1986; Kolyvagin, 1989)",
+]
+
+[open.poincare]
+name = "The Poincare conjecture"
+statement = "every simply connected, closed 3-manifold is homeomorphic to the 3-sphere"
+status = "it was proved by Grigori Perelman (2002-2003), the only Millennium Problem solved so far; the proof uses Ricci flow with surgery, far beyond Nuome's rules"
+known = [
+    "dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)",
+]
+
+[open.goldbach]
+name = "The Goldbach conjecture"
+statement = "every even integer greater than 2 is the sum of two primes"
+status = "it has been open since 1742"
+known = [
+    "checked by computer for every even number up to 4 * 10^18 (Oliveira e Silva and others, 2013)",
+    "every odd number above 5 is a sum of three primes (Helfgott, 2013)",
+]
+
+[open.twin_primes]
+name = "The twin prime conjecture"
+statement = "there are infinitely many primes p with p + 2 also prime"
+status = "it is open"
+known = [
+    "infinitely many pairs of primes differ by at most 246 (Zhang, 2013; Maynard; Polymath)",
+]
+
+[open.collatz]
+name = "The Collatz conjecture"
+statement = "repeatedly sending n to n/2 when even and to 3n + 1 when odd, every positive integer reaches 1"
+status = "it has been open since 1937"
+known = [
+    "checked by computer for every starting number below 2^68",
+    "almost all starting numbers reach almost bounded values (Tao, 2019)",
+]
