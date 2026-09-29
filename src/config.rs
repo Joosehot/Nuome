@@ -125,6 +125,18 @@ pub struct OpenProblem {
     /// For a problem that can be computed on: check every case up to this.
     #[serde(default)]
     pub check_up_to: Option<u64>,
+    /// Only when asked for a guess: the expected answer, not a result.
+    #[serde(default)]
+    pub guess: Option<Guess>,
+}
+
+/// A best guess at an open problem: what is expected, why, and how firmly.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Guess {
+    pub answer: String,
+    pub confidence: String,
+    pub basis: Vec<String>,
 }
 
 /// Calendar conventions for growth over time ("a month is 30 days").

@@ -903,6 +903,15 @@ known = [
 ]
 formal = "prove that on a non-singular complex projective variety every Hodge class is a rational linear combination of classes of algebraic cycles"
 
+[open.hodge.guess]
+answer = "true"
+confidence = "moderate: the usual expectation, but not unanimous"
+basis = [
+    "proved for p = 1 (Lefschetz) and so for every variety of dimension at most 3",
+    "proved for many abelian varieties and other special families",
+    "the natural stronger versions are false (integer coefficients, Kahler manifolds), which is why some experts are cautious",
+]
+
 [open.riemann]
 name = "The Riemann hypothesis"
 statement = "every nontrivial zero of the Riemann zeta function has real part 1/2"
@@ -914,6 +923,15 @@ known = [
 formal = "prove that if zeta(s) = 0 and 0 < re(s) < 1 then re(s) = 1/2"
 check_up_to = 100
 
+[open.riemann.guess]
+answer = "true: every nontrivial zero has real part 1/2"
+confidence = "high"
+basis = [
+    "the first 10^13 zeros are on the line, and Nuome found all 29 zeros up to height 100 on it",
+    "more than 40% of all zeros are proved to be on the line",
+    "its consequences for primes match every computation so far",
+]
+
 [open.p_vs_np]
 name = "P versus NP"
 statement = "is every problem whose solutions can be checked in polynomial time also solvable in polynomial time?"
@@ -922,6 +940,14 @@ known = [
     "relativization (1975), natural proofs (1994) and algebrization (2008) rule out whole families of proof techniques",
 ]
 formal = "prove that every problem checkable in polynomial time is solvable in polynomial time"
+
+[open.p_vs_np.guess]
+answer = "P != NP"
+confidence = "high: most complexity theorists expect it"
+basis = [
+    "decades of failed attempts to find fast algorithms for thousands of NP-complete problems",
+    "relativization, natural proofs and algebrization explain why proving it is hard",
+]
 
 [open.navier_stokes]
 name = "Navier-Stokes existence and smoothness"
@@ -934,11 +960,27 @@ known = [
 ]
 formal = "prove that du/dt + (u . grad) u = laplacian u - grad p with div u = 0 has a smooth solution for all t"
 
+[open.navier_stokes.guess]
+answer = "no guess: experts are genuinely divided"
+confidence = "none"
+basis = [
+    "smooth for all time in two dimensions and for small data",
+    "Tao (2016) built blow-up for an averaged version of the equations, a hint that blow-up might be possible",
+]
+
 [open.yang_mills]
 name = "Yang-Mills existence and mass gap"
 statement = "quantum Yang-Mills theory exists on four-dimensional space-time for every compact simple gauge group, with a positive mass gap"
 status = "it is open and is a Millennium Prize Problem"
 formal = "prove that quantum gauge theory with a compact simple group on four dimensional spacetime has a positive lowest energy"
+
+[open.yang_mills.guess]
+answer = "true: the theory exists and has a mass gap"
+confidence = "high, from physics"
+basis = [
+    "lattice simulations of QCD-like theories show a mass gap",
+    "what is missing is a mathematically rigorous construction",
+]
 
 [open.bsd]
 name = "The Birch and Swinnerton-Dyer conjecture"
@@ -949,6 +991,14 @@ known = [
 ]
 formal = "prove that the rank of every elliptic curve equals the order of vanishing of its l-function at s = 1"
 
+[open.bsd.guess]
+answer = "true"
+confidence = "high"
+basis = [
+    "proved when the analytic rank is 0 or 1",
+    "consistent with extensive numerical checks on very many curves",
+]
+
 [open.poincare]
 name = "The Poincare conjecture"
 statement = "every simply connected, closed 3-manifold is homeomorphic to the 3-sphere"
@@ -957,6 +1007,13 @@ known = [
     "dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)",
 ]
 formal = "prove that every simply connected closed 3-manifold is homeomorphic to the 3-sphere"
+
+[open.poincare.guess]
+answer = "true (proved by Perelman)"
+confidence = "certain: this one is solved"
+basis = [
+    "Perelman 2002-2003, checked by several expert teams",
+]
 
 [open.goldbach]
 name = "The Goldbach conjecture"
@@ -969,6 +1026,14 @@ known = [
 formal = "prove that every even number greater than 2 is a sum of two primes"
 check_up_to = 1000000
 
+[open.goldbach.guess]
+answer = "true"
+confidence = "very high"
+basis = [
+    "checked up to 4 * 10^18, and Nuome checked every even number up to 10^6",
+    "the number of ways to split n into two primes grows with n (heuristically)",
+]
+
 [open.twin_primes]
 name = "The twin prime conjecture"
 statement = "there are infinitely many primes p with p + 2 also prime"
@@ -977,6 +1042,14 @@ known = [
     "infinitely many pairs of primes differ by at most 246 (Zhang, 2013; Maynard; Polymath)",
 ]
 formal = "prove that there are infinitely many primes p with p + 2 prime"
+
+[open.twin_primes.guess]
+answer = "true: infinitely many twin primes"
+confidence = "very high"
+basis = [
+    "bounded gaps between primes (at most 246) are proved",
+    "heuristics predict about 1.32 n/(ln n)^2 twin primes below n",
+]
 
 [open.collatz]
 name = "The Collatz conjecture"
@@ -990,6 +1063,14 @@ known = [
 # ---- Proofs ----------------------------------------------------------------------
 formal = "prove that repeating n/2 for even n and 3n + 1 for odd n reaches 1 from every n"
 check_up_to = 1000000
+
+[open.collatz.guess]
+answer = "true: every start reaches 1"
+confidence = "high"
+basis = [
+    "checked below 2^68, and Nuome checked every start up to 10^6",
+    "Tao (2019): almost all orbits reach almost bounded values",
+]
 
 [proof]
 max_grid = 20000           # exact grid points allowed when confirming a polynomial identity

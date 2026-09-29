@@ -12,7 +12,7 @@ use crate::config::{Config, OpenProblem};
 use crate::parser::{self, ParseOptions};
 use crate::search;
 
-pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statement: bool) -> String {
+pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statement: bool, wants_guess: bool) -> String {
     let mut out = Vec::new();
     let from = if recognised_from_statement { " (recognised from its statement)" } else { "" };
     out.push(format!("{}{from}: an attempt", p.name));
@@ -73,5 +73,21 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
     } else {
         "  result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases".into()
     });
+    // 4. only if asked: a best guess, clearly not a result
+    if wants_guess && !proved {
+        match &p.guess {
+            Some(g) => {
+                out.push("  best guess (asked for; NOT checked, NOT a proof, may be wrong):".into());
+                out.push(format!("    answer: {}", g.answer));
+                out.push(format!("    confidence: {}", g.confidence));
+                for b in &g.basis {
+                    out.push(format!("    basis: {b}"));
+                }
+            }
+            None => out.push("  best guess: none on file for this problem".into()),
+        }
+    } else if !proved && p.guess.is_some() {
+        out.push("  (ask for a \"best guess\" to see what is expected, clearly marked as unchecked)".into());
+    }
     out.join("\n")
 }

@@ -108,7 +108,9 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
     if let Some(key) = toks.iter().find_map(|t| if let Tok::Open(k) = t.tok { Some(k) } else { None }).or(spelled_out) {
         let p = &cfg.open[key];
         let by_statement = !toks.iter().any(|t| matches!(t.tok, Tok::Open(_)));
-        return Err(vec![Diag::new(crate::attempt::report(key, p, cfg, by_statement))]);
+        let low = sentence.to_lowercase();
+        let wants_guess = ["guess", "anyway", "give an answer", "your answer"].iter().any(|w| low.contains(w));
+        return Err(vec![Diag::new(crate::attempt::report(key, p, cfg, by_statement, wants_guess))]);
     }
     let topics: Vec<&Token> = toks.iter().filter(|t| matches!(t.tok, Tok::Topic(_))).collect();
     if let Some(Token { tok: Tok::Topic(area), .. }) = topics.first() {
