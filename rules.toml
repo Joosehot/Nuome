@@ -54,7 +54,7 @@ expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribut
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors", "factor_theorem"]
 solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict", "trig_exact", "trig_solve"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
-prove = ["sides_equal", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
+prove = ["sides_equal", "induction", "divides_factor", "consecutive", "residues", "ineq_zero", "square_form", "nonneg", "clear_denominators", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "add_fractions", "rational_cancel", "trig_identity", "trig_exact", "func_exact", "log_laws", "log_eval"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
 # calculus and trig (agent B). int_constant goes last: C is written once the rest is done.
@@ -820,8 +820,41 @@ known = [
 [proof]
 max_grid = 20000           # exact grid points allowed when confirming a polynomial identity
 samples = 60               # points tried when the sides aren't polynomials (evidence only)
+max_residues = 12          # "check every remainder mod d" is offered up to this d
+induction_checks = 40      # an induction proof is also confirmed exactly for n up to this
 
 [rules.sides_equal]
 weight = 1.0
 [rules.sides_equal.variants.same]
 [rules.sides_equal.variants.obligation]
+
+[rules.induction]
+weight = 1.0
+[rules.induction.variants.on_n]
+
+[rules.divides_factor]
+weight = 1.0
+[rules.divides_factor.variants.linear_factors]
+
+[rules.consecutive]
+weight = 1.0
+[rules.consecutive.variants.factorial_divides]
+elegance = 1.0
+brevity = 0.3
+
+[rules.residues]
+weight = 1.0
+[rules.residues.variants.every_remainder]
+clarity = 0.3
+
+[rules.ineq_zero]
+weight = 1.0
+[rules.ineq_zero.variants.to_left]
+
+[rules.square_form]
+weight = 1.0
+[rules.square_form.variants.binomial]
+
+[rules.nonneg]
+weight = 1.0
+[rules.nonneg.variants.sum_of_squares]

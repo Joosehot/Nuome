@@ -80,6 +80,8 @@ pub fn rewrite(ts: Vec<Token>, cfg: &Config) -> Result<(Vec<Token>, Vec<Said<Str
     if ts.iter().any(|t| t.tok == Tok::Grow) || rate_with_period {
         return growth(ts, cfg);
     }
+    let ts = series(ts)?;
+    let ts = divisibility(ts)?;
     let mut out: Vec<Token> = Vec::new();
     let mut i = 0;
     while i < ts.len() {
@@ -375,4 +377,76 @@ fn growth(ts: Vec<Token>, cfg: &Config) -> Result<(Vec<Token>, Vec<Said<String>>
         out.push(t.clone());
     }
     Ok((out, notes))
+}
+
+// ---- proofs (main) ---------------------------------------------------------------
+
+fn dot(t: &Token) -> bool {
+    t.tok == Tok::Sep && t.words == "."
+}
+
+/// "1 + 2 + ... + n", "1^2 + 2^2 + ... + n^2": the last term, written in the
+/// letter, is the pattern; the first terms must follow it (checked here, so
+/// a sum whose pattern Nuome would have to guess is refused).
+fn series(ts: Vec<Token>) -> Result<Vec<Token>, Diag> {
+    let Some(k) = (1..ts.len().saturating_sub(3)).find(|&k| dot(&ts[k]) && dot(&ts[k + 1]) && dot(&ts[k + 2]) && ts[k - 1].tok == Tok::Op('+') && ts.get(k + 3).map(|t| &t.tok) == Some(&Tok::Op('+'))) else {
+        return Ok(ts);
+    };
+    let mut start = k - 1;
+    while start > 0 && is_math(&ts[start - 1].tok) && ts[start - 1].tok != Tok::Op('=') {
+        start -= 1;
+    }
+    let mut end = k + 4;
+    while end < ts.len() && is_math(&ts[end].tok) && ts[end].tok != Tok::Op('=') && !matches!(ts[end].tok, Tok::Rel(_)) {
+        end += 1;
+    }
+    let first = parse_expr(&ts[start..k - 1])?;
+    let last = parse_expr(&ts[k + 4..end])?;
+    let letters = last.vars();
+    let Some(n) = letters.iter().next().filter(|_| letters.len() == 1).cloned() else {
+        return Err(Diag::new("the last term of a \"...\" sum must be written in one letter").hint("e.g. \"1 + 2 + ... + n\""));
+    };
+    let firsts: Vec<Q> = crate::expr::terms(&first).iter().map(|t| t.eval_q(&|_| None)).collect::<Option<_>>().ok_or_else(|| Diag::new("the first terms of a \"...\" sum must be numbers"))?;
+    let term = |i: i128| last.subst(&n, &Expr::Num(Q::int(i))).eval_q(&|_| None);
+    let from = [1i128, 0].into_iter().find(|&s| firsts.iter().enumerate().all(|(i, q)| term(s + i as i128) == Some(*q)));
+    let Some(from) = from else {
+        let shown = crate::print::expr(&last, crate::print::Style::Ascii);
+        return Err(Diag::new(format!("the first terms don't follow the pattern {shown}")).hint(format!("with {n} = 1, 2, ... the pattern gives {}, {}, ...", term(1).map_or("?".into(), |q| q.to_string()), term(2).map_or("?".into(), |q| q.to_string()))));
+    };
+    let call = Expr::Call(Named::Series, vec![last, expr::num(from), Expr::Var(n)]);
+    let mut out: Vec<Token> = ts[..start].to_vec();
+    out.push(built(call, &ts[start..end]));
+    out.extend(ts[end..].iter().cloned());
+    Ok(out)
+}
+
+/// "6 divides n^3 - n", "n^3 - n is divisible by 6", "n^2 + n is even".
+fn divisibility(ts: Vec<Token>) -> Result<Vec<Token>, Diag> {
+    let Some(k) = ts.iter().position(|t| matches!(t.tok, Tok::DividesW | Tok::DivisibleBy | Tok::Even)) else { return Ok(ts) };
+    let mut start = k;
+    while start > 0 && is_math(&ts[start - 1].tok) {
+        start -= 1;
+    }
+    if start == k {
+        return Err(Diag::new(format!("\"{}\": what is?", ts[k].words)).hint("e.g. \"prove n^3 - n is divisible by 6\""));
+    }
+    let before = parse_expr(&ts[start..k])?;
+    let (d, e, end) = match ts[k].tok {
+        Tok::Even => (expr::num(2), before, k + 1),
+        _ => {
+            let (after, end) = span(&ts, k + 1)?;
+            if ts[k].tok == Tok::DividesW {
+                (before, after, end)
+            } else {
+                (after, before, end)
+            }
+        }
+    };
+    if !d.as_num().is_some_and(|q| q.is_int() && q.num() > 1) {
+        return Err(Diag::new("divisibility by a whole number greater than 1 only").hint("e.g. \"6 divides n^3 - n\""));
+    }
+    let mut out: Vec<Token> = ts[..start].to_vec();
+    out.push(built(Expr::Call(Named::Divides, vec![d, e]), &ts[start..end]));
+    out.extend(ts[end..].iter().cloned());
+    Ok(out)
 }

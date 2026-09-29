@@ -420,6 +420,38 @@ fn call(f: Named, args: &[Expr], s: Style, out: &mut String) {
         }
     };
     match (f, args) {
+        // 1 + 2 + ... + n, written the way it was given
+        (Named::Series, [t, lo, Expr::Var(n)]) => {
+            let at = |k: i128| {
+                let e = t.subst(n, &Expr::Num(crate::q::Q::int(k)));
+                // 1^2 stays 1^2 (the pattern shows); 2 * 1 - 1 becomes 1
+                if matches!(t, Expr::Pow(..)) {
+                    e
+                } else {
+                    e.eval_q(&|_| None).map_or(e, Expr::Num)
+                }
+            };
+            let Some(lo) = lo.as_num().filter(|q| q.is_int()) else { return write(t, s, out) };
+            let dots = match s {
+                Style::Ascii => " + ... + ",
+                Style::Unicode => " + \u{22ef} + ",
+                Style::Latex => " + \\cdots + ",
+            };
+            at_least(&at(lo.num()), ADD + 1, s, out);
+            out.push_str(" + ");
+            at_least(&at(lo.num() + 1), ADD + 1, s, out);
+            out.push_str(dots);
+            at_least(t, ADD + 1, s, out);
+        }
+        (Named::Divides, [d, e]) => {
+            at_least(d, MUL + 1, s, out);
+            out.push_str(match s {
+                Style::Ascii => " divides ",
+                Style::Unicode => " \u{2223} ",
+                Style::Latex => " \\mid ",
+            });
+            write(e, s, out);
+        }
         (Named::Mod, [a, b]) => {
             at_least(a, MUL + 1, s, out);
             out.push_str(if s == Style::Latex { " \\bmod " } else { " mod " });

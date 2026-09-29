@@ -283,6 +283,14 @@ impl Expr {
             Func(crate::expr::Func::Sqrt, a) => a.eval_q(env)?.sqrt(),
             Func(crate::expr::Func::Abs, a) => Some(a.eval_q(env)?.abs()),
             Func(..) => None,
+            Call(Named::Series, args) => {
+                let (terms, lo, hi) = series_parts(args)?;
+                let (lo, hi) = (lo.eval_q(env)?, env(hi)?);
+                if !(lo.is_int() && hi.is_int()) || hi.num() - lo.num() > 100_000 {
+                    return None;
+                }
+                (lo.num()..=hi.num()).try_fold(Q::ZERO, |acc, k| acc.add(&terms.eval_q(&|n| if n == hi_name(args) { Some(Q::int(k)) } else { env(n) })?))
+            }
             Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
             Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
             Integral(..) | Limit(..) => None,
@@ -351,6 +359,20 @@ impl Expr {
                     x.ln() / b.ln()
                 }
             }
+            Call(Named::Series, args) => {
+                let Some((terms, lo, _)) = series_parts(args) else { return f64::NAN };
+                let (lo, hi) = (lo.eval_f(env), env(hi_name(args)));
+                if !(lo.fract() == 0.0 && hi.fract() == 0.0) || hi - lo > 100_000.0 {
+                    return f64::NAN;
+                }
+                let mut s = 0.0;
+                let mut k = lo;
+                while k <= hi {
+                    s += terms.eval_f(&|n| if n == hi_name(args) { k } else { env(n) });
+                    k += 1.0;
+                }
+                s
+            }
             Call(f, args) => calls::eval_f(*f, &args.iter().map(|a| a.eval_f(env)).collect::<Vec<_>>()),
             Deriv(a, v) => {
                 // numeric derivative, for checks only
@@ -413,6 +435,18 @@ pub fn anchor_integrals(e: &Expr, v: &str, from: &Expr) -> Expr {
             out
         }
     }
+}
+
+/// A series' parts: (the general term, the first index, the letter it runs to).
+pub fn series_parts(args: &[Expr]) -> Option<(&Expr, &Expr, &str)> {
+    match args {
+        [t, lo, Var(n)] => Some((t, lo, n.as_str())),
+        _ => None,
+    }
+}
+
+fn hi_name(args: &[Expr]) -> &str {
+    series_parts(args).map_or("", |p| p.2)
 }
 
 /// Structural cleanup only: flatten nested sums and products, unwrap

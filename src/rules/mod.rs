@@ -43,6 +43,13 @@ pub mod verdict;
 pub mod zero_product;
 // proofs
 pub mod sides_equal;
+pub mod induction;
+pub mod divides_factor;
+pub mod consecutive;
+pub mod residues;
+pub mod ineq_zero;
+pub mod square_form;
+pub mod nonneg;
 // numbers, sequences, statistics, finance (main)
 pub mod gcd;
 pub mod lcm;
@@ -232,6 +239,13 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &diff_chain::DiffChain,
         // proofs
         &sides_equal::SidesEqual,
+        &induction::Induction,
+        &divides_factor::DividesFactor,
+        &consecutive::Consecutive,
+        &residues::Residues,
+        &ineq_zero::IneqZero,
+        &square_form::SquareForm,
+        &nonneg::Nonneg,
         // numbers, sequences, statistics, finance (main)
         &gcd::Gcd,
         &lcm::Lcm,

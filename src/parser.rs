@@ -328,6 +328,20 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
             }
         }
     }
+    // "... for every integer n": a lone letter after the statement names it too
+    if problems.len() >= 2 {
+        let lone: Vec<usize> = (0..problems.len()).filter(|&k| matches!(problems[k].value, Math::Expr(Expr::Var(_)))).collect();
+        if lone.len() < problems.len() {
+            for &k in lone.iter().rev() {
+                let p = problems.remove(k);
+                if var.is_none() {
+                    if let Math::Expr(Expr::Var(v)) = p.value {
+                        var = Some(Said::new(v, p.words));
+                    }
+                }
+            }
+        }
+    }
     // "find x if 7 = 3x - 2": with no other problem, the condition is the problem
     if problems.is_empty() && given_spans.len() == 1 {
         let s = given_spans.pop().expect("one span");
@@ -396,6 +410,7 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
         Math::Eq(..) => Said::new(Task::Solve, "(an equation: solve)"),
         Math::Ineq(..) => Said::new(Task::Solve, "(an inequality: solve)"),
         Math::System(_) => Said::new(Task::Solve, "(equations: solve them together)"),
+        Math::Expr(Expr::Call(crate::calls::Named::Divides, _)) => Said::new(Task::Prove, "(a divisibility statement: prove it)"),
         _ if letters.is_empty() || !given.is_empty() => Said::new(Task::Evaluate, "(no letters: evaluate)"),
         _ => Said::new(Task::Simplify, "(letters: simplify)"),
     });
@@ -426,6 +441,7 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
     let shown = crate::print::math(&problem.value, crate::print::Style::Ascii);
     let math_ok = match (task.value, &problem.value) {
         (Task::Prove, Math::Eq(..) | Math::Ineq(..) | Math::System(_)) => Ok(()),
+        (Task::Prove, Math::Expr(Expr::Call(crate::calls::Named::Divides, _))) => Ok(()),
         (Task::Prove, _) => Err(Diag::new(format!("prove what about {shown}?")).hint("state it as an equation or an inequality, e.g. \"prove (a + b)^2 = a^2 + 2ab + b^2\"")),
         (Task::Solve, Math::Eq(..)) => Ok(()),
         (Task::Solve, Math::Ineq(..)) => Ok(()),

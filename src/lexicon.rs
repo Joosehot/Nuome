@@ -87,6 +87,13 @@ pub enum Tok {
     Open(&'static str),
     /// A word from an area of mathematics Nuome has no rules for.
     Topic(&'static str),
+    // proofs (main)
+    /// "divides": d divides e.
+    DividesW,
+    /// "is divisible by", "is a multiple of": e ... d.
+    DivisibleBy,
+    /// "is even": 2 divides it.
+    Even,
     /// < <= > >=, "less than", "at least".
     Rel(Rel),
     /// "log": base 10 unless "_b" follows.
@@ -486,6 +493,23 @@ const PHRASES: &[(&str, Tok)] = &[
     ("acos", Func(Func::Acos)),
     ("arctan", Func(Func::Atan)),
     ("atan", Func(Func::Atan)),
+    // proofs (main)
+    ("divides", DividesW),
+    ("is divisible by", DivisibleBy),
+    ("divisible by", DivisibleBy),
+    ("is a multiple of", DivisibleBy),
+    ("is always divisible by", DivisibleBy),
+    ("is even", Even),
+    ("is always even", Even),
+    ("for every integer", Filler),
+    ("for all integers", Filler),
+    ("for every positive integer", Filler),
+    ("for all positive integers", Filler),
+    ("for every natural number", Filler),
+    ("for all natural numbers", Filler),
+    ("for all", Filler),
+    ("by induction", Filler),
+    ("using induction", Filler),
     // open problems and areas without rules: known words, so the refusal can say why
     ("hodge conjecture", Open("hodge")),
     ("the hodge conjecture", Open("hodge")),
@@ -689,6 +713,11 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
             // calculus and trig (agent B): x -> 2
             out.push(Raw::Word("approaches".into()));
             i += if c == '→' { 1 } else { 2 };
+        } else if c == '…' {
+            for _ in 0..3 {
+                out.push(Raw::Sym('.'));
+            }
+            i += 1;
         } else if let Some(w) = match c {
             // set and number-system symbols, read as the words they stand for
             '∩' => Some("intersection"),

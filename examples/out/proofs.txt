@@ -1,0 +1,383 @@
+### prove (a + b)^2 = a^2 + 2ab + b^2
+
+Prove (a + b)^2 = a^2 + 2ab + b^2
+
+      (a + b)^2 = a^2 + 2ab + b^2
+  1.  Write (a + b)^2 as (a + b)(a + b).   [multiply_out]
+      (a + b)(a + b) = a^2 + 2ab + b^2
+  2.  Multiply each term of a + b by each term of a + b.   [multiply_out]
+      a^2 + ab + ab + b^2 = a^2 + 2ab + b^2
+  3.  Collect the ab terms.   [collect]
+        ab + ab = (1 + 1)ab = 2ab
+      a^2 + 2ab + b^2 = a^2 + 2ab + b^2
+  4.  Both sides are the same: a^2 + 2ab + b^2.   [sides_equal]
+      proved
+
+Answer: proved
+  ok identity: both sides are polynomials and agree exactly at all 9 points of a grid (3 values of a, 3 values of b), one more value per letter than its degree: that forces them to be equal
+  ok steps: each of the 4 steps keeps both sides' values
+
+### prove (a - b)(a + b) = a^2 - b^2
+
+Prove (a - b)(a + b) = a^2 - b^2
+
+      (a - b)(a + b) = a^2 - b^2
+  1.  Multiply each term of a - b by each term of a + b.   [multiply_out]
+      a^2 + ab - ab - b^2 = a^2 - b^2
+  2.  Collect the ab terms.   [collect]
+        ab - ab = (1 - 1)ab = 0
+      a^2 - b^2 = a^2 - b^2
+  3.  Both sides are the same: a^2 - b^2.   [sides_equal]
+      proved
+
+Answer: proved
+  ok identity: both sides are polynomials and agree exactly at all 9 points of a grid (3 values of a, 3 values of b), one more value per letter than its degree: that forces them to be equal
+  ok steps: each of the 3 steps keeps both sides' values
+
+### prove (a + b)^3 = a^3 + 3a^2 b + 3ab^2 + b^3
+
+Prove (a + b)^3 = a^3 + 3a^2 b + 3ab^2 + b^3
+
+      (a + b)^3 = a^3 + 3a^2 b + 3ab^2 + b^3
+  1.  Write (a + b)^3 as (a + b)(a + b)(a + b).   [multiply_out]
+      (a + b)(a + b)(a + b) = a^3 + 3a^2 b + 3ab^2 + b^3
+  2.  Multiply each term of a + b by each term of a + b.   [multiply_out]
+      (a^2 + ab + ab + b^2)(a + b) = a^3 + 3a^2 b + 3ab^2 + b^3
+  3.  Multiply each term of a^2 + ab + ab + b^2 by each term of a + b.   [multiply_out]
+      a^3 + a^2 b + a^2 b + ab^2 + a^2 b + ab^2 + ab^2 + b^3 = a^3 + 3a^2 b + 3ab^2 + b^3
+  4.  Collect like terms.   [collect]
+        a^2 b + a^2 b + a^2 b = (1 + 1 + 1)a^2 b = 3a^2 b
+        ab^2 + ab^2 + ab^2 = (1 + 1 + 1)ab^2 = 3ab^2
+      a^3 + 3a^2 b + 3ab^2 + b^3 = a^3 + 3a^2 b + 3ab^2 + b^3
+  5.  Both sides are the same: a^3 + 3a^2 b + 3ab^2 + b^3.   [sides_equal]
+      proved
+
+Answer: proved
+  ok identity: both sides are polynomials and agree exactly at all 16 points of a grid (4 values of a, 4 values of b), one more value per letter than its degree: that forces them to be equal
+  ok steps: each of the 5 steps keeps both sides' values
+
+### prove (x + 1)(x^2 - x + 1) = x^3 + 1
+
+Prove (x + 1)(x^2 - x + 1) = x^3 + 1
+
+      (x + 1)(x^2 - x + 1) = x^3 + 1
+  1.  Multiply each term of x + 1 by each term of x^2 - x + 1.   [multiply_out]
+      x^3 - x^2 + x + x^2 - x + 1 = x^3 + 1
+  2.  Collect like terms.   [collect]
+        -x^2 + x^2 = (-1 + 1)x^2 = 0
+        x - x = (1 - 1)x = 0
+      x^3 + 1 = x^3 + 1
+  3.  Both sides are the same: x^3 + 1.   [sides_equal]
+      proved
+
+Answer: proved
+  ok identity: both sides are polynomials and agree exactly at all 4 points of a grid (4 values of x), one more value per letter than its degree: that forces them to be equal
+  ok steps: each of the 3 steps keeps both sides' values
+
+### prove 1/x + 1/(x + 1) = (2x + 1)/(x(x + 1))
+
+Prove 1/x + 1/(x + 1) = (2x + 1)/(x(x + 1))
+
+      1/x + 1/(x + 1) = (2x + 1)/(x(x + 1))
+  1.  Write each fraction over the common denominator x(x + 1) and combine the numerators.   [add_fractions]
+        1/x = (x + 1)/(x(x + 1))
+        1/(x + 1) = x/(x(x + 1))
+      (x + 1 + x)/(x(x + 1)) = (2x + 1)/(x(x + 1))
+  2.  Collect the x terms.   [collect]
+        x + x = (1 + 1)x = 2x
+      (2x + 1)/(x(x + 1)) = (2x + 1)/(x(x + 1))
+  3.  Both sides are the same: (2x + 1)/(x(x + 1)).   [sides_equal]
+      proved
+
+Answer: proved
+  ok identity: cross-multiplied, both sides are polynomials and agree exactly at all 5 points of a grid (5 values of x), one more value per letter than its degree: that forces them to be equal; so the sides are equal wherever both are defined
+  ok steps: each of the 3 steps keeps both sides' values
+
+### prove (sin x + cos x)^2 = 1 + 2 sin x cos x
+
+Prove (sin(x) + cos(x))^2 = 1 + 2sin(x) cos(x)
+
+      (sin(x) + cos(x))^2 = 1 + 2sin(x) cos(x)
+  1.  Write (sin(x) + cos(x))^2 as (sin(x) + cos(x))(sin(x) + cos(x)).   [multiply_out]
+      (sin(x) + cos(x))(sin(x) + cos(x)) = 1 + 2sin(x) cos(x)
+  2.  Multiply each term of sin(x) + cos(x) by each term of sin(x) + cos(x).   [multiply_out]
+      sin(x)^2 + sin(x) cos(x) + cos(x) sin(x) + cos(x)^2 = 1 + 2sin(x) cos(x)
+  3.  Collect the sin(x) cos(x) terms.   [collect]
+        sin(x) cos(x) + cos(x) sin(x) = (1 + 1) sin(x) cos(x) = 2sin(x) cos(x)
+      sin(x)^2 + 2sin(x) cos(x) + cos(x)^2 = 1 + 2sin(x) cos(x)
+  4.  Pythagorean identity: sin^2 + cos^2 = 1.   [trig_identity]
+      1 + 2sin(x) cos(x) = 1 + 2sin(x) cos(x)
+  5.  Both sides are the same: 1 + 2sin(x) cos(x).   [sides_equal]
+      proved
+
+Answer: proved
+  ok identity: both sides agree at 60 points (numerical evidence; the proof itself is the chain of rules)
+  ok steps: each of the 5 steps keeps both sides' values
+
+### prove 1 + 2 + ... + n = n(n + 1)/2
+
+Prove 1 + 2 + ... + n = n(n + 1)/2
+
+      1 + 2 + ... + n = n(n + 1)/2
+  1.  Prove it by induction on n.   [induction]
+        Base case n = 1: the sum is its first term, 1, and the formula gives (1 * 2)/2 = 1.
+        Hypothesis: for some n >= 1, 1 + 2 + ... + n = n(n + 1)/2.
+        Step: the sum up to n + 1 is the sum up to n plus the next term n + 1;
+          by the hypothesis that is n(n + 1)/2 + n + 1, which must equal the formula at n + 1:
+      n(n + 1)/2 + n + 1 = (n + 1)(n + 2)/2
+  2.  Multiply n into the brackets.   [distribute]
+      (n^2 + n)/2 + n + 1 = (n + 1)(n + 2)/2
+  3.  Multiply each term of n + 1 by each term of n + 2.   [multiply_out]
+      (n^2 + n)/2 + n + 1 = (n^2 + 2n + n + 2)/2
+  4.  Multiply both sides by 2, the least common denominator.   [clear_denominators]
+      n^2 + n + 2n + 2 = n^2 + 2n + n + 2
+  5.  Both sides are the same: n^2 + n + 2n + 2.   [sides_equal]
+      proved
+
+Answer: proved
+  ok values: sum and formula agree exactly for n = 1 to 40
+  ok base: n = 1: both sides are 1
+  ok step: formula(n) + next term = formula(n + 1): both sides are polynomials and agree exactly at all 3 points of a grid (3 values of n), one more value per letter than its degree: that forces them to be equal
+
+### prove 1 + 3 + 5 + ... + (2n - 1) = n^2
+
+Prove 1 + 3 + 5 + ... + (2n - 1) = n^2
+
+      1 + 3 + ... + (2n - 1) = n^2
+  1.  Prove it by induction on n.   [induction]
+        Base case n = 1: the sum is its first term, 1, and the formula gives 1^2 = 1.
+        Hypothesis: for some n >= 1, 1 + 3 + ... + (2n - 1) = n^2.
+        Step: the sum up to n + 1 is the sum up to n plus the next term 2(n + 1) - 1;
+          by the hypothesis that is n^2 + 2(n + 1) - 1, which must equal the formula at n + 1:
+      n^2 + 2(n + 1) - 1 = (n + 1)^2
+  2.  Write (n + 1)^2 as (n + 1)(n + 1).   [multiply_out]
+      n^2 + 2(n + 1) - 1 = (n + 1)(n + 1)
+  3.  Multiply each term of n + 1 by each term of n + 1.   [multiply_out]
+      n^2 + 2(n + 1) - 1 = n^2 + n + n + 1
+  4.  Multiply 2 into the brackets.   [distribute]
+      n^2 + 2n + 2 - 1 = n^2 + n + n + 1
+  5.  Work out 2 - 1 = 1.   [fold]
+      n^2 + 2n + 1 = n^2 + n + n + 1
+  6.  Collect the n terms.   [collect]
+        n + n = (1 + 1)n = 2n
+      n^2 + 2n + 1 = n^2 + 2n + 1
+  7.  Both sides are the same: n^2 + 2n + 1.   [sides_equal]
+      proved
+
+Answer: proved
+  ok values: sum and formula agree exactly for n = 1 to 40
+  ok base: n = 1: both sides are 1
+  ok step: formula(n) + next term = formula(n + 1): both sides are polynomials and agree exactly at all 3 points of a grid (3 values of n), one more value per letter than its degree: that forces them to be equal
+
+### prove 1^2 + 2^2 + ... + n^2 = n(n + 1)(2n + 1)/6
+
+Prove 1^2 + 2^2 + ... + n^2 = n(n + 1)(2n + 1)/6
+
+      1^2 + 2^2 + ... + n^2 = n(n + 1)(2n + 1)/6
+  1.  Prove it by induction on n.   [induction]
+        Base case n = 1: the sum is its first term, 1, and the formula gives (1 * 2(2 * 1 + 1))/6 = 1.
+        Hypothesis: for some n >= 1, 1^2 + 2^2 + ... + n^2 = n(n + 1)(2n + 1)/6.
+        Step: the sum up to n + 1 is the sum up to n plus the next term (n + 1)^2;
+          by the hypothesis that is n(n + 1)(2n + 1)/6 + (n + 1)^2, which must equal the formula at n + 1:
+      n(n + 1)(2n + 1)/6 + (n + 1)^2 = (n + 1)(n + 2)(2(n + 1) + 1)/6
+  2.  Write (n + 1)^2 as (n + 1)(n + 1).   [multiply_out]
+      n(n + 1)(2n + 1)/6 + (n + 1)(n + 1) = (n + 1)(n + 2)(2(n + 1) + 1)/6
+  3.  Multiply each term of n + 1 by each term of n + 1.   [multiply_out]
+      n(n + 1)(2n + 1)/6 + n^2 + n + n + 1 = (n + 1)(n + 2)(2(n + 1) + 1)/6
+  4.  Multiply 2 into the brackets.   [distribute]
+      n(n + 1)(2n + 1)/6 + n^2 + n + n + 1 = (n + 1)(n + 2)(2n + 2 + 1)/6
+  5.  Work out 2 + 1 = 3.   [fold]
+      n(n + 1)(2n + 1)/6 + n^2 + n + n + 1 = (n + 1)(n + 2)(2n + 3)/6
+  6.  Multiply each term of n + 1 by each term of 2n + 1.   [multiply_out]
+      n(2n^2 + n + 2n + 1)/6 + n^2 + n + n + 1 = (n + 1)(n + 2)(2n + 3)/6
+  7.  Multiply n into the brackets.   [distribute]
+      (2n^3 + n^2 + 2n^2 + n)/6 + n^2 + n + n + 1 = (n + 1)(n + 2)(2n + 3)/6
+  8.  Multiply both sides by 6, the least common denominator.   [clear_denominators]
+      2n^3 + n^2 + 2n^2 + n + 6n^2 + 6n + 6n + 6 = (n + 1)(n + 2)(2n + 3)
+  9.  Collect like terms.   [collect]
+        n^2 + 2n^2 + 6n^2 = (1 + 2 + 6)n^2 = 9n^2
+        n + 6n + 6n = (1 + 6 + 6)n = 13n
+      2n^3 + 9n^2 + 13n + 6 = (n + 1)(n + 2)(2n + 3)
+ 10.  Multiply each term of n + 1 by each term of n + 2.   [multiply_out]
+      2n^3 + 9n^2 + 13n + 6 = (n^2 + 2n + n + 2)(2n + 3)
+ 11.  Multiply each term of n^2 + 2n + n + 2 by each term of 2n + 3.   [multiply_out]
+      2n^3 + 9n^2 + 13n + 6 = 2n^3 + 3n^2 + 4n^2 + 6n + 2n^2 + 3n + 4n + 6
+ 12.  Collect like terms.   [collect]
+        3n^2 + 4n^2 + 2n^2 = (3 + 4 + 2)n^2 = 9n^2
+        6n + 3n + 4n = (6 + 3 + 4)n = 13n
+      2n^3 + 9n^2 + 13n + 6 = 2n^3 + 9n^2 + 13n + 6
+ 13.  Both sides are the same: 2n^3 + 9n^2 + 13n + 6.   [sides_equal]
+      proved
+
+Answer: proved
+  ok values: sum and formula agree exactly for n = 1 to 40
+  ok base: n = 1: both sides are 1
+  ok step: formula(n) + next term = formula(n + 1): both sides are polynomials and agree exactly at all 4 points of a grid (4 values of n), one more value per letter than its degree: that forces them to be equal
+
+### prove 1^3 + 2^3 + ... + n^3 = n^2 (n + 1)^2/4
+
+Prove 1^3 + 2^3 + ... + n^3 = n^2 (n + 1)^2/4
+
+      1^3 + 2^3 + ... + n^3 = (n^2 * (n + 1)^2)/4
+  1.  Write (n + 1)^2 as (n + 1)(n + 1).   [multiply_out]
+      1^3 + 2^3 + ... + n^3 = n^2(n + 1)(n + 1)/4
+  2.  Prove it by induction on n.   [induction]
+        Base case n = 1: the sum is its first term, 1, and the formula gives (1^2 * 2 * 2)/4 = 1.
+        Hypothesis: for some n >= 1, 1^3 + 2^3 + ... + n^3 = n^2(n + 1)(n + 1)/4.
+        Step: the sum up to n + 1 is the sum up to n plus the next term (n + 1)^3;
+          by the hypothesis that is n^2(n + 1)(n + 1)/4 + (n + 1)^3, which must equal the formula at n + 1:
+      n^2(n + 1)(n + 1)/4 + (n + 1)^3 = ((n + 1)^2 * (n + 2)(n + 2))/4
+  3.  Multiply each term of n + 1 by each term of n + 1.   [multiply_out]
+      n^2(n^2 + n + n + 1)/4 + (n + 1)^3 = ((n + 1)^2 * (n + 2)(n + 2))/4
+  4.  Write (n + 1)^2 as (n + 1)(n + 1).   [multiply_out]
+      n^2(n^2 + n + n + 1)/4 + (n + 1)^3 = (n + 1)(n + 1)(n + 2)(n + 2)/4
+  5.  Collect the n terms.   [collect]
+        n + n = (1 + 1)n = 2n
+      n^2(n^2 + 2n + 1)/4 + (n + 1)^3 = (n + 1)(n + 1)(n + 2)(n + 2)/4
+  6.  Multiply n^2 into the brackets.   [distribute]
+      (n^4 + 2n^3 + n^2)/4 + (n + 1)^3 = (n + 1)(n + 1)(n + 2)(n + 2)/4
+  7.  Write (n + 1)^3 as (n + 1)(n + 1)(n + 1).   [multiply_out]
+      (n^4 + 2n^3 + n^2)/4 + (n + 1)(n + 1)(n + 1) = (n + 1)(n + 1)(n + 2)(n + 2)/4
+  8.  Multiply each term of n + 1 by each term of n + 1.   [multiply_out]
+      (n^4 + 2n^3 + n^2)/4 + (n^2 + n + n + 1)(n + 1) = (n^2 + n + n + 1)(n + 2)(n + 2)/4
+  9.  Multiply each term of n^2 + n + n + 1 by each term of n + 1.   [multiply_out]
+      (n^4 + 2n^3 + n^2)/4 + n^3 + n^2 + n^2 + n + n^2 + n + n + 1 = (n^2 + n + n + 1)(n + 2)(n + 2)/4
+ 10.  Collect like terms.   [collect]
+        n^2 + n^2 + n^2 = (1 + 1 + 1)n^2 = 3n^2
+        n + n + n = (1 + 1 + 1)n = 3n
+      (n^4 + 2n^3 + n^2)/4 + n^3 + 3n^2 + 3n + 1 = (n^2 + n + n + 1)(n + 2)(n + 2)/4
+ 11.  Multiply both sides by 4, the least common denominator.   [clear_denominators]
+      n^4 + 2n^3 + n^2 + 4n^3 + 12n^2 + 12n + 4 = (n^2 + n + n + 1)(n + 2)(n + 2)
+ 12.  Collect like terms.   [collect]
+        2n^3 + 4n^3 = (2 + 4)n^3 = 6n^3
+        n^2 + 12n^2 = (1 + 12)n^2 = 13n^2
+      n^4 + 6n^3 + 13n^2 + 12n + 4 = (n^2 + n + n + 1)(n + 2)(n + 2)
+ 13.  Multiply each term of n^2 + n + n + 1 by each term of n + 2.   [multiply_out]
+      n^4 + 6n^3 + 13n^2 + 12n + 4 = (n^3 + 2n^2 + n^2 + 2n + n^2 + 2n + n + 2)(n + 2)
+ 14.  Collect like terms.   [collect]
+        2n^2 + n^2 + n^2 = (2 + 1 + 1)n^2 = 4n^2
+        2n + 2n + n = (2 + 2 + 1)n = 5n
+      n^4 + 6n^3 + 13n^2 + 12n + 4 = (n^3 + 4n^2 + 5n + 2)(n + 2)
+ 15.  Multiply each term of n^3 + 4n^2 + 5n + 2 by each term of n + 2.   [multiply_out]
+      n^4 + 6n^3 + 13n^2 + 12n + 4 = n^4 + 2n^3 + 4n^3 + 8n^2 + 5n^2 + 10n + 2n + 4
+ 16.  Collect like terms.   [collect]
+        2n^3 + 4n^3 = (2 + 4)n^3 = 6n^3
+        8n^2 + 5n^2 = (8 + 5)n^2 = 13n^2
+        10n + 2n = (10 + 2)n = 12n
+      n^4 + 6n^3 + 13n^2 + 12n + 4 = n^4 + 6n^3 + 13n^2 + 12n + 4
+ 17.  Both sides are the same: n^4 + 6n^3 + 13n^2 + 12n + 4.   [sides_equal]
+      proved
+
+Answer: proved
+  ok values: sum and formula agree exactly for n = 1 to 40
+  ok base: n = 1: both sides are 1
+  ok step: formula(n) + next term = formula(n + 1): both sides are polynomials and agree exactly at all 5 points of a grid (5 values of n), one more value per letter than its degree: that forces them to be equal
+
+### prove n^3 - n is divisible by 6 for every integer n
+
+Prove n^3 - n is divisible by 6 for every integer n
+
+      6 divides n^3 - n
+  1.  Check every remainder of n mod 6: the value mod 6 depends only on n mod 6.   [residues]
+        n = 0: 0 = 0 * 6
+        n = 1: 0 = 0 * 6
+        n = 2: 6 = 1 * 6
+        n = 3: 24 = 4 * 6
+        n = 4: 60 = 10 * 6
+        n = 5: 120 = 20 * 6
+      proved
+
+Answer: proved
+  ok divides: its value mod 6 repeats every 6, and n = 0 to 5 all give multiples of 6: that covers every integer
+
+### prove 6 divides n^3 - n elegantly
+
+Prove 6 divides n^3 - n elegantly
+
+      6 divides n^3 - n
+  1.  Factor: n^3 - n = (n - 1)n(n + 1).   [divides_factor]
+      6 divides (n - 1)n(n + 1)
+  2.  3 consecutive integers: their product is divisible by 3! = 6, and 6 divides 6.   [consecutive]
+        Among any 3 consecutive integers there is a multiple of each of 2, ..., 3; exactly, their product is 3! times a binomial coefficient.
+      proved
+
+Answer: proved
+  ok divides: its value mod 6 repeats every 6, and n = 0 to 5 all give multiples of 6: that covers every integer
+  ok steps: the factoring keeps the expression equal
+
+### prove n^2 + n is even
+
+Prove n^2 + n is even
+
+      2 divides n^2 + n
+  1.  Check every remainder of n mod 2: the value mod 2 depends only on n mod 2.   [residues]
+        n = 0: 0 = 0 * 2
+        n = 1: 2 = 1 * 2
+      proved
+
+Answer: proved
+  ok divides: its value mod 2 repeats every 2, and n = 0 to 1 all give multiples of 2: that covers every integer
+
+### prove n^5 - n is divisible by 5
+
+Prove n^5 - n is divisible by 5
+
+      5 divides n^5 - n
+  1.  Check every remainder of n mod 5: the value mod 5 depends only on n mod 5.   [residues]
+        n = 0: 0 = 0 * 5
+        n = 1: 0 = 0 * 5
+        n = 2: 30 = 6 * 5
+        n = 3: 240 = 48 * 5
+        n = 4: 1020 = 204 * 5
+      proved
+
+Answer: proved
+  ok divides: its value mod 5 repeats every 5, and n = 0 to 4 all give multiples of 5: that covers every integer
+
+### prove a^2 + b^2 >= 2ab
+
+Prove a^2 + b^2 >= 2ab
+
+      a^2 + b^2 >= 2ab
+  1.  Subtract 2ab from both sides.   [ineq_zero]
+      a^2 + b^2 - 2ab >= 0
+  2.  Recognise a perfect square: a^2 + b^2 - 2ab = (a - b)^2.   [square_form]
+      (a - b)^2 >= 0
+  3.  A square is never negative.   [nonneg]
+      proved
+
+Answer: proved
+  ok final: (a - b)^2 is a sum of squares times positive numbers
+  ok steps: each step keeps left side minus right side exactly
+  ok samples: it holds at all 60 sample points tried
+
+### prove x^2 + 1 > 0
+
+Prove x^2 + 1 > 0
+
+      x^2 + 1 > 0
+  1.  Squares are never negative, and a positive number is added, so the sum is positive.   [nonneg]
+      proved
+
+Answer: proved
+  ok final: x^2 + 1 is a sum of squares times positive numbers plus a positive number
+  ok steps: each step keeps left side minus right side exactly
+  ok samples: it holds at all 60 sample points tried
+
+### prove x^2 + 4 >= 4x
+
+Prove x^2 + 4 >= 4x
+
+      x^2 + 4 >= 4x
+  1.  Subtract 4x from both sides.   [ineq_zero]
+      x^2 + 4 - 4x >= 0
+  2.  Recognise a perfect square: x^2 + 4 - 4x = (x - 2)^2.   [square_form]
+      (x - 2)^2 >= 0
+  3.  A square is never negative.   [nonneg]
+      proved
+
+Answer: proved
+  ok final: (x - 2)^2 is a sum of squares times positive numbers
+  ok steps: each step keeps left side minus right side exactly
+  ok samples: it holds at all 60 sample points tried
+

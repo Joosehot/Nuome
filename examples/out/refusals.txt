@@ -142,3 +142,28 @@ error: The Poincare conjecture is not something Nuome can prove: it was proved b
   known: dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)
   hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
 
+### prove sin(x)^2 + cos(x)^2 = 1
+
+error: no way to prove sin(x)^2 + cos(x)^2 = 1 passes the checks
+  hint: circular: the statement is Nuome's own trig_identity law, which it takes as given; proving it needs the unit-circle definition of sin and cos, which Nuome doesn't have
+
+### prove (a + b)^2 = a^2 + b^2
+
+error: (a + b)^2 = a^2 + b^2 can't be proved
+  hint: it is false: a = 1, b = -1 gives 0 on the left and 2 on the right
+
+### prove 1 + 2 + ... + n = n^2
+
+error: 1 + 2 + ... + n = n^2 can't be proved
+  hint: it is false: n = 2 gives 3 on the left and 4 on the right
+
+### prove n^2 + 1 is even
+
+error: 2 divides n^2 + 1 can't be proved
+  hint: n = 0 gives 1, which 2 doesn't divide
+
+### prove a^2 + b^2 >= 3ab
+
+error: a^2 + b^2 >= 3ab can't be proved
+  hint: it is false: a = 3, b = 5 gives 34 on the left and 45 on the right
+

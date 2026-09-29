@@ -43,6 +43,11 @@ pub enum Named {
     WhatPercent,
     /// (amount, percent): amount raised by percent (negative lowers it).
     Raise,
+    // proofs (main)
+    /// (f(n), start, n): f(start) + f(start + 1) + ... + f(n), with f written in the letter n.
+    Series,
+    /// (d, e): the statement "d divides e".
+    Divides,
 }
 
 impl Named {
@@ -70,6 +75,8 @@ impl Named {
             Named::PercentChange => "percent change",
             Named::WhatPercent => "percent",
             Named::Raise => "raise",
+            Named::Series => "sum",
+            Named::Divides => "divides",
         }
     }
     /// Is the answer a percentage (printed with %)?
@@ -287,6 +294,8 @@ pub fn eval_q(f: Named, a: &[Q]) -> Option<Q> {
             y.sub(x)?.div(x)?.mul(&Q::int(100))
         }
         Named::WhatPercent => a.first()?.div(a.get(1)?)?.mul(&Q::int(100)),
+        // a sum with a letter in it, and a statement: evaluated in expr.rs / not a number
+        Named::Series | Named::Divides => None,
         Named::Raise => {
             let (x, p) = (a.first()?, a.get(1)?);
             x.mul(&Q::ONE.add(&p.div(&Q::int(100))?)?)

@@ -261,6 +261,12 @@ pub fn search(req: &Request, cfg: &Config) -> Result<Outcome, Vec<Diag>> {
     if let Some(why) = calls.first() {
         return Err(vec![Diag::new(format!("{problem} has no answer")).hint(why.clone())]);
     }
+    // a statement to prove that is false: show where
+    if req.task.value == Task::Prove {
+        if let Some(c) = crate::proof::counterexample(req) {
+            return Err(vec![Diag::new(format!("{problem} can't be proved")).hint(c)]);
+        }
+    }
     let furthest = dead.iter().min_by(|a, b| scoring::distance(&a.state, req).partial_cmp(&scoring::distance(&b.state, req)).unwrap_or(std::cmp::Ordering::Equal));
     let mut d = Diag::new(format!("none of my rules can {} {problem}", req.task.value.verb()));
     // calculus and trig (agent B): say why, when the numbers show it

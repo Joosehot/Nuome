@@ -104,6 +104,10 @@ pub struct ProofCfg {
     pub max_grid: usize,
     /// Points tried when the sides aren't polynomials (evidence, not proof).
     pub samples: usize,
+    /// "Check every remainder mod d" is offered up to this d.
+    pub max_residues: u64,
+    /// An induction proof is also confirmed exactly for n up to this.
+    pub induction_checks: i64,
 }
 
 /// An open (or famously hard) problem, described so a refusal can say why.
