@@ -1,0 +1,32 @@
+solve (x + 1)/(x - 2) = (x - 3)/(x + 4)
+solve 2x^3 - 3x^2 - 11x + 6 = 0
+solve x^4 - 5x^2 + 4 = 0
+solve log_2(x) + log_2(x - 2) = 3
+solve |x - 3| = 2x + 1
+solve x^2 - 4x - 5 <= 0
+solve (x - 1)/(x + 2) > 0
+solve 2x + 3y - z = 5 and x - y + 2z = 3 and 3x + y + z = 10
+simplify (x^3 - 8)/(x^2 - 4)
+factor x^3 - 6x^2 + 11x - 6
+factor 6x^2 - x - 15
+expand (2x - 3y)^3
+differentiate e^(sin x) cos x
+differentiate ln(x^2 + 1)/(x^3)
+differentiate sqrt(1 + x^2)
+second derivative of x^2 e^(-x)
+integrate x^2 e^x
+integrate x/(x^2 + 1)
+integrate (3x + 5)/((x + 1)(x + 2))
+integrate x ln x from 1 to e
+limit of (1 - cos x)/x^2 as x approaches 0
+limit of (sqrt(x + 4) - 2)/x as x approaches 0
+limit of (2x^3 - x)/(5x^3 + 4) as x approaches infinity
+prove 1 + 2 + 4 + ... + 2^(n - 1) = 2^n - 1
+prove 1/(1*2) + 1/(2*3) + ... + 1/(n(n + 1)) = n/(n + 1)
+prove n^5 - n is divisible by 30
+prove x^4 + y^4 >= 2x^2 y^2
+prove (a + b + c)^2 = a^2 + b^2 + c^2 + 2ab + 2bc + 2ac
+prove ((p -> q) and (q -> r)) -> (p -> r)
+prove (A \ B) ∪ (B \ A) = (A ∪ B) \ (A ∩ B)
+prove that in a group, if ab = e then ba = e
+standard deviation of 12, 15, 11, 18, 20, 14

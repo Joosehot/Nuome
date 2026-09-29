@@ -117,6 +117,8 @@ weight = 1.0
 [rules.powers.variants.same_base]
 [rules.powers.variants.power_of_power]
 [rules.powers.variants.power_of_product]
+[rules.powers.variants.split_exponent]
+[rules.powers.variants.number_base]
 
 [rules.collect]
 weight = 1.0
@@ -979,7 +981,7 @@ known = [
 [proof]
 max_grid = 20000           # exact grid points allowed when confirming a polynomial identity
 samples = 60               # points tried when the sides aren't polynomials (evidence only)
-max_residues = 12          # "check every remainder mod d" is offered up to this d
+max_residues = 30          # "check every remainder mod d" is offered up to this d
 induction_checks = 40      # an induction proof is also confirmed exactly for n up to this
 
 [rules.sides_equal]

@@ -30,6 +30,20 @@ impl Rule for Cancel {
                 return vec![];
             }
             let Expr::Div(a, b) = e else { return vec![] };
+            // 2x/(2sqrt(u)) -> x/sqrt(u): a number factor on top and below
+            if b.as_num().is_none() {
+                let ((ca, ra), (cb, rb)) = (coeff(a), coeff(b));
+                if ca.is_int() && cb.is_int() && !cb.is_zero() && !matches!(**a, Expr::Add(_)) {
+                    let g = gcd(ca.num(), cb.num());
+                    if g > 1 {
+                        let gq = Q::int(g);
+                        let (Some(na), Some(nb)) = (ca.div(&gq), cb.div(&gq)) else { return vec![] };
+                        let new = expr::div(with_coeff(na, ra), with_coeff(nb, rb));
+                        return vec![Rewrite { variant: "common_factor", new, says: Line::new().t(format!("Cancel the common factor {g}.")), work: vec![] }];
+                    }
+                }
+                return vec![];
+            }
             let Some(d) = b.as_num().filter(|d| d.is_int() && !d.is_zero() && !d.is_one()) else { return vec![] };
             let ts = terms(a);
             let parts: Vec<(Q, Expr)> = ts.iter().map(coeff).collect();

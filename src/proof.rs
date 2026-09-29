@@ -160,6 +160,14 @@ pub fn identity(l: &Expr, r: &Expr, cfg: &Config) -> Check {
             }
         }
     }
+    // n only inside powers b^(n + k) of one number b: with u = b^n that is a
+    // polynomial identity in u (b^(n + k) = b^k u), checked exactly as above
+    if let Some((l2, r2, b)) = powers_as_letter(l, r) {
+        let c = identity(&l2, &r2, cfg);
+        if c.ok && c.detail.starts_with("both sides are polynomials") {
+            return ck("identity", true, format!("with u = {b}^n, {}", c.detail));
+        }
+    }
     // anything else: many points, as evidence
     let mut tried = 0;
     for k in 0..cfg.proof.samples {
@@ -396,7 +404,28 @@ pub fn counterexample(req: &Request) -> Option<String> {
         }
         Math::Eq(l, r) | Math::Ineq(l, _, r) => {
             let vars: BTreeSet<String> = l.vars().union(&r.vars()).cloned().collect();
-            for p in points(&vars) {
+            // a sum 1 + ... + n says nothing about n below its first index
+            let mut lowest: std::collections::BTreeMap<String, Q> = std::collections::BTreeMap::new();
+            for e in [l, r] {
+                for (_, node) in e.walk() {
+                    if let Expr::Call(Named::Series, a) = node {
+                        if let Some((_, lo, n)) = series_parts(a) {
+                            if let Some(q) = lo.as_num() {
+                                lowest.insert(n.to_string(), q);
+                            }
+                        }
+                    }
+                }
+            }
+            let mut tries = points(&vars);
+            if !lowest.is_empty() {
+                // the natural cases: n = first index, +1, +2, ...
+                tries = (0..12).map(|k| vars.iter().map(|v| (v.clone(), lowest.get(v).copied().unwrap_or(Q::ONE).add(&Q::int(k)).unwrap_or(Q::ONE))).collect()).collect();
+            }
+            for p in tries {
+                if p.iter().any(|(v, x)| lowest.get(v).is_some_and(|lo| x < lo)) {
+                    continue;
+                }
                 let (Some(a), Some(b)) = (l.eval_q(&|n| p.get(n).copied()), r.eval_q(&|n| p.get(n).copied())) else { continue };
                 let fails = match &req.problem.value {
                     Math::Ineq(_, rel, _) => !match rel {
@@ -483,4 +512,46 @@ fn logic_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) 
     let steps = path.steps.len();
     let cases = if quantified { format!("{count} kinds of domain") } else if sets { format!("{count} regions") } else { format!("{count} rows") };
     out.push(ck("steps", true, if steps == 1 { format!("the step's claim holds in all {cases}") } else { format!("each of the {steps} steps keeps every truth value in all {cases}") }));
+}
+
+/// Replace every b^(n + k) (b a number, n a letter) by b^k * u. Some only if
+/// n then appears nowhere else.
+fn powers_as_letter(l: &Expr, r: &Expr) -> Option<(Expr, Expr, Q)> {
+    let mut found: Option<(Q, String)> = None;
+    fn go(e: &Expr, found: &mut Option<(Q, String)>) -> Option<Expr> {
+        if let Expr::Pow(b, x) = e {
+            if let Some(bq) = b.as_num().filter(|q| q.is_int() && q.num() > 1) {
+                let vars = x.vars();
+                if vars.len() == 1 {
+                    let v = vars.into_iter().next()?;
+                    let p = crate::poly::from_expr(x, &v)?;
+                    if p.deg()? == 1 && p.coef(1).is_one() && p.coef(0).is_int() {
+                        match found {
+                            Some((fb, fv)) if *fb != bq || *fv != v => return None,
+                            _ => *found = Some((bq, v)),
+                        }
+                        let k = p.coef(0).num();
+                        let bk = bq.pow(k as i64)?;
+                        return Some(expr::mul(vec![Expr::Num(bk), expr::var("u")]));
+                    }
+                }
+            }
+        }
+        let mut out = e.clone();
+        let kids: Vec<Expr> = e.children().into_iter().cloned().collect();
+        for (i, c) in kids.iter().enumerate() {
+            let new = go(c, found)?;
+            out = out.replace_raw(&[i], new);
+        }
+        Some(out)
+    }
+    if l.has_var("u") || r.has_var("u") {
+        return None;
+    }
+    let (l2, r2) = (go(l, &mut found)?, go(r, &mut found)?);
+    let (b, v) = found?;
+    if l2.has_var(&v) || r2.has_var(&v) {
+        return None;
+    }
+    Some((expr::tidy(l2), expr::tidy(r2), b))
 }

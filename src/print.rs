@@ -433,8 +433,11 @@ fn call(f: Named, args: &[Expr], s: Style, out: &mut String) {
             let at = |k: i128| {
                 let e = t.subst(n, &Expr::Num(crate::q::Q::int(k)));
                 // 1^2 stays 1^2 (the pattern shows); 2 * 1 - 1 becomes 1
-                if matches!(t, Expr::Pow(..)) {
-                    e
+                if let Expr::Pow(b, x) = &e {
+                    // keep the power, work out the exponent: 2^(1 - 1) -> 2^0
+                    let x = x.eval_q(&|_| None).map_or((**x).clone(), Expr::Num);
+                    let b = b.eval_q(&|_| None).map_or((**b).clone(), Expr::Num);
+                    crate::expr::pow(b, x)
                 } else {
                     e.eval_q(&|_| None).map_or(e, Expr::Num)
                 }

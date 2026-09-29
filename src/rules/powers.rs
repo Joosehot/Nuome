@@ -28,7 +28,7 @@ impl Rule for Powers {
         "powers"
     }
     fn variants(&self) -> &'static [&'static str] {
-        &["same_base", "power_of_power", "power_of_product"]
+        &["same_base", "power_of_power", "power_of_product", "split_exponent", "number_base"]
     }
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("powers", m, |e, _| {
@@ -52,6 +52,15 @@ impl Rule for Powers {
                             break 'find;
                         }
                     }
+                }
+                // 2^(n + 1) = 2 * 2^n: a number base with a whole number added to the exponent
+                Expr::Pow(b, x) if b.as_num().is_some() && matches!(**x, Expr::Add(_)) => {
+                    let Expr::Add(ts) = &**x else { return out };
+                    let Some(k) = ts.iter().find_map(|t| t.as_num().filter(|q| q.is_int() && !q.is_zero())) else { return out };
+                    let rest = expr::add(ts.iter().filter(|t| t.as_num() != Some(k)).cloned().collect());
+                    let Some(bk) = b.as_num().and_then(|q| q.pow(k.num() as i64)) else { return out };
+                    let new = expr::mul(vec![Expr::Num(bk), expr::pow((**b).clone(), rest)]);
+                    out.push(Rewrite { variant: "split_exponent", new: new.clone(), says: Line::new().t("Split off the whole part of the exponent: ").e(e).t(" = ").e(&new).t("."), work: vec![] });
                 }
                 Expr::Pow(b, n) => {
                     let Some(n) = n.as_num() else { return out };
