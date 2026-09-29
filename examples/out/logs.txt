@@ -117,7 +117,7 @@ Solve 2^x = 8 for x
 
 Answer: x = 3
   ok satisfies: x = 3: both sides are 8
-  ok complete: both sides are positive powers; taking logs leaves a linear equation in x, so exactly one solution
+  ok complete: both sides are powers of one base, so the exponents are equal; that polynomial equation has exactly one real solution
   ok working: every line of the working holds at every answer (2 steps)
 
 ### solve 3^(x + 1) = 27
@@ -136,7 +136,7 @@ Solve 3^(x + 1) = 27 for x
 
 Answer: x = 2
   ok satisfies: x = 2: both sides are 27
-  ok complete: both sides are positive powers; taking logs leaves a linear equation in x, so exactly one solution
+  ok complete: both sides are powers of one base, so the exponents are equal; that polynomial equation has exactly one real solution
   ok working: every line of the working holds at every answer (4 steps)
 
 ### solve 4^x = 8
@@ -155,7 +155,7 @@ Solve 4^x = 8 for x
 
 Answer: x = 3/2
   ok satisfies: x = 3/2: both sides are 8
-  ok complete: both sides are positive powers; taking logs leaves a linear equation in x, so exactly one solution
+  ok complete: both sides are powers of one base, so the exponents are equal; that polynomial equation has exactly one real solution
   ok working: every line of the working holds at every answer (3 steps)
 
 ### solve 9^x = 3^(x + 1)
@@ -176,7 +176,7 @@ Solve 9^x = 3^(x + 1) for x
 
 Answer: x = 1
   ok satisfies: x = 1: both sides are 9
-  ok complete: both sides are positive powers; taking logs leaves a linear equation in x, so exactly one solution
+  ok complete: both sides are powers of one base, so the exponents are equal; that polynomial equation has exactly one real solution
   ok working: every line of the working holds at every answer (4 steps)
 
 ### solve 5 * 2^x = 40
@@ -301,7 +301,7 @@ Solve log(x) + log(x - 3) = 1 for x
       x = -2 or x - 5 = 0
   8.  In x - 5 = 0: add 5 to both sides.   [move_term]
       x = -2 or x = 5
-  9.  x = -2 is not a solution: a log needs a positive number.   [log_domain]
+  9.  x = -2 is not a solution: log(x) needs x > 0.   [log_domain]
       x = 5
 
 Answer: x = 5

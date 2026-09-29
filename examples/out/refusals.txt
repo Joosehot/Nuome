@@ -46,10 +46,10 @@ error: no way to factor x^4 + 4 passes the checks
 ### solve |x - 2| < 3
 
 error: none of my rules can solve |x - 2| < 3
-  hint: Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess
+  hint: absolute value inequalities aren't in Nuome yet: |A| < c means A < c and A > -c; solve each and keep what both allow
 
 ### solve |x - 1| + |x + 2| = 5
 
 error: none of my rules can solve |x - 1| + |x + 2| = 5
-  hint: Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess
+  hint: one absolute value at a time: with several, split the line by hand where each inside changes sign
 

@@ -465,6 +465,43 @@ fn always_positive(e: &Expr) -> bool {
     }
 }
 
+/// b^A = c^B (a number counts as c^1) where c is a rational power of b:
+/// the real roots of A = (log_b c) B, which is the same equation.
+fn exp_complete(l: &Expr, r: &Expr, v: &str) -> Option<Vec<f64>> {
+    use crate::expr::Func;
+    let side = |e: &Expr| -> Option<(Option<Q>, Expr)> {
+        match e {
+            Expr::Func(Func::Exp, a) => Some((None, (**a).clone())),
+            Expr::Pow(b, a) if !b.has_var(v) => Some((Some(b.eval_q(&|_| None)?), (**a).clone())),
+            e if !e.has_var(v) => Some((Some(e.eval_q(&|_| None)?), expr::num(1))),
+            _ => None,
+        }
+    };
+    let ((b1, a), (b2, b)) = (side(l)?, side(r)?);
+    if !(l.has_var(v) || r.has_var(v)) {
+        return None;
+    }
+    let valid = |q: &Q| !q.is_neg() && !q.is_zero() && !q.is_one();
+    let eq = match (b1, b2) {
+        (None, None) => expr::add(vec![a, expr::neg(b)]),
+        (Some(p), Some(q)) => {
+            if let Some(k) = Some(p).filter(valid).and_then(|p| crate::expr::exact_log(&p, &q)) {
+                expr::add(vec![a, expr::neg(expr::mul(vec![Expr::Num(k), b]))])
+            } else if let Some(k) = Some(q).filter(valid).and_then(|q| crate::expr::exact_log(&q, &p)) {
+                expr::add(vec![expr::mul(vec![Expr::Num(k), a]), expr::neg(b)])
+            } else {
+                return None;
+            }
+        }
+        _ => return None,
+    };
+    let p = poly::from_expr(&eq, v)?;
+    if p.is_zero() {
+        return None;
+    }
+    real_root_values(&p)
+}
+
 /// b^A with A linear in the letter: (ln b, slope of A).
 fn exp_slope(e: &Expr, v: &str) -> Option<(f64, f64)> {
     use crate::expr::{Func, Konst};
@@ -504,6 +541,18 @@ fn complete_other(l: &Expr, r: &Expr, v: &str, sols: &[Expr], state: &Math) -> C
             k => format!("exactly {k} real solutions"),
         };
         return ck("complete", ok, format!("{how}: {count}{}", if ok { "" } else { ", but the answer differs" }));
+    }
+    // b^A = c^B with c a power of b: the exponents' polynomial equation
+    if let Some(expected) = exp_complete(l, r, v) {
+        let mut got: Vec<f64> = sols.iter().map(|s| s.eval_f(&|_| f64::NAN)).collect();
+        got.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let ok = got.len() == expected.len() && got.iter().zip(&expected).all(|(a, b)| close(*a, *b, 1e-9)) && (!expected.is_empty() || none);
+        let count = match expected.len() {
+            0 => "no real solution".to_string(),
+            1 => "exactly one real solution".to_string(),
+            k => format!("exactly {k} real solutions"),
+        };
+        return ck("complete", ok, format!("both sides are powers of one base, so the exponents are equal; that polynomial equation has {count}{}", if ok { "" } else { ", but the answer differs" }));
     }
     // b^A = c^B with A, B linear: under logs, A ln b = B ln c, a line
     if let (Some((lb, la)), Some((rb, ra))) = (exp_slope(l, v), exp_slope(r, v)) {

@@ -8,6 +8,7 @@
 use super::eliminate::{build, form, isolated, letters, name, used, Form};
 use super::{Cx, Line, Move, Rule};
 use crate::expr::{self, with_coeff, Expr, Math};
+use crate::q::Q;
 
 pub struct Substitution;
 
@@ -57,8 +58,10 @@ impl Rule for Substitution {
                 if a.is_zero() {
                     continue;
                 }
-                // v = (d - the other terms)/a, the number first: x = 3 - y
-                let Some(d) = f.1.div(&a) else { continue };
+                // v = (d - the other terms)/a, the number first: x = 3 - y, x = (7 - 2y)/3
+                let whole = f.0.iter().all(|c| c.is_int()) && f.1.is_int() && !a.abs().is_one();
+                let s = if whole { if a.is_neg() { Q::int(-1) } else { Q::ONE } } else { a };
+                let Some(d) = f.1.div(&s) else { continue };
                 let mut rhs = Vec::new();
                 if !d.is_zero() {
                     rhs.push(Expr::Num(d));
@@ -68,7 +71,7 @@ impl Rule for Substitution {
                     if w == v || c.is_zero() {
                         continue;
                     }
-                    match c.div(&a) {
+                    match c.div(&s) {
                         Some(q) => rhs.push(with_coeff(q.neg(), expr::var(w))),
                         None => ok = false,
                     }
@@ -76,7 +79,8 @@ impl Rule for Substitution {
                 if !ok {
                     continue;
                 }
-                let solved = (expr::var(v), expr::add(rhs));
+                let top = expr::add(rhs);
+                let solved = (expr::var(v), if whole { expr::div(top, Expr::Num(a.abs())) } else { top });
                 let mut next = eqs.clone();
                 next[i] = solved.clone();
                 let variant = if a.abs().is_one() { "isolate" } else { "isolate_fraction" };

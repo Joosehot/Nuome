@@ -114,6 +114,16 @@ pub fn system_solved(eqs: &[(Expr, Expr)]) -> bool {
     lefts.len() == eqs.len() && lefts.iter().enumerate().all(|(i, v)| !lefts[..i].contains(v)) && eqs.iter().all(|(_, r)| lefts.iter().all(|v| !r.has_var(v)))
 }
 
+/// What is out of scope about an algebra problem nothing could solve.
+fn scope_hint(req: &Request) -> Option<String> {
+    let abs = req.problem.value.slots().iter().map(|e| e.walk().iter().filter(|(_, n)| matches!(n, Expr::Func(crate::expr::Func::Abs, _))).count()).sum::<usize>();
+    match (&req.problem.value, abs) {
+        (Math::Ineq(..), 1..) => Some("absolute value inequalities aren't in Nuome yet: |A| < c means A < c and A > -c; solve each and keep what both allow".into()),
+        (_, 2..) => Some("one absolute value at a time: with several, split the line by hand where each inside changes sign".into()),
+        _ => None,
+    }
+}
+
 struct Run {
     finished: Vec<Path>,
     dead: Vec<Path>,
@@ -233,7 +243,7 @@ pub fn search(req: &Request, cfg: &Config) -> Result<Outcome, Vec<Diag>> {
     d.hint = Some(match (furthest, &req.method) {
         (_, Some(m)) => format!("\"{}\" doesn't fit this problem; try without it", m.words),
         (Some(path), None) if !path.steps.is_empty() => format!("got as far as {} and no rule applies there", print::math(&path.state, Style::Ascii)),
-        _ => "Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess".into(),
+        _ => scope_hint(req).unwrap_or_else(|| "Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess".into()),
     });
     Err(vec![d])
 }

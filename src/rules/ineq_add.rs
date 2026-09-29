@@ -45,7 +45,6 @@ impl Rule for IneqAdd {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

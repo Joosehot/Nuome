@@ -8,14 +8,14 @@ use crate::expr::{Expr, Math};
 
 pub struct LogDomain;
 
-/// Every log argument in the problem that contains the letter.
-pub fn log_arguments(m: &Math, v: &str) -> Vec<Expr> {
-    let mut out: Vec<Expr> = Vec::new();
+/// Every log in the problem whose argument contains the letter: (the log, its argument).
+pub fn log_arguments(m: &Math, v: &str) -> Vec<(Expr, Expr)> {
+    let mut out: Vec<(Expr, Expr)> = Vec::new();
     for e in m.slots() {
         for (_, n) in e.walk() {
             if let Some((_, a)) = as_log(n) {
-                if a.has_var(v) && !out.contains(&a) {
-                    out.push(a);
+                if a.has_var(v) && !out.iter().any(|(_, b)| *b == a) {
+                    out.push((n.clone(), a));
                 }
             }
         }
@@ -52,7 +52,7 @@ impl Rule for LogDomain {
             if *l != x || r.has_var(v) {
                 continue;
             }
-            let Some(a) = args.iter().find(|a| not_positive(a, v, r)) else { continue };
+            let Some((log, a)) = args.iter().find(|(_, a)| not_positive(a, v, r)) else { continue };
             let mut rest = eqs.clone();
             rest.remove(i);
             let result = match rest.len() {
@@ -62,10 +62,10 @@ impl Rule for LogDomain {
             };
             let sol = Math::Eq(l.clone(), r.clone());
             let says = if *a == x {
-                Line::new().m(&sol).t(" is not a solution: a log needs a positive number.")
+                Line::new().m(&sol).t(" is not a solution: ").e(log).t(format!(" needs {v} > 0."))
             } else {
                 let at = a.subst(v, r).eval_q(&|_| None).map_or_else(|| crate::expr::tidy(a.subst(v, r)), Expr::Num);
-                Line::new().m(&sol).t(" is not a solution: it makes ").e(a).t(" = ").e(&at).t(", and a log needs a positive number.")
+                Line::new().m(&sol).t(" is not a solution: it makes ").e(a).t(" = ").e(&at).t(", and ").e(log).t(" needs it positive.")
             };
             return vec![Move { rule: "log_domain", variant: "outside_domain", result, says, work: vec![] }];
         }

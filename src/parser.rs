@@ -600,6 +600,20 @@ mod tests {
     }
 
     #[test]
+    fn parses_algebra() {
+        assert_eq!(show("solve 2x + 3 < 7"), "solve | 2x + 3 < 7 | x");
+        assert_eq!(show("solve x is at least 4"), "solve | x >= 4 | x");
+        assert_eq!(show("solve x + y = 3 and x - y = 1"), "solve | x + y = 3, x - y = 1 | x");
+        assert_eq!(show("what is log base 2 of 8"), "evaluate | log_2(8) | x");
+        assert_eq!(show("what is log(100)"), "evaluate | log(100) | x");
+        assert_eq!(show("solve |2x - 3| = 5"), "solve | |2x - 3| = 5 | x");
+        assert_eq!(show("divide x^3 - 1 by x - 1"), "divide | (x^3 - 1)/(x - 1) | x");
+        let err = |s: &str| parse(s, &ParseOptions::default()).unwrap_err()[0].to_string();
+        assert!(err("solve x^2 + y = 3 and x - y = 1").contains("isn't linear"));
+        assert!(err("solve 1 < x < 3").contains("more than one sign"));
+    }
+
+    #[test]
     fn refuses_instead_of_guessing() {
         let err = |s: &str| parse(s, &ParseOptions::default()).unwrap_err()[0].to_string();
         assert!(err("solfe 2x = 4").contains("did you mean \"solve\""));

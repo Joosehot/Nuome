@@ -20,7 +20,6 @@ impl Rule for IneqSwap {
         }
         let result = Math::Ineq(r.clone(), rel.flip(), l.clone());
         let says = Line::new().t("Read it from the other side: ").m(m).t(" means ").m(&result).t(".");
-
         vec![Move { rule: "ineq_swap", variant: "sides", result, says, work: vec![] }]
     }
 }
