@@ -1,0 +1,9 @@
+what is 2 + 3 * 4
+what is 3/4 + 1/6
+what is 15% of 80
+what is sqrt 72
+calculate 2^10 - 3 * 4
+what is (2/3) * (9/4)
+evaluate x^2 + 3x when x = -2
+what is sqrt 2 to 4 decimal places
+what is 7 divided by 8 as a decimal

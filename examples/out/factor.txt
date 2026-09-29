@@ -1,0 +1,110 @@
+### factor x^2 - 5x + 6
+
+Factor x^2 - 5x + 6
+
+      x^2 - 5x + 6
+  1.  Find two numbers that multiply to the constant and add to the middle coefficient.   [trinomial]
+        -2 and -3 multiply to 6 and add to -5.
+      (x - 2)(x - 3)
+
+Answer: (x - 2)(x - 3)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor 2x^2 - 8
+
+Factor 2x^2 - 8
+
+      2x^2 - 8
+  1.  Take out the common factor 2.   [factor_common]
+      2(x^2 - 4)
+  2.  Difference of two squares: x^2 - 2^2 = (a - b)(a + b).   [diff_squares]
+      2(x - 2)(x + 2)
+
+Answer: 2(x - 2)(x + 2)
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor 6x^2 + 9x
+
+Factor 6x^2 + 9x
+
+      6x^2 + 9x
+  1.  Take out the common factor 3x.   [factor_common]
+      3x(2x + 3)
+
+Answer: 3x(2x + 3)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factorise 2x^2 + 7x + 3
+
+Factor 2x^2 + 7x + 3
+
+      2x^2 + 7x + 3
+  1.  Factor by the ac method.   [trinomial]
+        a * c = 6; 1 and 6 multiply to 6 and add to 7.
+        Split the middle term: 2x^2 + x + 6x + 3.
+      (x + 3)(2x + 1)
+
+Answer: (x + 3)(2x + 1)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor x^4 - 16
+
+Factor x^4 - 16
+
+      x^4 - 16
+  1.  Difference of two squares: (x^2)^2 - 4^2 = (a - b)(a + b).   [diff_squares]
+      (x^2 - 4)(x^2 + 4)
+  2.  Difference of two squares: x^2 - 2^2 = (a - b)(a + b).   [diff_squares]
+      (x - 2)(x + 2)(x^2 + 4)
+
+Answer: (x - 2)(x + 2)(x^2 + 4)
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor x^2 + 6x + 9
+
+Factor x^2 + 6x + 9
+
+      x^2 + 6x + 9
+  1.  It is a perfect square.   [trinomial]
+      (x + 3)^2
+
+Answer: (x + 3)^2
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor 4x^2 - 25y^2
+
+Factor 4x^2 - 25y^2
+
+      4x^2 - 25y^2
+  1.  Difference of two squares: (2x)^2 - (5y)^2 = (a - b)(a + b).   [diff_squares]
+      (2x - 5y)(2x + 5y)
+
+Answer: (2x - 5y)(2x + 5y)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: several letters: equality checked; no factoring rule applies further
+
+### factor x^2 + x + 1
+
+Factor x^2 + x + 1
+
+      x^2 + x + 1
+  (already in its simplest form: no rule applies)
+
+Answer: x^2 + x + 1
+  ok steps: all 0 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+

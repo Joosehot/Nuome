@@ -1,0 +1,10 @@
+solve 2x + 3 = 7
+solve 3(x - 2) + 4 = 2x - 1
+solve x/2 + x/3 = 5
+solve 5 - 2x = 11
+solve 2y + 1 = 5 for y
+solve 2x + 1 = 2x + 3
+solve 2(x + 1) = 2x + 2
+solve 3/(x - 1) = 2
+solve x/(x - 1) = 1/(x - 1)
+find x if 7 = 3x - 2

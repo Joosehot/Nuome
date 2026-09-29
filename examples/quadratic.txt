@@ -1,0 +1,12 @@
+solve x^2 - 5x + 6 = 0
+solve x^2 - 4x + 1 = 0
+solve x^2 = 9
+solve x^2 + x + 1 = 0
+solve 2x^2 + 7x + 3 = 0
+solve x^2 + 6x + 5 = 0 by completing the square
+solve x^2 - 5x + 6 = 0 using the quadratic formula
+solve x^2 + 3x = 4
+solve (x - 1)^2 = 16
+solve x^3 - x = 0
+solve x^2 - 6x + 9 = 0
+solve x^2 - 2 = 0 to 3 decimal places

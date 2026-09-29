@@ -1,0 +1,10 @@
+differentiate x^3 sin x
+d/dx (x^2 + 1)^5
+derivative of ln(x)/x
+differentiate sin(3x^2)
+differentiate 3x^4 - 2x^2 + 7x - 5
+differentiate e^(2x)
+differentiate sqrt(x)
+differentiate x^2 e^x
+d/dx tan x
+derivative of x^3 - 4x at x = 2

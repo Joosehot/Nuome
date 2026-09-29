@@ -1,0 +1,148 @@
+### solve x^2 - 4x + 1 = 0
+
+Solve x^2 - 4x + 1 = 0 for x
+
+      x^2 - 4x + 1 = 0
+  1.  Complete the square.   [complete_square]
+        Half of the x coefficient is -2; (x - 2)^2 = x^2 - 4x + 4.
+      (x - 2)^2 = 3
+  2.  Take the square root of both sides, with +/-: both signs square to 3.   [square_root]
+      x - 2 = sqrt(3) or x - 2 = -sqrt(3)
+  3.  In both: add 2 to both sides.   [move_term]
+      x = sqrt(3) + 2 or x = -sqrt(3) + 2
+  4.  Write the number first.   [identity]
+      x = 2 + sqrt(3) or x = 2 - sqrt(3)
+
+Answer: x = 2 + sqrt(3) ~ 3.732 or x = 2 - sqrt(3) ~ 0.268
+  ok satisfies: x = 2 + sqrt(3) ≈ 3.73205: both sides ≈ 0.00000; x = 2 - sqrt(3) ≈ 0.26795: both sides ≈ 0.00000
+  ok complete: counted from the quadratic equation itself: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve x^2 - 4x + 1 = 0 quickly
+
+Solve x^2 - 4x + 1 = 0 for x
+
+      x^2 - 4x + 1 = 0
+  1.  Complete the square.   [complete_square]
+      (x - 2)^2 = 3
+  2.  Take the square root of both sides, with +/-: both signs square to 3.   [square_root]
+      x - 2 = sqrt(3) or x - 2 = -sqrt(3)
+  3.  In both: add 2 to both sides.   [move_term]
+      x = 2 + sqrt(3) or x = 2 - sqrt(3)
+
+Answer: x = 2 + sqrt(3) ~ 3.732 or x = 2 - sqrt(3) ~ 0.268
+  ok satisfies: x = 2 + sqrt(3) ≈ 3.73205: both sides ≈ 0.00000; x = 2 - sqrt(3) ≈ 0.26795: both sides ≈ 0.00000
+  ok complete: counted from the quadratic equation itself: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve x^2 - 4x + 1 = 0 elegantly
+
+Solve x^2 - 4x + 1 = 0 for x
+
+      x^2 - 4x + 1 = 0
+  1.  Complete the square.   [complete_square]
+        Half of the x coefficient is -2; (x - 2)^2 = x^2 - 4x + 4.
+      (x - 2)^2 = 3
+  2.  Take the square root of both sides, with +/-: both signs square to 3.   [square_root]
+      x - 2 = sqrt(3) or x - 2 = -sqrt(3)
+  3.  In both: add 2 to both sides.   [move_term]
+      x = sqrt(3) + 2 or x = -sqrt(3) + 2
+  4.  Write the number first.   [identity]
+      x = 2 + sqrt(3) or x = 2 - sqrt(3)
+
+Answer: x = 2 + sqrt(3) ~ 3.732 or x = 2 - sqrt(3) ~ 0.268
+  ok satisfies: x = 2 + sqrt(3) ≈ 3.73205: both sides ≈ 0.00000; x = 2 - sqrt(3) ≈ 0.26795: both sides ≈ 0.00000
+  ok complete: counted from the quadratic equation itself: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve x^2 - 5x + 6 = 0 for a beginner
+
+Solve x^2 - 5x + 6 = 0 for x
+
+      x^2 - 5x + 6 = 0
+  1.  Use the quadratic formula.   [quadratic_formula]
+        a = 1, b = -5, c = 6.
+        b^2 - 4ac = (-5)^2 - 4 * 1 * 6 = 1.
+        x = (5 +/- sqrt(1))/2
+      x = (5 - sqrt(1))/2 or x = (5 + sqrt(1))/2
+  2.  sqrt(1) = 1, because 1 squared is 1.   [roots]
+      x = (5 - 1)/2 or x = (5 + 1)/2
+  3.  Work out 5 - 1 = 4.   [fold]
+      x = 4/2 or x = (5 + 1)/2
+  4.  Work out 4/2 = 2.   [fold]
+      x = 2 or x = (5 + 1)/2
+  5.  Work out 5 + 1 = 6.   [fold]
+      x = 2 or x = 6/2
+  6.  Work out 6/2 = 3.   [fold]
+      x = 2 or x = 3
+
+Answer: x = 2 or x = 3
+  ok satisfies: x = 2: both sides are 0; x = 3: both sides are 0
+  ok complete: counted from the quadratic equation itself: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (6 steps)
+
+### solve 2x + 3 = 7 quickly
+
+Solve 2x + 3 = 7 for x
+
+      2x + 3 = 7
+  1.  Subtract 3 from both sides.   [move_term]
+      2x = 7 - 3
+  2.  Divide both sides by 2.   [scale]
+      x = 2
+
+Answer: x = 2
+  ok satisfies: x = 2: both sides are 7
+  ok complete: counted from the linear equation itself: exactly one real solution
+  ok working: every line of the working holds at every answer (3 steps)
+
+### solve 2x + 3 = 7 step by step
+
+Solve 2x + 3 = 7 for x
+
+      2x + 3 = 7
+  1.  Subtract 3 from both sides.   [move_term]
+      2x = 7 - 3
+  2.  Work out 7 - 3 = 4.   [fold]
+      2x = 4
+  3.  Divide both sides by 2.   [scale]
+      x = 4/2
+  4.  Work out 4/2 = 2.   [fold]
+      x = 2
+
+Answer: x = 2
+  ok satisfies: x = 2: both sides are 7
+  ok complete: counted from the linear equation itself: exactly one real solution
+  ok working: every line of the working holds at every answer (4 steps)
+
+### expand (x + 3)^2 for a beginner
+
+Expand (x + 3)^2
+
+      (x + 3)^2
+  1.  Write (x + 3)^2 as (x + 3)(x + 3).   [multiply_out]
+      (x + 3)(x + 3)
+  2.  Multiply each term of x + 3 by each term of x + 3.   [multiply_out]
+      x^2 + 3x + 3x + 9
+  3.  Collect the x terms.   [collect]
+        3x + 3x = (3 + 3)x = 6x
+      x^2 + 6x + 9
+
+Answer: x^2 + 6x + 9
+  ok steps: all 3 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok expanded: no brackets remain
+
+### expand (x + 3)^2 quickly
+
+Expand (x + 3)^2
+
+      (x + 3)^2
+  1.  Use (a + b)^2 = a^2 + 2ab + b^2 with a = x, b = 3.   [multiply_out]
+      x^2 + 6x + 9
+
+Answer: x^2 + 6x + 9
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok expanded: no brackets remain
+

@@ -1,0 +1,122 @@
+### what is 2 + 3 * 4
+
+Evaluate 2 + 3 * 4
+
+      2 + 3 * 4
+  1.  Work out 3 * 4 = 12.   [fold]
+      2 + 12
+  2.  Work out 2 + 12 = 14.   [fold]
+      14
+
+Answer: 14
+  ok steps: all 2 steps agree at 6 sample points
+  ok value: computed directly, 2 + 3 * 4 is exactly 14
+
+### what is 3/4 + 1/6
+
+Evaluate 3/4 + 1/6
+
+      3/4 + 1/6
+  1.  Work out 3/4 + 1/6 = 11/12.   [fold]
+        3/4 + 1/6 = 9/12 + 2/12   (common denominator 12)
+      11/12
+
+Answer: 11/12
+  ok steps: all 1 steps agree at 6 sample points
+  ok value: computed directly, 3/4 + 1/6 is exactly 11/12
+
+### what is 15% of 80
+
+Evaluate (15/100) * 80
+
+      (15/100) * 80
+  1.  Reduce 15/100 to 3/20.   [fold]
+      (3/20) * 80
+  2.  Work out (3/20) * 80 = 12.   [fold]
+      12
+
+Answer: 12
+  ok steps: all 2 steps agree at 6 sample points
+  ok value: computed directly, (15/100) * 80 is exactly 12
+
+### what is sqrt 72
+
+Evaluate sqrt(72)
+
+      sqrt(72)
+  1.  Take the square factor 36 out of the root.   [roots]
+        sqrt(72) = sqrt(36 * 2) = 6sqrt(2)
+      6sqrt(2)
+
+Answer: 6sqrt(2) ~ 8.485
+  ok steps: all 1 steps agree at 6 sample points
+  ok value: equals sqrt(72) to 9 decimal places
+
+### calculate 2^10 - 3 * 4
+
+Evaluate 2^10 - 3 * 4
+
+      2^10 - 3 * 4
+  1.  Work out 2^10 = 1024.   [fold]
+      1024 - 3 * 4
+  2.  Work out -3 * 4 = -12.   [fold]
+      1024 - 12
+  3.  Work out 1024 - 12 = 1012.   [fold]
+      1012
+
+Answer: 1012
+  ok steps: all 3 steps agree at 6 sample points
+  ok value: computed directly, 2^10 - 3 * 4 is exactly 1012
+
+### what is (2/3) * (9/4)
+
+Evaluate (2/3) * (9/4)
+
+      (2/3) * (9/4)
+  1.  Work out (2/3) * (9/4) = 3/2.   [fold]
+      3/2
+
+Answer: 3/2
+  ok steps: all 1 steps agree at 6 sample points
+  ok value: computed directly, (2/3) * (9/4) is exactly 3/2
+
+### evaluate x^2 + 3x when x = -2
+
+Evaluate x^2 + 3x when x = -2
+
+      x^2 + 3x
+  1.  Substitute x = -2.   [substitute]
+      (-2)^2 + 3 * (-2)
+  2.  Work out (-2)^2 = 4.   [fold]
+      4 + 3 * (-2)
+  3.  Work out 3 * (-2) = -6.   [fold]
+      4 - 6
+  4.  Work out 4 - 6 = -2.   [fold]
+      -2
+
+Answer: -2
+  ok steps: all 4 steps agree at 6 sample points
+  ok value: computed directly, x^2 + 3x is exactly -2
+
+### what is sqrt 2 to 4 decimal places
+
+Evaluate sqrt(2)
+
+      sqrt(2)
+  (already in its simplest form: no rule applies)
+
+Answer: sqrt(2) ~ 1.4142
+  ok steps: all 0 steps agree at 6 sample points
+  ok value: equals sqrt(2) to 9 decimal places
+
+### what is 7 divided by 8 as a decimal
+
+Evaluate 7/8
+
+      7/8
+  (already in its simplest form: no rule applies)
+
+Answer: 7/8 ~ 0.875
+  ok steps: all 0 steps agree at 6 sample points
+  ok value: computed directly, 7/8 is exactly 7/8
+

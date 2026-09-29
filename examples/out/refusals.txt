@@ -1,0 +1,50 @@
+### solfe 2x = 4
+
+error: unknown word "solfe"
+  hint: did you mean "solve"? (--vocabulary lists every word, --lenient skips unknown ones)
+
+### what is 3 x 4
+
+error: a number right after a factor at "4" in "3 x 4"
+  hint: x is a letter here; for multiplication write * or times
+
+### solve x^2 - 4
+
+error: x^2 - 4 isn't an equation
+  hint: to find where it is zero, write "solve x^2 - 4 = 0"
+
+### solve x + y = 3
+
+error: which letter? x + y = 3 has x, y
+  hint: say "for x" or "with respect to x"
+
+### integrate x^2
+
+error: "integrate": integration is not in Nuome v0
+  hint: v0 evaluates, simplifies, expands, factors, solves one equation in one unknown, and differentiates
+
+### solve x^5 + x + 1 = 0
+
+error: none of my rules can solve x^5 + x + 1 = 0
+  hint: Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess
+
+### solve x + 1 = 0 using the quadratic formula
+
+error: no way to solve x + 1 = 0 passes the checks
+  hint: method: "using the quadratic formula" doesn't apply to this problem
+
+### what is 1/0
+
+error: no way to evaluate 1/0 passes the checks
+  hint: value: division by zero
+
+### solve x = 1 and y = 2
+
+error: more than one problem: "x = 1", "y = 2"
+  hint: solving systems of equations is not in Nuome v0; one equation at a time
+
+### factor x^4 + 4
+
+error: no way to factor x^4 + 4 passes the checks
+  hint: factored: can't prove x^4 + 4 doesn't split into quadratics
+

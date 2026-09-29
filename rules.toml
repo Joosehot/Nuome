@@ -1,0 +1,295 @@
+# Nuome math rules and tradeoffs. Every number the engine uses lives here;
+# rule code only names keys.
+#
+# Every step is scored on three axes:
+#   brevity  - fewer, bigger steps: get to the answer
+#   clarity  - small, familiar steps a learner can follow
+#   elegance - methods that show structure (factoring, identities, clearing
+#              fractions early) over brute force
+# A step scores  weight * (variant axes . profile), minus the cost of a step.
+# The profile starts at [profile] and the sentence's modifiers shift it
+# ("quickly", "step by step", "for a beginner", "elegantly"): the words say
+# which tradeoff to spend. This is FeelRight's tension curve, Senne's
+# safety/brevity profile and Aras's finish/economy.
+
+[search]
+beam = 16
+fallback = 96              # wider beam, used only when nothing passes the checks
+max_steps = 40
+progress = 0.35            # weight of the distance-to-done estimate for unfinished paths
+
+[profile]
+brevity = 0.5
+clarity = 1.0
+elegance = 0.5
+
+[modifiers.brief]          # "quickly", "just the answer"
+brevity = 1.5
+clarity = -0.6
+
+[modifiers.detailed]       # "step by step", "show your work"
+clarity = 1.0
+brevity = -0.4
+
+[modifiers.beginner]       # "for a beginner", "simply"
+clarity = 1.5
+brevity = -0.4
+elegance = -0.3
+
+[modifiers.elegant]        # "elegantly", "cleverly"
+elegance = 1.5
+
+[steps]
+cost = 0.3
+brevity_cost = 0.6
+minor_share = 0.3
+
+# ---- Which rules each task may use -------------------------------------------
+# Factoring never sees distribute (it would undo it), expanding never sees
+# the factoring rules.
+[tasks]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity"]
+simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
+expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
+factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions"]
+differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
+
+# Alternative methods for the same job. A path that starts one and switches
+# pays the method_switch judge; "using the quadratic formula" forbids the others.
+[methods]
+quadratic = ["factor_solve", "quadratic_formula", "square_root", "complete_square"]
+
+[method_follow]
+complete_square = ["square_root"]
+
+# ---- Rules --------------------------------------------------------------------
+
+[rules.substitute]
+weight = 1.0
+[rules.substitute.variants.all]
+
+[rules.fold]
+weight = 1.0
+minor = true
+[rules.fold.variants.one]       # one operation at a time, in order of operations
+clarity = 0.1
+[rules.fold.variants.all]       # a whole number-only expression at once
+brevity = 0.6
+clarity = -0.4
+
+[rules.identity]
+weight = 1.0
+minor = true
+[rules.identity.variants.tidy]
+
+[rules.cancel]
+weight = 1.0
+[rules.cancel.variants.common_factor]
+clarity = 0.2
+
+[rules.roots]
+weight = 1.0
+[rules.roots.variants.exact]
+[rules.roots.variants.pull_square]
+elegance = 0.3
+
+[rules.powers]
+weight = 1.0
+[rules.powers.variants.same_base]
+[rules.powers.variants.power_of_power]
+[rules.powers.variants.power_of_product]
+
+[rules.collect]
+weight = 1.0
+[rules.collect.variants.one]
+clarity = 0.1
+[rules.collect.variants.all]
+brevity = 0.4
+clarity = -0.1
+
+[rules.distribute]
+weight = 1.0
+[rules.distribute.variants.over_sum]
+[rules.distribute.variants.minus_sign]
+
+[rules.multiply_out]
+weight = 1.0
+[rules.multiply_out.variants.each_by_each]
+clarity = 0.3
+[rules.multiply_out.variants.square_identity]   # (a + b)^2 = a^2 + 2ab + b^2
+brevity = 0.5
+elegance = 0.5
+clarity = -0.2
+[rules.multiply_out.variants.as_product]        # (a + b)^2 = (a + b)(a + b)
+clarity = 0.5
+brevity = -0.3
+
+[rules.factor_common]
+weight = 1.0
+[rules.factor_common.variants.gcf]
+
+[rules.diff_squares]
+weight = 1.0
+[rules.diff_squares.variants.identity]
+elegance = 0.3
+
+[rules.trinomial]
+weight = 1.0
+[rules.trinomial.variants.sum_product]
+[rules.trinomial.variants.ac_method]
+[rules.trinomial.variants.perfect_square]
+elegance = 0.3
+[rules.trinomial.variants.common_factor]
+
+[rules.clear_denominators]
+weight = 1.0
+[rules.clear_denominators.variants.numbers]     # x/2 + x/3 = 5 -> 3x + 2x = 30
+elegance = 0.6
+clarity = 0.2
+[rules.clear_denominators.variants.letter]
+
+[rules.move_term]
+weight = 1.0
+[rules.move_term.variants.constant]
+clarity = 0.3
+[rules.move_term.variants.variable]
+clarity = 0.2
+[rules.move_term.variants.standard_form]
+clarity = 0.2
+
+[rules.scale]
+weight = 1.0
+[rules.scale.variants.divide]
+clarity = 0.2
+[rules.scale.variants.reciprocal]
+
+[rules.swap]
+weight = 1.0
+minor = true
+[rules.swap.variants.sides]
+
+[rules.verdict]
+weight = 1.0
+[rules.verdict.variants.never]
+[rules.verdict.variants.always]
+
+[rules.factor_solve]
+weight = 1.0
+[rules.factor_solve.variants.sum_product]
+elegance = 1.5
+brevity = 0.3
+[rules.factor_solve.variants.ac_method]
+elegance = 0.6
+[rules.factor_solve.variants.perfect_square]
+elegance = 1.5
+brevity = 0.3
+[rules.factor_solve.variants.common_factor]
+elegance = 1.5
+brevity = 0.3
+
+[rules.zero_product]
+weight = 1.0
+[rules.zero_product.variants.split]
+[rules.zero_product.variants.power]
+
+[rules.quadratic_formula]
+weight = 1.0
+[rules.quadratic_formula.variants.two_roots]
+clarity = 0.4
+[rules.quadratic_formula.variants.double_root]
+clarity = 0.4
+[rules.quadratic_formula.variants.no_real_roots]
+clarity = 0.4
+brevity = 0.5
+
+[rules.square_root]
+weight = 1.0
+[rules.square_root.variants.both_signs]
+elegance = 1.2
+brevity = 0.5
+[rules.square_root.variants.zero]
+[rules.square_root.variants.negative]
+
+[rules.complete_square]
+weight = 1.0
+[rules.complete_square.variants.monic]
+elegance = 0.3
+clarity = -0.2
+[rules.complete_square.variants.divide_by_a]
+elegance = 0.1
+clarity = -0.4
+
+[rules.solutions]
+weight = 1.0
+[rules.solutions.variants.repeated]
+[rules.solutions.variants.extraneous]
+
+[rules.diff_linear]
+weight = 1.0
+[rules.diff_linear.variants.sum]
+[rules.diff_linear.variants.constant]
+
+[rules.diff_power]
+weight = 1.0
+[rules.diff_power.variants.power]
+[rules.diff_power.variants.constant_multiple]   # d/dx[3x^4] = 12x^3 in one go
+brevity = 0.3
+[rules.diff_power.variants.constant]
+
+[rules.diff_elementary]
+weight = 1.0
+[rules.diff_elementary.variants.table]
+
+[rules.diff_product]
+weight = 1.0
+[rules.diff_product.variants.two_factors]
+
+[rules.diff_quotient]
+weight = 1.0
+[rules.diff_quotient.variants.rule]
+
+[rules.diff_chain]
+weight = 1.0
+[rules.diff_chain.variants.function]
+[rules.diff_chain.variants.power]
+
+# ---- Judges: preferences about the path as a whole ------------------------------
+# A judge adds  weight * (axes . profile) * amount  to a step.
+
+[judges.fractions]        # a step that makes new fractions before it has to
+weight = -0.5
+axes = { elegance = 1.0, clarity = 0.5 }
+
+[judges.negative_lead]    # leaving the letter with a minus sign in front
+weight = -0.4
+axes = { clarity = 1.0 }
+
+[judges.method_switch]    # starting one method, then switching to another
+weight = -2.0
+axes = { clarity = 1.0, elegance = 1.0 }
+
+[judges.growth]           # per node the expression grows by
+weight = -0.03
+axes = { clarity = 0.5, brevity = 0.5 }
+
+[judges.brackets_first]   # moving terms across while a side still has brackets to multiply out
+weight = -0.15
+axes = { clarity = 1.0 }
+
+[judges.arithmetic_first] # a real step while plain number work (7 - 3) is still waiting
+weight = -0.15
+axes = { clarity = 1.0 }
+
+[judges.branch_order]     # working on a later alternative while an earlier one is unfinished
+weight = -0.05
+axes = { clarity = 1.0 }
+
+# ---- Checks ----------------------------------------------------------------------
+
+[check]
+samples = [-2.37, -1.21, 0.43, 1.61, 2.83, 3.97]
+tolerance = 1e-6
+
+[display]
+decimals = 3

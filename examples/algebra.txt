@@ -1,0 +1,7 @@
+expand (x + 2)(x - 3)
+expand (2x - 1)^2
+simplify (x + 1)^2 - x^2
+simplify 3x + 2y - x + 4y
+expand -(x - 4) + 3(2x + 1)
+simplify x * x^2 * x^3
+expand (x + 1)(x^2 - x + 1)

@@ -1,0 +1,20 @@
+[package]
+name = "nuome"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic natural-language math solver: lexicon + rewrite rules + beam search, every step explained and every answer checked"
+license = "PolyForm-Noncommercial-1.0.0"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "nuome"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
