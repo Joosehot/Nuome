@@ -183,6 +183,8 @@ pub struct Config {
     pub numbers: Numbers,
     pub algebra: AlgebraCfg,
     pub calculus: CalcCfg,
+    /// abstract algebra (agent G): group and ring proofs.
+    pub abstract_algebra: crate::abstract_algebra::Cfg,
 }
 
 /// Algebra checks (inequalities).
@@ -293,6 +295,8 @@ impl Config {
         if c.limit_far.len() < 2 || !c.limit_far.windows(2).all(|w| w[1] > w[0] && w[0] > 0.0) {
             bail!("[calculus] limit_far: at least 2 positive points, near to far (increasing)");
         }
+        // abstract algebra (agent G)
+        crate::abstract_algebra::validate(self)?;
         Ok(())
     }
     /// The rules a task may use, in order.

@@ -30,6 +30,8 @@ pub fn checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
         return;
     }
     match &req.problem.value {
+        // abstract algebra (agent G): steps re-derived by matching, lemmas re-proved, models
+        Math::Eq(Expr::Alg(_), Expr::Alg(_)) => crate::abstract_algebra::check::checks(req, cfg, path, out),
         Math::Eq(l, r) => {
             out.push(identity(l, r, cfg));
             out.push(steps_keep_sides(req, cfg, path));

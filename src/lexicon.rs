@@ -2,6 +2,7 @@
 //! isn't listed is an error with the nearest known word, never a guess.
 
 use crate::expr::{Func, Konst, Rel};
+use crate::abstract_algebra::Kind;
 use crate::model::{Modifier, Task};
 use crate::calls::Named;
 use crate::q::Q;
@@ -99,6 +100,13 @@ pub enum Tok {
     Order(u32),
     /// "degrees", "°": the number before it is an angle in degrees.
     Degrees,
+    // abstract algebra (agent G)
+    /// "in a group", "any ring": what the letters are elements of.
+    Structure(crate::abstract_algebra::Kind),
+    /// A statement said in words ("the group is abelian"): its math.
+    Statement(crate::abstract_algebra::Kind, &'static str),
+    /// "the inverse of": the group inverse of what follows.
+    InverseOf,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -633,6 +641,55 @@ const PHRASES: &[(&str, Tok)] = &[
     ("by elimination", Method("eliminate")),
     ("using elimination", Method("eliminate")),
     ("by the elimination method", Method("eliminate")),
+    // abstract algebra (agent G)
+    ("group", Structure(Kind::Group)),
+    ("a group", Structure(Kind::Group)),
+    ("any group", Structure(Kind::Group)),
+    ("every group", Structure(Kind::Group)),
+    ("the group", Structure(Kind::Group)),
+    ("in a group", Structure(Kind::Group)),
+    ("in any group", Structure(Kind::Group)),
+    ("in every group", Structure(Kind::Group)),
+    ("in the group", Structure(Kind::Group)),
+    ("abelian group", Structure(Kind::Abelian)),
+    ("an abelian group", Structure(Kind::Abelian)),
+    ("any abelian group", Structure(Kind::Abelian)),
+    ("every abelian group", Structure(Kind::Abelian)),
+    ("in an abelian group", Structure(Kind::Abelian)),
+    ("in any abelian group", Structure(Kind::Abelian)),
+    ("in every abelian group", Structure(Kind::Abelian)),
+    ("commutative group", Structure(Kind::Abelian)),
+    ("in a commutative group", Structure(Kind::Abelian)),
+    ("ring", Structure(Kind::Ring)),
+    ("a ring", Structure(Kind::Ring)),
+    ("any ring", Structure(Kind::Ring)),
+    ("every ring", Structure(Kind::Ring)),
+    ("the ring", Structure(Kind::Ring)),
+    ("in a ring", Structure(Kind::Ring)),
+    ("in any ring", Structure(Kind::Ring)),
+    ("in every ring", Structure(Kind::Ring)),
+    ("is abelian", Statement(Kind::Group, "ab = ba")),
+    ("group is abelian", Statement(Kind::Group, "ab = ba")),
+    ("every group is abelian", Statement(Kind::Group, "ab = ba")),
+    ("every element is its own inverse", Statement(Kind::Group, "a^-1 = a for all a")),
+    ("each element is its own inverse", Statement(Kind::Group, "a^-1 = a for all a")),
+    // at most seven words, and none starting "the": "the" is read on its own first
+    ("inverse of the inverse is the element", Statement(Kind::Group, "(a^-1)^-1 = a")),
+    ("inverse of an inverse is the element", Statement(Kind::Group, "(a^-1)^-1 = a")),
+    ("inverse of the inverse is itself", Statement(Kind::Group, "(a^-1)^-1 = a")),
+    ("inverse of the identity is the identity", Statement(Kind::Group, "e^-1 = e")),
+    ("the identity is its own inverse", Statement(Kind::Group, "e^-1 = e")),
+    ("inverses are unique", Statement(Kind::Group, "if ab = e then b = a^-1")),
+    ("inverse is unique", Statement(Kind::Group, "if ab = e then b = a^-1")),
+    ("inverses in a group are unique", Statement(Kind::Group, "if ab = e then b = a^-1")),
+    ("identity is unique", Statement(Kind::Group, "if fa = a for all a then f = e")),
+    ("identity element is unique", Statement(Kind::Group, "if fa = a for all a then f = e")),
+    ("cancellation law holds", Statement(Kind::Group, "if ab = ac then b = c")),
+    ("cancellation holds", Statement(Kind::Group, "if ab = ac then b = c")),
+    ("minus times minus is plus", Statement(Kind::Ring, "(-a)(-b) = ab")),
+    ("additive inverse is unique", Statement(Kind::Ring, "if a + b = 0 then b = -a")),
+    ("negatives are unique", Statement(Kind::Ring, "if a + b = 0 then b = -a")),
+    ("inverse of", InverseOf),
 ];
 
 enum Raw {

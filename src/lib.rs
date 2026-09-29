@@ -24,6 +24,8 @@ pub mod rules;
 pub mod scoring;
 pub mod search;
 pub mod words;
+// abstract algebra (agent G)
+pub mod abstract_algebra;
 
 use config::Config;
 use model::Request;

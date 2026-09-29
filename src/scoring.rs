@@ -144,6 +144,8 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
             .sum()
     };
     match m {
+        // abstract algebra (agent G)
+        Math::Eq(Expr::Alg(l), Expr::Alg(r)) => crate::abstract_algebra::distance(l, r, req),
         // a proof: shorter sides are closer to reading the same
         Math::Eq(l, r) if req.task.value == Task::Prove => (l.size() + r.size()) as f64 * 0.5 + unfinished(l) + unfinished(r),
         Math::Expr(e) => e.size() as f64 * 0.5 + unfinished(e),

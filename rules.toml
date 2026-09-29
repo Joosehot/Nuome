@@ -61,6 +61,11 @@ divide = ["poly_divide"]
 integrate = ["int_linear", "int_power", "int_elementary", "int_substitution", "int_parts", "int_partial_fractions", "int_bounds", "int_expand", "int_power_reduction", "fold", "identity", "cancel", "roots", "powers", "collect", "trig_exact", "func_exact", "int_constant"]
 limit = ["lim_substitute", "lim_factor", "lim_standard", "lim_infinity", "lim_infinite", "lim_lhopital", "diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "roots", "powers", "collect", "trig_exact", "func_exact"]
 tangent = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "evaluate_at", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "trig_exact", "func_exact", "line_form"]
+# ---- Proofs: abstract algebra ----
+# A statement about a group or a ring ("in a group, prove ...") uses only
+# these: no rule for numbers, which may commute a product, ever sees it.
+prove_group = ["sides_equal", "use_hypothesis", "group_inverse", "group_identity", "group_assoc", "group_comm", "group_inverse_unique", "group_inverse_product", "group_inverse_inverse", "group_inverse_identity", "group_cancel_left", "group_cancel_right"]
+prove_ring = ["sides_equal", "use_hypothesis", "ring_neg", "ring_zero", "ring_distrib", "ring_add_assoc", "ring_add_comm", "ring_mul_assoc", "ring_neg_unique", "ring_add_cancel", "ring_mul_zero", "ring_zero_mul", "ring_neg_neg", "ring_neg_mul", "ring_mul_neg"]
 
 # Alternative methods for the same job. A path that starts one and switches
 # pays the method_switch judge; "using the quadratic formula" forbids the others.
@@ -825,3 +830,160 @@ samples = 60               # points tried when the sides aren't polynomials (evi
 weight = 1.0
 [rules.sides_equal.variants.same]
 [rules.sides_equal.variants.obligation]
+
+# ---- Proofs: abstract algebra ----
+# Each step of a group or ring proof applies one axiom, one lemma (proved
+# first, from the axioms and the lemmas before it) or one hypothesis.
+# "insert" steps write something in (a = ae, e = a^-1 a): needed, but a
+# proof that can do without them should.
+
+[abstract_algebra]
+max_size = 15              # no side of a proof grows past this many symbols
+size_weight = 0.25         # distance to done per symbol of both sides
+mismatch = 1.0             # distance to done while the sides differ
+normal_gap = 3.0           # while the sides' reduced words (group) or multiplied-out sums (ring) differ
+hypothesis_pull = 1.0      # while a side holds a side of a hypothesis, ready to use it
+max_assignments = 50000    # the model check skips a model with more assignments
+
+[rules.use_hypothesis]
+weight = 1.0
+[rules.use_hypothesis.variants.forward]
+[rules.use_hypothesis.variants.backward]
+
+[rules.group_assoc]
+weight = 1.0
+[rules.group_assoc.variants.right]
+[rules.group_assoc.variants.left]
+
+[rules.group_identity]
+weight = 1.0
+[rules.group_identity.variants.remove]
+[rules.group_identity.variants.insert]
+elegance = -0.4
+clarity = -0.2
+
+[rules.group_inverse]
+weight = 1.0
+[rules.group_inverse.variants.cancel]
+[rules.group_inverse.variants.insert]
+elegance = -0.4
+clarity = -0.2
+
+[rules.group_comm]
+weight = 1.0
+[rules.group_comm.variants.swap]
+
+[rules.group_inverse_unique]
+weight = 1.0
+[rules.group_inverse_unique.variants.rewrite]      # the condition is a hypothesis or an axiom
+[rules.group_inverse_unique.variants.reduce]
+elegance = 0.3
+
+[rules.group_cancel_left]
+weight = 1.0
+[rules.group_cancel_left.variants.rewrite]      # the condition is a hypothesis or an axiom
+
+[rules.group_cancel_right]
+weight = 1.0
+[rules.group_cancel_right.variants.rewrite]      # the condition is a hypothesis or an axiom
+
+[rules.group_inverse_inverse]
+weight = 1.0
+[rules.group_inverse_inverse.variants.forward]
+elegance = 0.3
+[rules.group_inverse_inverse.variants.backward]
+elegance = -0.2
+
+[rules.group_inverse_identity]
+weight = 1.0
+[rules.group_inverse_identity.variants.forward]
+elegance = 0.3
+[rules.group_inverse_identity.variants.backward]
+elegance = -0.2
+
+[rules.group_inverse_product]
+weight = 1.0
+[rules.group_inverse_product.variants.forward]
+elegance = 0.3
+[rules.group_inverse_product.variants.backward]
+elegance = -0.2
+
+[rules.ring_add_assoc]
+weight = 1.0
+[rules.ring_add_assoc.variants.right]
+[rules.ring_add_assoc.variants.left]
+
+[rules.ring_add_comm]
+weight = 1.0
+[rules.ring_add_comm.variants.swap]
+
+[rules.ring_zero]
+weight = 1.0
+[rules.ring_zero.variants.remove]
+[rules.ring_zero.variants.insert]
+elegance = -0.4
+clarity = -0.2
+
+[rules.ring_neg]
+weight = 1.0
+[rules.ring_neg.variants.cancel]
+[rules.ring_neg.variants.insert]
+elegance = -0.4
+clarity = -0.2
+
+[rules.ring_mul_assoc]
+weight = 1.0
+[rules.ring_mul_assoc.variants.right]
+[rules.ring_mul_assoc.variants.left]
+
+[rules.ring_distrib]
+weight = 1.0
+[rules.ring_distrib.variants.expand]
+[rules.ring_distrib.variants.factor]
+
+[rules.ring_add_cancel]
+weight = 1.0
+[rules.ring_add_cancel.variants.rewrite]      # the condition is a hypothesis or an axiom
+[rules.ring_add_cancel.variants.reduce]
+elegance = 0.3
+
+[rules.ring_neg_unique]
+weight = 1.0
+[rules.ring_neg_unique.variants.rewrite]      # the condition is a hypothesis or an axiom
+[rules.ring_neg_unique.variants.reduce]
+elegance = 0.3
+
+[rules.ring_mul_zero]
+weight = 1.0
+[rules.ring_mul_zero.variants.forward]
+elegance = 0.3
+[rules.ring_mul_zero.variants.backward]
+elegance = -0.2
+
+[rules.ring_zero_mul]
+weight = 1.0
+[rules.ring_zero_mul.variants.forward]
+elegance = 0.3
+[rules.ring_zero_mul.variants.backward]
+elegance = -0.2
+
+[rules.ring_neg_neg]
+weight = 1.0
+[rules.ring_neg_neg.variants.forward]
+elegance = 0.3
+[rules.ring_neg_neg.variants.backward]
+elegance = -0.2
+
+[rules.ring_neg_mul]
+weight = 1.0
+[rules.ring_neg_mul.variants.forward]
+elegance = 0.3
+[rules.ring_neg_mul.variants.backward]
+elegance = -0.2
+
+[rules.ring_mul_neg]
+weight = 1.0
+[rules.ring_mul_neg.variants.forward]
+elegance = 0.3
+[rules.ring_mul_neg.variants.backward]
+elegance = -0.2

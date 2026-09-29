@@ -83,6 +83,10 @@ pub enum Expr {
     Limit(Box<Expr>, String, Box<Expr>),
     /// The inner expression with (var) = the point: f(1), f'(1).
     At(Box<Expr>, String, Box<Expr>),
+    /// abstract algebra (agent G): a term of a group or a ring. A leaf to
+    /// everything else, so no rule for numbers (which may commute a
+    /// product) ever rewrites inside it.
+    Alg(crate::abstract_algebra::term::Term),
 }
 
 use Expr::*;
@@ -138,6 +142,7 @@ impl Expr {
             Integral(a, _) => vec![a],
             Bounds(f, _, a, b) => vec![f, a, b],
             Limit(a, _, p) | At(a, _, p) => vec![a, p],
+            Alg(_) => vec![],
         }
     }
     fn child_mut(&mut self, i: usize) -> &mut Expr {
@@ -151,7 +156,7 @@ impl Expr {
                     b
                 }
             }
-            Num(_) | Var(_) | Const(_) => unreachable!("leaf has no children"),
+            Num(_) | Var(_) | Const(_) | Alg(_) => unreachable!("leaf has no children"),
             Integral(a, _) => a,
             Bounds(f, _, a, b) => match i {
                 0 => f,
@@ -285,7 +290,7 @@ impl Expr {
             Func(..) => None,
             Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
             Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
-            Integral(..) | Limit(..) => None,
+            Integral(..) | Limit(..) | Alg(_) => None,
             At(e, v, p) => {
                 let at = p.eval_q(env)?;
                 e.eval_q(&|n| if n == v { Some(at) } else { env(n) })
@@ -362,7 +367,7 @@ impl Expr {
                 (at(h) - at(-h)) / (2.0 * h)
             }
             // an indefinite integral has no single value; a limit is estimated by the checks
-            Integral(..) | Limit(..) => f64::NAN,
+            Integral(..) | Limit(..) | Alg(_) => f64::NAN,
             At(e, v, p) => {
                 let at = p.eval_f(env);
                 e.eval_f(&|n| if n == v { at } else { env(n) })

@@ -50,6 +50,7 @@ Answer: x = 1
 | sequences | sum of 1 to 100, the 20th term of, sum of the first n terms of, sum to infinity of | arithmetic or geometric, read off three or more terms (never guessed from two) |
 | percentages and growth | what percent of, percentage change from, increase by, invested at ... for, compounding | `calculate the compounding at 10% per day for a full month` -> about 17.449 times; calendar conventions (a month = 30 days) come from `rules.toml` and are stated with the answer |
 | trig | (evaluate, simplify, solve) | `cos(45 degrees)`, `sin^2 x + cos^2 x`, `2 sin x cos x`, `solve 2cos x - 1 = 0`, `solve sin x = -1/2 for x between 0 and 2pi` |
+| groups and rings | in a group, in a ring, abelian, inverse of | `in a group, prove (ab)^-1 = b^-1 a^-1`, `prove that in a group, if ab = ac then b = c`, `prove that if every element is its own inverse then the group is abelian`, `prove (-a)(-b) = ab in a ring` |
 
 Math can be typed (`2x^2 - 3x + 1 = 0`) or spoken (`x squared minus 4 equals 0`). `2x` means 2·x, `sin 2x` means sin(2x), and `-x^2` means -(x²).
 
@@ -91,6 +92,38 @@ sentence -> lexicon -> parser -> beam search over solution paths -> checks -> wo
    A path that fails a check is never shown; the next finalist is tried. If nothing passes, Nuome says why.
 
 All numbers are exact rationals (`q.rs`). A result that would overflow is refused, never rounded.
+
+## Proofs from axioms: groups and rings
+
+"In a group" (or "in a ring", "abelian", "the inverse of") switches to terms whose product never commutes: `(ab)c` and `a(bc)` are different lines, and only the associativity axiom turns one into the other. No rule for numbers sees these terms; group and ring proofs have their own rule lists (`prove_group`, `prove_ring` in `rules.toml`).
+
+```
+$ nuome "prove that in a group, if ab = ac then b = c"
+Prove in a group: if ab = ac then b = c
+
+      b = c
+  1.  Identity: b = eb.   [group_identity]
+      eb = c
+  2.  Inverse: e = a^-1 a.   [group_inverse]
+      (a^-1 a)b = c
+  3.  Associativity: (a^-1 a)b = a^-1 (ab).   [group_assoc]
+      a^-1 (ab) = c
+  4.  By the hypothesis, ab = ac.   [use_hypothesis]
+      a^-1 (ac) = c
+  ...
+```
+
+- **Axioms** (associativity, identity, inverse; commutativity only in an abelian group; for rings: +, 0, negatives, distributivity, associativity of the product) are rules. Each step applies one of them, one hypothesis, or one **lemma**.
+- **Lemmas** (uniqueness of inverses, cancellation, (x^-1)^-1 = x, e^-1 = e, (xy)^-1 = y^-1 x^-1; for rings x0 = 0, 0x = 0, (-x)y = -(xy), -(-x) = x, ...) are found by the same search from the axioms and the lemmas before them. A lemma with a condition either rewrites where its condition is a hypothesis or an axiom ("(ab)(ab) = e by the hypothesis, so ab = (ab)^-1"), or turns the goal into its condition ("it is enough to show (ab)(b^-1 a^-1) = e").
+- **Checks**, none trusting the rules: every step is found again by matching the law it names against the two lines (one side changed, at one position, by one instance); every step also holds in the test structures; every cited lemma is proved again and checked; the statement holds in Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 (rings: Z/4, Z/6, 2x2 matrices over Z/2) for every assignment of elements. A false statement is refused before any search, with the elements that break it:
+
+```
+$ nuome "in a group, prove ab = ba"
+error: ab = ba is not true in every group
+  hint: in S3 (permutations of 1, 2, 3; ab is b, then a), a = (1 2), b = (1 3): ab = (1 3 2) but ba = (1 2 3)
+```
+
+A true statement the search can't reach (e.g. "if (ab)^2 = a^2 b^2 then ab = ba", whose proof cancels on both sides of a derived equation) is refused, not guessed.
 
 ## Honest refusals
 

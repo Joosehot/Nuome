@@ -1,0 +1,202 @@
+### in a ring, prove a0 = 0
+
+Prove in a ring: a0 = 0
+
+      a0 = 0
+  1.  Cancellation for +, if x + y = x + z then y = z: it is enough to show a0 + a0 = a0 + 0.   [ring_add_cancel]
+      a0 + a0 = a0 + 0
+  2.  Zero: a0 + 0 = a0.   [ring_zero]
+      a0 + a0 = a0
+  3.  Distributivity: a0 + a0 = a(0 + 0).   [ring_distrib]
+      a(0 + 0) = a0
+  4.  Zero: 0 + 0 = 0.   [ring_zero]
+      a0 = a0
+  5.  Both sides are the same: a0.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if x + y = x + z then y = z (cancellation for +, 8 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 26 assignments of elements to the letters
+
+### in a ring, prove 0a = 0
+
+Prove in a ring: 0a = 0
+
+      0a = 0
+  1.  Cancellation for +, if x + y = x + z then y = z: it is enough to show 0a + 0a = 0a + 0.   [ring_add_cancel]
+      0a + 0a = 0a + 0
+  2.  Zero: 0a + 0 = 0a.   [ring_zero]
+      0a + 0a = 0a
+  3.  Distributivity: 0a + 0a = (0 + 0)a.   [ring_distrib]
+      (0 + 0)a = 0a
+  4.  Zero: 0 + 0 = 0.   [ring_zero]
+      0a = 0a
+  5.  Both sides are the same: 0a.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if x + y = x + z then y = z (cancellation for +, 8 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 26 assignments of elements to the letters
+
+### prove that in any ring (-a)b = -(ab)
+
+Prove in a ring: (-a)b = -(ab)
+
+      (-a)b = -(ab)
+  1.  Uniqueness of negatives, if x + y = 0 then y = -x: it is enough to show ab + (-a)b = 0.   [ring_neg_unique]
+      ab + (-a)b = 0
+  2.  Distributivity: ab + (-a)b = (a + (-a))b.   [ring_distrib]
+      (a + (-a))b = 0
+  3.  Negative: a + (-a) = 0.   [ring_neg]
+      0b = 0
+  4.  Zero times, 0x = 0: 0b = 0.   [ring_zero_mul]
+      0 = 0
+  5.  Both sides are the same: 0.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: each of the 2 lemmas cited has its own checked proof from the axioms and earlier lemmas: if x + y = 0 then y = -x (uniqueness of negatives, 4 steps); 0x = 0 (zero times, 5 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 308 assignments of elements to the letters
+
+### in a ring, prove a(-b) = -(ab)
+
+Prove in a ring: a(-b) = -(ab)
+
+      a(-b) = -(ab)
+  1.  Uniqueness of negatives, if x + y = 0 then y = -x: it is enough to show ab + a(-b) = 0.   [ring_neg_unique]
+      ab + a(-b) = 0
+  2.  Distributivity: ab + a(-b) = a(b + (-b)).   [ring_distrib]
+      a(b + (-b)) = 0
+  3.  Negative: b + (-b) = 0.   [ring_neg]
+      a0 = 0
+  4.  Times zero, x0 = 0: a0 = 0.   [ring_mul_zero]
+      0 = 0
+  5.  Both sides are the same: 0.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: each of the 2 lemmas cited has its own checked proof from the axioms and earlier lemmas: if x + y = 0 then y = -x (uniqueness of negatives, 4 steps); x0 = 0 (times zero, 5 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 308 assignments of elements to the letters
+
+### prove (-a)(-b) = ab in a ring
+
+Prove in a ring: (-a)(-b) = ab
+
+      (-a)(-b) = ab
+  1.  Negative times, (-x)y = -(xy): (-a)(-b) = -(a(-b)).   [ring_neg_mul]
+      -(a(-b)) = ab
+  2.  Times a negative, x(-y) = -(xy): a(-b) = -(ab).   [ring_mul_neg]
+      -(-(ab)) = ab
+  3.  Negative of a negative, -(-x) = x: -(-(ab)) = ab.   [ring_neg_neg]
+      ab = ab
+  4.  Both sides are the same: ab.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 4 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: each of the 3 lemmas cited has its own checked proof from the axioms and earlier lemmas: (-x)y = -(xy) (negative times, 5 steps); x(-y) = -(xy) (times a negative, 5 steps); -(-x) = x (negative of a negative, 2 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 308 assignments of elements to the letters
+
+### prove that in a ring minus times minus is plus
+
+Prove in a ring: (-a)(-b) = ab
+
+      (-a)(-b) = ab
+  1.  Negative times, (-x)y = -(xy): (-a)(-b) = -(a(-b)).   [ring_neg_mul]
+      -(a(-b)) = ab
+  2.  Times a negative, x(-y) = -(xy): a(-b) = -(ab).   [ring_mul_neg]
+      -(-(ab)) = ab
+  3.  Negative of a negative, -(-x) = x: -(-(ab)) = ab.   [ring_neg_neg]
+      ab = ab
+  4.  Both sides are the same: ab.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 4 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: each of the 3 lemmas cited has its own checked proof from the axioms and earlier lemmas: (-x)y = -(xy) (negative times, 5 steps); x(-y) = -(xy) (times a negative, 5 steps); -(-x) = x (negative of a negative, 2 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 308 assignments of elements to the letters
+
+### in a ring, prove -(-a) = a
+
+Prove in a ring: -(-a) = a
+
+      -(-a) = a
+  1.  Uniqueness of negatives: -a + a = 0 (negative axiom), so -(-a) = a.   [ring_neg_unique]
+      a = a
+  2.  Both sides are the same: a.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 2 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if x + y = 0 then y = -x (uniqueness of negatives, 4 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 26 assignments of elements to the letters
+
+### prove that in a ring the additive inverse is unique
+
+Prove in a ring: if a + b = 0 then b = -a
+
+      b = -a
+  1.  Cancellation for +, if x + y = x + z then y = z: it is enough to show a + b = a + (-a).   [ring_add_cancel]
+      a + b = a + (-a)
+  2.  By the hypothesis, a + b = 0.   [use_hypothesis]
+      0 = a + (-a)
+  3.  Negative: a + (-a) = 0.   [ring_neg]
+      0 = 0
+  4.  Both sides are the same: 0.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 4 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring where the hypotheses do; the hypothesis a + b = 0 is used in step 2
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if x + y = x + z then y = z (cancellation for +, 8 steps)
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 26 assignments of elements to the letters where the hypotheses hold
+
+### in a ring, prove that if a + b = a + c then b = c
+
+Prove in a ring: if a + b = a + c then b = c
+
+      b = c
+  1.  Zero: b = 0 + b.   [ring_zero]
+      0 + b = c
+  2.  Negative: 0 = -a + a.   [ring_neg]
+      (-a + a) + b = c
+  3.  Associativity of +: (-a + a) + b = -a + (a + b).   [ring_add_assoc]
+      -a + (a + b) = c
+  4.  By the hypothesis, a + b = a + c.   [use_hypothesis]
+      -a + (a + c) = c
+  5.  Associativity of +: -a + (a + c) = (-a + a) + c.   [ring_add_assoc]
+      (-a + a) + c = c
+  6.  Negative: -a + a = 0.   [ring_neg]
+      0 + c = c
+  7.  Zero: 0 + c = c.   [ring_zero]
+      c = c
+  8.  Both sides are the same: c.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 8 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring where the hypotheses do; the hypothesis a + b = a + c is used in step 4
+  ok models: holds in the rings Z/4, Z/6 and 2x2 matrices over Z/2 at all 308 assignments of elements to the letters where the hypotheses hold
+
+### in a ring, prove (a + b)(c + d) = ((ac + ad) + bc) + bd
+
+Prove in a ring: (a + b)(c + d) = ((ac + ad) + bc) + bd
+
+      (a + b)(c + d) = ((ac + ad) + bc) + bd
+  1.  Distributivity: ac + ad = a(c + d).   [ring_distrib]
+      (a + b)(c + d) = (a(c + d) + bc) + bd
+  2.  Associativity of +: (a(c + d) + bc) + bd = a(c + d) + (bc + bd).   [ring_add_assoc]
+      (a + b)(c + d) = a(c + d) + (bc + bd)
+  3.  Distributivity: bc + bd = b(c + d).   [ring_distrib]
+      (a + b)(c + d) = a(c + d) + b(c + d)
+  4.  Distributivity: (a + b)(c + d) = a(c + d) + b(c + d).   [ring_distrib]
+      a(c + d) + b(c + d) = a(c + d) + b(c + d)
+  5.  Both sides are the same: a(c + d) + b(c + d).   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test ring
+  ok models: holds in the rings Z/4 and Z/6 at all 1552 assignments of elements to the letters; 2x2 matrices over Z/2 too big to try with this many letters
+
