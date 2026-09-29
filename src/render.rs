@@ -16,10 +16,13 @@ use crate::search::Outcome;
 use std::fmt::Write as _;
 
 pub fn header(req: &Request, s: Style) -> String {
+    if let (Task::Divide, Math::Expr(Expr::Div(a, b))) = (req.task.value, &req.problem.value) {
+        return format!("Divide {} by {}", print::expr(a, s), print::expr(b, s));
+    }
     let problem = print::math(&req.problem.value, s);
     let mut h = format!("{} {problem}", req.task.value.title());
     match req.task.value {
-        Task::Solve => h += &format!(" for {}", req.var.value),
+        Task::Solve => h += &format!(" for {}", letters(req)),
         Task::Differentiate => h += &format!(" with respect to {}", req.var.value),
         _ => {}
     }
@@ -52,6 +55,9 @@ fn approx(e: &Expr, places: u32, s: Style) -> Option<String> {
 
 pub fn answer(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
     let places = req.decimals.as_ref().map_or(cfg.display.decimals, |d| d.value);
+    if let Some(a) = algebra_answer(req, out, s) {
+        return a;
+    }
     let asked_decimal = req.decimals.is_some();
     let one = |e: &Expr| {
         let exact = print::expr(e, s);
@@ -66,6 +72,77 @@ pub fn answer(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
         Math::Eq(l, r) => format!("{} = {}", print::expr(l, s), one(r)),
         Math::Or(eqs) => eqs.iter().map(|(l, r)| format!("{} = {}", print::expr(l, s), one(r))).collect::<Vec<_>>().join(" or "),
         m => print::math(m, s),
+    }
+}
+
+// ---- algebra (agent A): answers to inequalities, systems, divisions; restrictions ----
+
+/// The letters solved for: "x", or "x and y" for a system.
+fn letters(req: &Request) -> String {
+    let Math::System(eqs) = &req.problem.value else { return req.var.value.clone() };
+    let vars: Vec<String> = eqs.iter().flat_map(|(l, r)| l.vars().into_iter().chain(r.vars())).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    match vars.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => vars.join(""),
+    }
+}
+
+/// Values of the letter where the original expression is undefined but the
+/// answer isn't: (x^2 - 1)/(x - 1) = x + 1 only for x != 1.
+pub fn restrictions(req: &Request, fin: &Expr) -> Vec<q::Q> {
+    let v = &req.var.value;
+    let mut out: Vec<q::Q> = Vec::new();
+    for d in crate::rules::solutions::denominators(&req.problem.value, v) {
+        let Some(p) = crate::poly::from_expr(&d, v) else { continue };
+        for r in p.rational_roots() {
+            let defined = fin.eval_f(&|n| if n == v { r.to_f64() } else { f64::NAN }).is_finite();
+            if defined && !out.contains(&r) {
+                out.push(r);
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+fn algebra_answer(req: &Request, out: &Outcome, s: Style) -> Option<String> {
+    let v = &req.var.value;
+    let state = &out.path().state;
+    let ne = match s {
+        Style::Ascii => "!=",
+        Style::Unicode => "≠",
+        Style::Latex => "\\neq",
+    };
+    match (req.task.value, state) {
+        (Task::Divide, Math::Expr(e)) => {
+            let Math::Expr(Expr::Div(_, d)) = &req.problem.value else { return None };
+            let (quot, rem) = crate::checks::quotient_remainder(e, d);
+            Some(format!("quotient {}, remainder {}", print::expr(&quot, s), print::expr(&rem, s)))
+        }
+        (Task::Simplify, Math::Expr(e)) if req.given.is_empty() => {
+            let rs = restrictions(req, e);
+            if rs.is_empty() {
+                return None;
+            }
+            let cond: Vec<String> = rs.iter().map(|r| format!("{v} {ne} {}", print::number(r, s))).collect();
+            Some(format!("{}, for {}", print::expr(e, s), cond.join(" and ")))
+        }
+        (_, Math::Ineq(l, r, rr)) => {
+            let iv = crate::expr::Interval::of(*r, rr);
+            Some(format!("{} {} {}, in interval notation {}", print::expr(l, s), print::rel(*r, s), print::expr(rr, s), print::interval_notation(&[iv], s)))
+        }
+        (_, Math::Intervals(_, ivs)) if !ivs.is_empty() => Some(format!("{}, in interval notation {}", print::math(state, s), print::interval_notation(ivs, s))),
+        (_, Math::System(eqs)) => {
+            let solved: Vec<String> = eqs.iter().map(|(l, r)| format!("{} = {}", print::expr(l, s), print::expr(r, s))).collect();
+            let free: std::collections::BTreeSet<String> = eqs.iter().flat_map(|(_, r)| r.vars()).collect();
+            if free.is_empty() {
+                Some(solved.join(", "))
+            } else {
+                let f: Vec<String> = free.into_iter().collect();
+                Some(format!("{}, for any {} (infinitely many solutions)", solved.join(", "), f.join(" and ")))
+            }
+        }
+        _ => None,
     }
 }
 

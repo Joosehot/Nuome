@@ -23,10 +23,12 @@ pub enum Task {
     Factor,
     Solve,
     Differentiate,
+    /// Polynomial division: quotient and remainder.
+    Divide,
 }
 
 impl Task {
-    pub const ALL: [Task; 6] = [Task::Evaluate, Task::Simplify, Task::Expand, Task::Factor, Task::Solve, Task::Differentiate];
+    pub const ALL: [Task; 7] = [Task::Evaluate, Task::Simplify, Task::Expand, Task::Factor, Task::Solve, Task::Differentiate, Task::Divide];
     pub fn key(self) -> &'static str {
         match self {
             Task::Evaluate => "evaluate",
@@ -35,6 +37,7 @@ impl Task {
             Task::Factor => "factor",
             Task::Solve => "solve",
             Task::Differentiate => "differentiate",
+            Task::Divide => "divide",
         }
     }
     pub fn title(self) -> &'static str {
@@ -45,6 +48,7 @@ impl Task {
             Task::Factor => "Factor",
             Task::Solve => "Solve",
             Task::Differentiate => "Differentiate",
+            Task::Divide => "Divide",
         }
     }
 }

@@ -38,8 +38,10 @@ impl Rule for Distribute {
     fn variants(&self) -> &'static [&'static str] {
         &["over_sum", "minus_sign"]
     }
-    fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
-        local("distribute", m, |e, _| match e {
+    fn moves(&self, m: &Math, cx: &Cx) -> Vec<Move> {
+        local("distribute", m, |e, at| match e {
+            // denominators with letters stay factored
+            _ if at.in_letter_denominator() && cx.task() != crate::model::Task::Expand => vec![],
             Expr::Mul(v) => {
                 let sums: Vec<usize> = v.iter().enumerate().filter(|(_, f)| matches!(f, Expr::Add(_))).map(|(i, _)| i).collect();
                 if sums.len() != 1 {

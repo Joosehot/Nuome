@@ -141,6 +141,7 @@ fn expr_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
             }
         }
         Task::Solve => unreachable!(),
+        Task::Divide => divide_checks(&original, fin, out),
     }
 }
 
@@ -325,4 +326,47 @@ fn solve_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) 
             None => ck("working", true, format!("every line of the working holds at every answer ({} steps)", path.steps.len())),
         });
     }
+}
+
+// ---- algebra (agent A): division, inequalities, exponential, log and absolute value equations, systems ----
+
+/// A finished division q + r/d read back as (quotient, remainder).
+pub fn quotient_remainder(fin: &Expr, d: &Expr) -> (Expr, Expr) {
+    let mut q = Vec::new();
+    let mut r = expr::num(0);
+    for t in expr::terms(fin) {
+        match &t {
+            Expr::Div(n, dd) if **dd == *d => r = (**n).clone(),
+            Expr::Neg(inner) if matches!(&**inner, Expr::Div(_, dd) if **dd == *d) => {
+                if let Expr::Div(n, _) = &**inner {
+                    r = expr::neg((**n).clone());
+                }
+            }
+            _ => q.push(t.clone()),
+        }
+    }
+    (expr::add(q), r)
+}
+
+/// Divide: quotient * divisor + remainder is the dividend, exactly, and the
+/// remainder's degree is below the divisor's.
+fn divide_checks(original: &Expr, fin: &Expr, out: &mut Vec<Check>) {
+    let Expr::Div(a, d) = original else {
+        out.push(ck("division", false, "the problem isn't a division"));
+        return;
+    };
+    let v = original.vars().into_iter().next().unwrap_or_else(|| "x".into());
+    let (q, r) = quotient_remainder(fin, d);
+    let polys = (poly::from_expr(a, &v), poly::from_expr(d, &v), poly::from_expr(&q, &v), poly::from_expr(&r, &v));
+    let (Some(pa), Some(pd), Some(pq), Some(pr)) = polys else {
+        out.push(ck("division", false, "the quotient or remainder isn't a polynomial"));
+        return;
+    };
+    let back = pq.mul(&pd).and_then(|p| p.add(&pr));
+    let shown = |e: &Expr| print::expr(e, Style::Ascii);
+    let ok = back.as_ref() == Some(&pa);
+    let product = Expr::Add(vec![Expr::Mul(vec![q.clone(), (**d).clone()]), r.clone()]);
+    out.push(ck("division", ok, format!("{} = {} exactly", shown(&product), shown(a))));
+    let low = pr.deg().is_none_or(|k| Some(k) < pd.deg());
+    out.push(ck("remainder", low, if low { format!("the remainder {} has lower degree than {}", shown(&r), shown(d)) } else { format!("the remainder {} could still be divided", shown(&r)) }));
 }

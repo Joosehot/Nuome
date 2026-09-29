@@ -146,7 +146,18 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
         Math::Eq(l, r) => eq_distance(l, r, v),
         Math::Or(eqs) => eqs.iter().map(|(l, r)| eq_distance(l, r, v)).sum(),
         Math::NoSolution | Math::AllReals => 0.0,
+        Math::Ineq(l, _, r) => eq_distance(l, r, v),
+        Math::Intervals(_, ivs) => ivs.iter().flat_map(|i| i.lo.iter().chain(i.hi.iter())).map(|b| (b.at.size() - 1) as f64 * 0.5).sum(),
+        Math::System(eqs) => eqs.iter().map(|(l, r)| system_distance(l, r)).sum(),
     }
+}
+
+/// An equation of a system is done when it reads "letter = number".
+fn system_distance(l: &Expr, r: &Expr) -> f64 {
+    if matches!(l, Expr::Var(_)) && r.vars().is_empty() {
+        return (r.size() - 1) as f64 * 0.5;
+    }
+    (l.size() + r.size()) as f64 * 0.5 + 2.0 + l.vars().union(&r.vars()).count() as f64
 }
 
 fn eq_distance(l: &Expr, r: &Expr, v: &str) -> f64 {

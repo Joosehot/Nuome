@@ -48,12 +48,14 @@ minor_share = 0.3
 # Factoring never sees distribute (it would undo it), expanding never sees
 # the factoring rules.
 [tasks]
-evaluate = ["substitute", "fold", "roots", "cancel", "identity"]
-simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity", "neg_exponent", "frac_exponent", "rationalise"]
+simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction"]
 expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
-factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions"]
+factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "factor_theorem"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
+# ---- Algebra: tasks ----
+divide = ["poly_divide"]
 
 # Alternative methods for the same job. A path that starts one and switches
 # pays the method_switch judge; "using the quadratic formula" forbids the others.
@@ -253,6 +255,60 @@ weight = 1.0
 weight = 1.0
 [rules.diff_chain.variants.function]
 [rules.diff_chain.variants.power]
+
+# ---- Algebra: polynomial division and the factor theorem ----
+
+[rules.factor_theorem]
+weight = 1.0
+[rules.factor_theorem.variants.integer_root]
+elegance = 0.3
+[rules.factor_theorem.variants.fraction_root]
+elegance = 0.3
+
+[rules.poly_divide]
+weight = 1.0
+[rules.poly_divide.variants.long]          # one round per step: divide, multiply back, subtract
+clarity = 0.4
+[rules.poly_divide.variants.synthetic]     # by x - r, all rounds at once
+brevity = 0.5
+elegance = 0.3
+clarity = -0.5
+
+# ---- Algebra: rational expressions, exponents and roots ----
+
+[rules.rational_cancel]
+weight = 1.0
+[rules.rational_cancel.variants.common_factor]
+elegance = 0.3
+
+[rules.add_fractions]
+weight = 1.0
+[rules.add_fractions.variants.common_denominator]
+clarity = 0.3
+
+[rules.power_quotient]
+weight = 1.0
+[rules.power_quotient.variants.subtract]
+
+[rules.neg_exponent]
+weight = 1.0
+[rules.neg_exponent.variants.reciprocal]
+clarity = 0.5
+
+[rules.frac_exponent]
+weight = 1.0
+[rules.frac_exponent.variants.root_first]
+clarity = 0.5
+
+[rules.rationalise]
+weight = 1.0
+[rules.rationalise.variants.root]
+[rules.rationalise.variants.conjugate]
+
+[rules.compound_fraction]
+weight = 1.0
+[rules.compound_fraction.variants.over]
+[rules.compound_fraction.variants.under]
 
 # ---- Judges: preferences about the path as a whole ------------------------------
 # A judge adds  weight * (axes . profile) * amount  to a step.

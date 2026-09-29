@@ -41,6 +41,16 @@ pub mod swap;
 pub mod trinomial;
 pub mod verdict;
 pub mod zero_product;
+// algebra (agent A)
+pub mod factor_theorem;
+pub mod poly_divide;
+pub mod rational_cancel;
+pub mod add_fractions;
+pub mod power_quotient;
+pub mod neg_exponent;
+pub mod frac_exponent;
+pub mod rationalise;
+pub mod compound_fraction;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -160,6 +170,16 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &diff_product::DiffProduct,
         &diff_quotient::DiffQuotient,
         &diff_chain::DiffChain,
+        // algebra (agent A)
+        &factor_theorem::FactorTheorem,
+        &poly_divide::PolyDivide,
+        &rational_cancel::RationalCancel,
+        &add_fractions::AddFractions,
+        &power_quotient::PowerQuotient,
+        &neg_exponent::NegExponent,
+        &frac_exponent::FracExponent,
+        &rationalise::Rationalise,
+        &compound_fraction::CompoundFraction,
     ]
 }
 
@@ -184,8 +204,15 @@ impl At<'_> {
                     let (l, r) = &v[self.slot / 2];
                     (if self.slot % 2 == 0 { r } else { l }).is_num(0)
                 }
+                Math::Ineq(l, _, r) => (if self.slot == 0 { r } else { l }).is_num(0),
                 _ => false,
             }
+    }
+    /// Is this node inside a denominator that contains a letter? Those stay
+    /// factored: (2x + 1)/(x(x + 1)), not /(x^2 + x).
+    pub fn in_letter_denominator(&self) -> bool {
+        let e = self.math.slots()[self.slot];
+        (0..self.path.len()).any(|k| self.path[k] == 1 && matches!(e.get(&self.path[..k]), Expr::Div(_, d) if !d.vars().is_empty()))
     }
 }
 

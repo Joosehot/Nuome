@@ -96,11 +96,22 @@ pub fn is_answer(m: &Math, req: &Request) -> bool {
         (Task::Solve, Math::NoSolution | Math::AllReals) => true,
         (Task::Solve, Math::Eq(l, r)) => solved(l, r),
         (Task::Solve, Math::Or(eqs)) => eqs.iter().all(|(l, r)| solved(l, r)),
+        (Task::Solve, Math::Ineq(l, _, r)) => solved(l, r),
+        (Task::Solve, Math::Intervals(..)) => true,
+        (Task::Solve, Math::System(eqs)) => system_solved(eqs),
+        (Task::Divide, Math::Expr(e)) => crate::rules::poly_divide::divided(e),
         (Task::Solve, _) => false,
         (Task::Evaluate, Math::Expr(e)) => e.vars().is_empty() && !e.has_deriv(),
         (_, Math::Expr(e)) => !e.has_deriv(),
         _ => false,
     }
+}
+
+/// Every equation reads "letter = ...", each letter once, and no right side
+/// uses a solved letter (the others are free: infinitely many solutions).
+pub fn system_solved(eqs: &[(Expr, Expr)]) -> bool {
+    let lefts: Vec<&String> = eqs.iter().filter_map(|(l, _)| if let Expr::Var(v) = l { Some(v) } else { None }).collect();
+    lefts.len() == eqs.len() && lefts.iter().enumerate().all(|(i, v)| !lefts[..i].contains(v)) && eqs.iter().all(|(_, r)| lefts.iter().all(|v| !r.has_var(v)))
 }
 
 struct Run {
