@@ -286,6 +286,7 @@ Prove n^3 - n is divisible by 6 for every integer n
 
 Answer: proved
   ok divides: its value mod 6 repeats every 6, and n = 0 to 5 all give multiples of 6: that covers every integer
+  ok values: computed directly, 6 divides it for every n from -50 to 50
 
 ### prove 6 divides n^3 - n elegantly
 
@@ -300,6 +301,7 @@ Prove 6 divides n^3 - n elegantly
 
 Answer: proved
   ok divides: its value mod 6 repeats every 6, and n = 0 to 5 all give multiples of 6: that covers every integer
+  ok values: computed directly, 6 divides it for every n from -50 to 50
   ok steps: the factoring keeps the expression equal
 
 ### prove n^2 + n is even
@@ -314,6 +316,7 @@ Prove n^2 + n is even
 
 Answer: proved
   ok divides: its value mod 2 repeats every 2, and n = 0 to 1 all give multiples of 2: that covers every integer
+  ok values: computed directly, 2 divides it for every n from -50 to 50
 
 ### prove n^5 - n is divisible by 5
 
@@ -330,6 +333,7 @@ Prove n^5 - n is divisible by 5
 
 Answer: proved
   ok divides: its value mod 5 repeats every 5, and n = 0 to 4 all give multiples of 5: that covers every integer
+  ok values: computed directly, 5 divides it for every n from -50 to 50
 
 ### prove a^2 + b^2 >= 2ab
 

@@ -275,6 +275,9 @@ fn divides(a: &[Expr], cfg: &Config, path: &Path, out: &mut Vec<Check>) {
         Some((k, x)) => ck("divides", false, format!("{v} = {k} gives {}, not a multiple of {d}", x.map_or("no whole number".into(), |q| q.to_string()))),
         None => ck("divides", true, format!("its value mod {d} repeats every {period}, and {v} = 0 to {} all give multiples of {d}: that covers every integer", period - 1)),
     });
+    // and, separately, straight computation for the integers near 0
+    let direct = (-50i128..=50).all(|k| e.eval_q(&|n| (n == v).then_some(Q::int(k))).is_some_and(|x| x.is_int() && x.num().rem_euclid(d) == 0));
+    out.push(ck("values", direct, if direct { format!("computed directly, {d} divides it for every {v} from -50 to 50") } else { format!("computed directly, it fails for some {v} between -50 and 50") }));
     // steps that rewrite the expression keep it equal
     let mut rewrites = 0;
     for s in &path.steps {
