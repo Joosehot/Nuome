@@ -93,6 +93,12 @@ pub fn is_answer(m: &Math, req: &Request) -> bool {
     let v = &req.var.value;
     let solved = |l: &Expr, r: &Expr| *l == Expr::Var(v.clone()) && !r.has_var(v);
     match (req.task.value, m) {
+        // calculus and trig (agent B)
+        (Task::Integrate, Math::Expr(e)) if req.calc.bounds.is_some() => !e.is_pending() && !e.has_var(v),
+        (Task::Integrate, Math::Expr(e)) => !e.is_pending() && e.has_var(crate::rules::int_constant::C),
+        (Task::Limit, Math::Expr(e)) => !e.is_pending() && !e.has_var(v),
+        (Task::Tangent, Math::Eq(Expr::Var(y), r)) => *y == req.curve().0 && !r.is_pending() && crate::poly::from_expr(r, v).is_some_and(|p| p.deg().unwrap_or(0) <= 1),
+        (Task::Tangent, _) => false,
         (Task::Solve, Math::NoSolution | Math::AllReals) => true,
         (Task::Solve, Math::Eq(l, r)) => solved(l, r),
         (Task::Solve, Math::Or(eqs)) => eqs.iter().all(|(l, r)| solved(l, r)),
@@ -211,17 +217,21 @@ pub fn search(req: &Request, cfg: &Config) -> Result<Outcome, Vec<Diag>> {
     let problem = print::math(&req.problem.value, Style::Ascii);
     if let Some(f) = finalists.first() {
         let failed: Vec<&Check> = f.checks.iter().filter(|c| !c.ok).collect();
-        let mut d = Diag::new(format!("no way to {} {problem} passes the checks", req.task.value.key()));
+        let mut d = Diag::new(format!("no way to {} {problem} passes the checks", req.task.value.verb()));
         if let Some(c) = failed.first() {
             d.hint = Some(format!("{}: {}", c.name, c.detail));
         }
         return Err(vec![d]);
     }
     let furthest = dead.iter().min_by(|a, b| scoring::distance(&a.state, req).partial_cmp(&scoring::distance(&b.state, req)).unwrap_or(std::cmp::Ordering::Equal));
-    let mut d = Diag::new(format!("none of my rules can {} {problem}", req.task.value.key()));
+    let mut d = Diag::new(format!("none of my rules can {} {problem}", req.task.value.verb()));
+    // calculus and trig (agent B): say why, when the numbers show it
+    let why = checks::why_not(req, cfg);
     d.hint = Some(match (furthest, &req.method) {
+        _ if why.is_some() => why.unwrap_or_default(),
         (_, Some(m)) => format!("\"{}\" doesn't fit this problem; try without it", m.words),
         (Some(path), None) if !path.steps.is_empty() => format!("got as far as {} and no rule applies there", print::math(&path.state, Style::Ascii)),
+        _ if req.task.value == Task::Integrate => "no integration rule (the table, the power rule, substitution, parts, partial fractions) fits; some functions, like e^(x^2), have no antiderivative in elementary functions".into(),
         _ => "Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess".into(),
     });
     Err(vec![d])

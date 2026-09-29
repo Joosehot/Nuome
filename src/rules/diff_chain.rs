@@ -14,11 +14,14 @@ impl Rule for DiffChain {
         "diff_chain"
     }
     fn variants(&self) -> &'static [&'static str] {
-        &["function", "power"]
+        &["function", "power", "exponential"]
     }
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("diff_chain", m, |e, _| {
             let Expr::Deriv(inner, v) = e else { return vec![] };
+            if inner.has_deriv() {
+                return vec![]; // a higher derivative: the inner one first
+            }
             let x = expr::var(v);
             let (variant, u, fprime) = match &**inner {
                 Expr::Func(f, u) if **u != x && u.has_var(v) => ("function", (**u).clone(), outer(*f, u)),
@@ -26,6 +29,10 @@ impl Rule for DiffChain {
                     let Some(n) = n.as_num() else { return vec![] };
                     let Some(n1) = n.sub(&Q::ONE) else { return vec![] };
                     ("power", (**b).clone(), expr::mul(vec![Expr::Num(n), power_of((**b).clone(), n1)]))
+                }
+                // a^u: a^u ln(a) (calculus and trig, agent B)
+                Expr::Pow(b, u) if **u != x && u.has_var(v) && b.as_num().is_some_and(|q| !q.is_neg() && !q.is_zero()) => {
+                    ("exponential", (**u).clone(), expr::mul(vec![(**inner).clone(), expr::func(crate::expr::Func::Ln, (**b).clone())]))
                 }
                 _ => return vec![],
             };
@@ -46,6 +53,7 @@ mod tests {
     fn chain_rule() {
         assert_eq!(test_moves(&DiffChain, "differentiate sin(2x)"), vec!["cos(2x) * d/dx[2x]"]);
         assert_eq!(test_moves(&DiffChain, "differentiate (x^2 + 1)^3"), vec!["3(x^2 + 1)^2 * d/dx[x^2 + 1]"]);
+        assert_eq!(test_moves(&DiffChain, "differentiate 3^(x^2)"), vec!["3^(x^2) * ln(3) * d/dx[x^2]"]);
         assert!(test_moves(&DiffChain, "differentiate sin x").is_empty());
     }
 }

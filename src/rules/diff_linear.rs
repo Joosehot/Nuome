@@ -20,6 +20,9 @@ impl Rule for DiffLinear {
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("diff_linear", m, |e, _| {
             let Expr::Deriv(inner, v) = e else { return vec![] };
+            if inner.has_deriv() {
+                return vec![]; // a higher derivative: the inner one first
+            }
             match &**inner {
                 Expr::Add(ts) => {
                     let new = Expr::Add(ts.iter().map(|t| d(t.clone(), v)).collect());

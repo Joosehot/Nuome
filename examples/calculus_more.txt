@@ -1,0 +1,14 @@
+second derivative of x^4 - 3x^2
+the second derivative of sin(2x)
+third derivative of x^5
+differentiate x e^x twice
+differentiate 2^x
+differentiate 3^(x^2)
+differentiate arctan x
+differentiate arcsin(2x)
+differentiate sec x
+differentiate arcsin x
+tangent to y = x^2 at x = 1
+equation of the tangent line to y = x^3 - 2x at x = 2
+tangent to sin x at x = 0
+tangent to y = e^x at x = 0

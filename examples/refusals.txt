@@ -2,7 +2,8 @@ solfe 2x = 4
 what is 3 x 4
 solve x^2 - 4
 solve x + y = 3
-integrate x^2
+integrate e^(x^2)
+integrate 1/x^2 from -1 to 1
 solve x^5 + x + 1 = 0
 solve x + 1 = 0 using the quadratic formula
 what is 1/0

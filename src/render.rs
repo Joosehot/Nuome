@@ -21,6 +21,27 @@ pub fn header(req: &Request, s: Style) -> String {
     match req.task.value {
         Task::Solve => h += &format!(" for {}", req.var.value),
         Task::Differentiate => h += &format!(" with respect to {}", req.var.value),
+        // calculus and trig (agent B)
+        Task::Integrate => h += &format!(" with respect to {}", req.var.value),
+        Task::Limit => {
+            let p = req.calc.point.as_ref().map(|p| print::expr(&p.value, s)).unwrap_or_default();
+            let arrow = match s {
+                Style::Ascii => "->",
+                Style::Unicode => "→",
+                Style::Latex => "\\to",
+            };
+            h += &format!(" as {} {arrow} {p}", req.var.value);
+        }
+        Task::Tangent => {
+            let p = req.calc.point.as_ref().map(|p| print::expr(&p.value, s)).unwrap_or_default();
+            h += &format!(" at {} = {p}", req.var.value);
+        }
+        _ => {}
+    }
+    match (req.calc.order(), &req.calc.bounds) {
+        (2, _) => h += " twice",
+        (3, _) => h += " three times",
+        (_, Some(b)) => h += &format!(" from {} to {}", print::expr(&b.value.0, s), print::expr(&b.value.1, s)),
         _ => {}
     }
     if !req.given.is_empty() {
@@ -62,6 +83,8 @@ pub fn answer(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
     };
     match &out.path().state {
         Math::Expr(e) if req.task.value == Task::Evaluate || !req.given.is_empty() => one(e),
+        // calculus and trig (agent B): a limit or a definite integral is a number
+        Math::Expr(e) if req.task.value == Task::Limit || (req.task.value == Task::Integrate && req.calc.bounds.is_some()) => one(e),
         Math::Expr(e) => print::expr(e, s),
         Math::Eq(l, r) => format!("{} = {}", print::expr(l, s), one(r)),
         Math::Or(eqs) => eqs.iter().map(|(l, r)| format!("{} = {}", print::expr(l, s), one(r))).collect::<Vec<_>>().join(" or "),

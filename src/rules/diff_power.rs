@@ -18,6 +18,9 @@ impl Rule for DiffPower {
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("diff_power", m, |e, _| {
             let Expr::Deriv(inner, v) = e else { return vec![] };
+            if inner.has_deriv() {
+                return vec![]; // a higher derivative: the inner one first
+            }
             let x = expr::var(v);
             if !inner.has_var(v) {
                 return vec![Rewrite { variant: "constant", new: expr::num(0), says: Line::new().t("The derivative of a constant is 0."), work: vec![] }];

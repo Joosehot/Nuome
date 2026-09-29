@@ -24,6 +24,7 @@ fn prec(e: &Expr) -> u8 {
         Expr::Num(q) if q.is_neg() || !q.is_int() => MUL,
         Expr::Pow(..) => POW,
         Expr::Func(Func::Exp, _) => POW,
+        Expr::Limit(..) => MUL,
         _ => ATOM,
     }
 }
@@ -119,6 +120,8 @@ fn joins(prev: &Expr, next: &Expr) -> bool {
         Expr::Var(_) | Expr::Const(_) => letterish(next),
         Expr::Pow(b, _) => matches!(**b, Expr::Var(_)) && matches!(next, Expr::Var(_) | Expr::Func(..) | Expr::Add(_)),
         Expr::Add(_) => letterish(next),
+        // sin(x) cos(x)
+        Expr::Func(..) => matches!(next, Expr::Func(..)),
         _ => false,
     }
 }
@@ -127,6 +130,9 @@ fn joins(prev: &Expr, next: &Expr) -> bool {
 fn spaced(prev: &Expr, next: &Expr) -> bool {
     matches!(next, Expr::Func(..)) && !matches!(prev, Expr::Num(_))
         || matches!(prev, Expr::Pow(..)) && matches!(next, Expr::Var(_) | Expr::Const(_))
+        // 2k pi, 45 deg
+        || matches!(prev, Expr::Var(_)) && matches!(next, Expr::Const(Konst::Pi))
+        || matches!(next, Expr::Const(Konst::Deg))
 }
 
 fn write(e: &Expr, s: Style, out: &mut String) {
@@ -139,6 +145,16 @@ fn write(e: &Expr, s: Style, out: &mut String) {
             Style::Latex => "\\pi",
         }),
         Expr::Const(Konst::E) => out.push('e'),
+        Expr::Const(Konst::Inf) => out.push_str(match s {
+            Style::Ascii => "infinity",
+            Style::Unicode => "∞",
+            Style::Latex => "\\infty",
+        }),
+        Expr::Const(Konst::Deg) => out.push_str(match s {
+            Style::Ascii => "deg",
+            Style::Unicode => "°",
+            Style::Latex => "^\\circ",
+        }),
         Expr::Add(v) => {
             for (i, t) in v.iter().enumerate() {
                 let (minus, body) = split_sign(t);
@@ -177,7 +193,9 @@ fn write(e: &Expr, s: Style, out: &mut String) {
                 }
                 let prev = &v[i - 1];
                 let implicit = joins(prev, f) || (matches!(prev, Expr::Num(q) if *q == Q::int(-1)) && i == 1);
-                if implicit && spaced(prev, f) && s != Style::Latex {
+                if implicit && matches!(f, Expr::Const(Konst::Deg)) && s != Style::Ascii {
+                    // 45°, 45^\circ: the degree sign sits on the number
+                } else if implicit && spaced(prev, f) && s != Style::Latex {
                     out.push(' ');
                 } else if implicit && spaced(prev, f) {
                     out.push_str("\\,");
@@ -197,7 +215,8 @@ fn write(e: &Expr, s: Style, out: &mut String) {
         }
         Expr::Neg(a) => {
             out.push('-');
-            at_least(a, MUL + 1, s, out);
+            // -1/x, not -(1/x): the two readings are equal
+            at_least(a, if matches!(**a, Expr::Div(..)) { MUL } else { MUL + 1 }, s, out);
         }
         Expr::Div(a, b) => {
             if s == Style::Latex {
@@ -260,12 +279,94 @@ fn write(e: &Expr, s: Style, out: &mut String) {
                 out.push(')');
             }
         },
+        // ln|x|: the bars are the brackets
+        Expr::Func(Func::Ln, a) if matches!(**a, Expr::Func(Func::Abs, _)) => {
+            out.push_str(if s == Style::Latex { "\\ln" } else { "ln" });
+            write(a, s, out);
+        }
+        Expr::Func(Func::Abs, a) => {
+            if s == Style::Latex {
+                out.push_str("\\left|");
+                write(a, s, out);
+                out.push_str("\\right|");
+            } else {
+                out.push('|');
+                write(a, s, out);
+                out.push('|');
+            }
+        }
         Expr::Func(f, a) => {
             if s == Style::Latex {
                 out.push('\\');
             }
             out.push_str(f.name());
             paren(a, s, out);
+        }
+        Expr::Integral(a, v) => {
+            out.push_str(match s {
+                Style::Ascii => "int ",
+                Style::Unicode => "∫ ",
+                Style::Latex => "\\int ",
+            });
+            integrand(a, v, s, out);
+        }
+        Expr::Bounds(f, v, a, b) => {
+            let lim = |out: &mut String| {
+                if s == Style::Latex {
+                    out.push_str("_{");
+                    write(a, s, out);
+                    out.push_str("}^{");
+                    write(b, s, out);
+                    out.push('}');
+                } else {
+                    out.push('_');
+                    at_least(a, ATOM, s, out);
+                    out.push('^');
+                    at_least(b, ATOM, s, out);
+                }
+            };
+            match &**f {
+                // the definite integral: int_0^3 x^2 dx
+                Expr::Integral(g, w) if w == v => {
+                    out.push_str(match s {
+                        Style::Ascii => "int",
+                        Style::Unicode => "∫",
+                        Style::Latex => "\\int",
+                    });
+                    lim(out);
+                    out.push(' ');
+                    integrand(g, v, s, out);
+                }
+                _ => {
+                    out.push_str(if s == Style::Latex { "\\left[" } else { "[" });
+                    write(f, s, out);
+                    out.push_str(if s == Style::Latex { "\\right]" } else { "]" });
+                    lim(out);
+                }
+            }
+        }
+        Expr::Limit(a, v, p) => {
+            match s {
+                Style::Latex => {
+                    out.push_str(&format!("\\lim_{{{v} \\to "));
+                    write(p, s, out);
+                    out.push_str("} ");
+                }
+                _ => {
+                    out.push_str(&format!("lim({v}{}", if s == Style::Ascii { "->" } else { "→" }));
+                    write(p, s, out);
+                    out.push_str(") ");
+                }
+            }
+            at_least(a, MUL, s, out);
+        }
+        Expr::At(a, v, p) => {
+            out.push_str(if s == Style::Latex { "\\left[" } else { "[" });
+            write(a, s, out);
+            out.push_str(if s == Style::Latex { "\\right]_{" } else { "]_(" });
+            out.push_str(&format!("{v}="));
+            write(p, s, out);
+            out.push(if s == Style::Latex { '}' } else { ')' });
         }
         Expr::Deriv(a, v) => {
             if s == Style::Latex {
@@ -279,6 +380,13 @@ fn write(e: &Expr, s: Style, out: &mut String) {
             }
         }
     }
+}
+
+/// The body of an integral and its "dx": x^2 dx, (x + 1) dx.
+fn integrand(a: &Expr, v: &str, s: Style, out: &mut String) {
+    at_least(a, MUL, s, out);
+    out.push_str(if s == Style::Latex { "\\,d" } else { " d" });
+    out.push_str(v);
 }
 
 /// A term that prints with a leading minus, and what follows the minus.

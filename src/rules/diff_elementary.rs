@@ -15,7 +15,20 @@ pub fn outer(f: Func, u: &Expr) -> Expr {
         Func::Exp => expr::func(Func::Exp, u),
         Func::Ln => expr::div(expr::num(1), u),
         Func::Sqrt => expr::div(expr::num(1), expr::mul(vec![expr::num(2), expr::sqrt(u)])),
+        // calculus and trig (agent B)
+        Func::Abs => expr::div(u.clone(), expr::func(Func::Abs, u)),
+        Func::Sec => expr::mul(vec![expr::func(Func::Sec, u.clone()), expr::func(Func::Tan, u)]),
+        Func::Csc => expr::neg(expr::mul(vec![expr::func(Func::Csc, u.clone()), expr::func(Func::Cot, u)])),
+        Func::Cot => expr::neg(expr::div(expr::num(1), expr::pow(expr::func(Func::Sin, u), expr::num(2)))),
+        Func::Asin => expr::div(expr::num(1), expr::sqrt(one_minus_square(u))),
+        Func::Acos => expr::neg(expr::div(expr::num(1), expr::sqrt(one_minus_square(u)))),
+        Func::Atan => expr::div(expr::num(1), expr::add(vec![expr::num(1), expr::pow(u, expr::num(2))])),
     }
+}
+
+/// 1 - u^2
+fn one_minus_square(u: Expr) -> Expr {
+    expr::add(vec![expr::num(1), expr::neg(expr::pow(u, expr::num(2)))])
 }
 
 impl Rule for DiffElementary {
@@ -28,6 +41,9 @@ impl Rule for DiffElementary {
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("diff_elementary", m, |e, _| {
             let Expr::Deriv(inner, v) = e else { return vec![] };
+            if inner.has_deriv() {
+                return vec![]; // a higher derivative: the inner one first
+            }
             let x = expr::var(v);
             let new = match &**inner {
                 Expr::Func(f, a) if **a == x => outer(*f, &x),

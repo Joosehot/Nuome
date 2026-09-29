@@ -4,7 +4,7 @@
 
 use crate::expr::{self, Expr, Func, Konst, Math};
 use crate::lexicon::{self, Tok, Token};
-use crate::model::{Request, Said, Task};
+use crate::model::{Calc, Request, Said, Task};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,7 +39,43 @@ pub struct ParseOptions {
 }
 
 fn is_math(t: &Tok) -> bool {
-    matches!(t, Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op(_) | Tok::Squared | Tok::Cubed | Tok::Percent)
+    matches!(t, Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op(_) | Tok::Squared | Tok::Cubed | Tok::Percent | Tok::Degrees)
+}
+
+/// How many tokens from the start form a math span.
+fn math_len(ts: &[Token]) -> usize {
+    ts.iter().take_while(|t| is_math(&t.tok)).count()
+}
+
+/// How many tokens form the point a limit approaches: 2, -1, pi/2, 2pi,
+/// infinity, -infinity. It stops there, so "lim x->0 sin x/x" keeps its
+/// function.
+fn point_len(ts: &[Token]) -> usize {
+    let tok = |k: usize| ts.get(k).map(|t| &t.tok);
+    let mut k = 0;
+    if matches!(tok(k), Some(Tok::Op('-') | Tok::Op('+'))) {
+        k += 1;
+    }
+    if !matches!(tok(k), Some(Tok::Num(_) | Tok::Const(_))) {
+        return 0;
+    }
+    k += 1;
+    if matches!(tok(k), Some(Tok::Const(_))) {
+        k += 1;
+    }
+    if matches!(tok(k), Some(Tok::Op('/'))) && matches!(tok(k + 1), Some(Tok::Num(_) | Tok::Const(_))) {
+        k += 2;
+    }
+    k
+}
+
+/// A bound or a point: "3", or "x = 3" (the value).
+fn value_of(ts: &[Token]) -> Result<Expr, Diag> {
+    match parse_math(ts)? {
+        Math::Expr(e) => Ok(e),
+        Math::Eq(Expr::Var(_), e) => Ok(e),
+        _ => Err(Diag::new(format!("can't use \"{}\" as a bound", words(ts))).hint("e.g. \"from 0 to 3\"")),
+    }
 }
 
 fn words(ts: &[Token]) -> String {
@@ -59,6 +95,9 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
     let mut given_spans: Vec<Vec<Token>> = Vec::new();
     let mut cur: Vec<Token> = Vec::new();
     let mut in_given = false;
+    let mut order: Option<Said<u32>> = None;
+    let mut bounds: Option<Said<(Expr, Expr)>> = None;
+    let mut point: Option<Said<Expr>> = None;
 
     let flush = |cur: &mut Vec<Token>, in_given: &mut bool, spans: &mut Vec<Vec<Token>>, given: &mut Vec<Vec<Token>>| {
         if !cur.is_empty() {
@@ -80,6 +119,35 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
                 cur.push(Token { tok: Tok::Op('*'), words: t.words.clone() });
             }
             i += 1;
+            continue;
+        }
+        // "as x approaches 2", "lim x->0": the letter before, the point after
+        if t.tok == Tok::Approaches {
+            let Some(Token { tok: Tok::Var(v), words: vw }) = cur.last().cloned() else {
+                diags.push(Diag::new(format!("\"{}\" needs a letter before it", t.words)).hint("e.g. \"as x approaches 2\""));
+                i += 1;
+                continue;
+            };
+            cur.pop();
+            // lim(x -> 0) ...
+            let open = cur.last().is_some_and(|p| p.tok == Tok::Op('('));
+            if open {
+                cur.pop();
+            }
+            let n = point_len(&toks[i + 1..]);
+            let span = &toks[i + 1..i + 1 + n];
+            let said = format!("{vw} {} {}", t.words, words(span));
+            match value_of(span) {
+                Ok(p) if n > 0 => point = Some(Said::new(p, said.clone())),
+                _ => diags.push(Diag::new(format!("\"{}\" needs a point after it", t.words)).hint("e.g. \"as x approaches 2\" or \"as x approaches infinity\"")),
+            }
+            if var.is_none() {
+                var = Some(Said::new(v, said));
+            }
+            i += 1 + n;
+            if open && toks.get(i).is_some_and(|t| t.tok == Tok::Op(')')) {
+                i += 1;
+            }
             continue;
         }
         // "to 3 decimal places", "3 dp"
@@ -144,6 +212,31 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
             }
             Tok::Places => diags.push(Diag::new(format!("\"{}\" needs a number", t.words)).hint("e.g. \"to 3 decimal places\"")),
             Tok::Exact => exact = Some(t.words.clone()),
+            Tok::Order(n) => {
+                order = Some(Said::new(*n, t.words.clone()));
+                if task.is_none() {
+                    task = Some(Said::new(Task::Differentiate, t.words.clone()));
+                }
+            }
+            Tok::From => {
+                // "from 0 to 3", "between 0 and pi"
+                let lo = math_len(&toks[i + 1..]);
+                let sep = i + 1 + lo;
+                let joined = toks.get(sep).is_some_and(|s| s.tok == Tok::To || (s.tok == Tok::Sep && s.words == "and"));
+                let hi = if joined { math_len(&toks[sep + 1..]) } else { 0 };
+                if lo == 0 || hi == 0 {
+                    diags.push(Diag::new(format!("\"{}\" needs two bounds", t.words)).hint("e.g. \"from 0 to 3\" or \"between 0 and pi\""));
+                    i += 1;
+                    continue;
+                }
+                match (value_of(&toks[i + 1..sep]), value_of(&toks[sep + 1..sep + 1 + hi])) {
+                    (Ok(a), Ok(b)) => bounds = Some(Said::new((a, b), words(&toks[i..sep + 1 + hi]))),
+                    (Err(d), _) | (_, Err(d)) => diags.push(d),
+                }
+                i = sep + 1 + hi;
+                continue;
+            }
+            Tok::Approaches | Tok::Degrees => unreachable!("handled above"),
             Tok::Sep | Tok::Filler | Tok::Is | Tok::To | Tok::Of => {}
             Tok::Unsupported(what) => diags.push(Diag::new(format!("\"{}\": {what} is not in Nuome v0", t.words)).hint("v0 evaluates, simplifies, expands, factors, solves one equation in one unknown, and differentiates")),
             Tok::Unknown => {
@@ -217,6 +310,22 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
         Math::Eq(l, r) => l.vars().union(&r.vars()).cloned().collect(),
         _ => Default::default(),
     };
+    // calculus and trig (agent B): a tangent's "y = f(x)" names only x, and
+    // "at x = 1" is where it touches, not a value to substitute
+    let tangent = task.as_ref().is_some_and(|t| t.value == Task::Tangent);
+    let letters = match &problem.value {
+        Math::Eq(Expr::Var(y), f) if tangent && !f.has_var(y) => f.vars(),
+        _ => letters,
+    };
+    if tangent && point.is_none() {
+        if let Some(k) = given.iter().position(|g| letters.contains(&g.value.0) || letters.is_empty()) {
+            let g = given.remove(k);
+            if var.is_none() {
+                var = Some(Said::new(g.value.0.clone(), g.words.clone()));
+            }
+            point = Some(Said::new(g.value.1, g.words));
+        }
+    }
     let task = task.unwrap_or_else(|| match &problem.value {
         Math::Eq(..) => Said::new(Task::Solve, "(an equation: solve)"),
         _ if letters.is_empty() || !given.is_empty() => Said::new(Task::Evaluate, "(no letters: evaluate)"),
@@ -247,6 +356,7 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
     let math_ok = match (task.value, &problem.value) {
         (Task::Solve, Math::Eq(..)) => Ok(()),
         (Task::Solve, _) => Err(Diag::new(format!("{shown} isn't an equation")).hint(format!("to find where it is zero, write \"solve {shown} = 0\""))),
+        (Task::Tangent, Math::Eq(Expr::Var(y), f)) if !f.has_var(y) => Ok(()),
         (_, Math::Eq(..)) => Err(Diag::new(format!("{shown} is an equation; {} works on an expression", task.value.key())).hint(format!("to find {}, say \"solve {shown}\"", var.value))),
         (Task::Evaluate, Math::Expr(e)) => {
             let unset: Vec<String> = e.vars().into_iter().filter(|l| !given.iter().any(|g| &g.value.0 == l)).collect();
@@ -269,7 +379,34 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
             return Err(vec![Diag::new(format!("\"{}\": a {} has no single value to round", d.words, task.value.key()))]);
         }
     }
-    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals })
+    // calculus and trig (agent B): the extra words must fit the task
+    let degrees = toks.iter().find(|t| t.tok == Tok::Degrees).map(|t| t.words.clone());
+    let calc = Calc { order, bounds, point, degrees };
+    if let Some(o) = &calc.order {
+        if task.value != Task::Differentiate {
+            return Err(vec![Diag::new(format!("\"{}\" goes with differentiating, not with {}", o.words, task.value.verb()))]);
+        }
+    }
+    if let Some(b) = &calc.bounds {
+        if !matches!(task.value, Task::Integrate | Task::Solve) {
+            return Err(vec![Diag::new(format!("\"{}\": bounds go with an integral or with solving in an interval", b.words))]);
+        }
+        if b.value.0.has_var(&var.value) || b.value.1.has_var(&var.value) || [&b.value.0, &b.value.1].iter().any(|e| e.walk().iter().any(|(_, n)| matches!(n, Expr::Const(crate::expr::Konst::Inf)))) {
+            return Err(vec![Diag::new(format!("\"{}\": the bounds must be numbers", b.words)).hint("improper integrals (to infinity) are not in Nuome v0")]);
+        }
+    }
+    match (&calc.point, task.value) {
+        (None, Task::Limit) => return Err(vec![Diag::new("a limit needs a point").hint(format!("say where {} goes, e.g. \"as {} approaches 2\"", var.value, var.value))]),
+        (None, Task::Tangent) => return Err(vec![Diag::new("a tangent needs a point").hint(format!("say where it touches, e.g. \"at {} = 1\"", var.value))]),
+        (Some(p), t) if !matches!(t, Task::Limit | Task::Tangent) => return Err(vec![Diag::new(format!("\"{}\" goes with a limit", p.words)).hint("e.g. \"limit of sin x / x as x approaches 0\"")]),
+        _ => {}
+    }
+    if let Some(d) = &decimals {
+        if (task.value == Task::Integrate && calc.bounds.is_none()) || task.value == Task::Tangent {
+            return Err(vec![Diag::new(format!("\"{}\": the answer is a function, with no single value to round", d.words))]);
+        }
+    }
+    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals, calc })
 }
 
 /// Parse one math span: an expression, or an equation with one "=".
@@ -402,6 +539,7 @@ impl P<'_> {
                 Some(Tok::Squared) => e = expr::pow(e, expr::num(2)),
                 Some(Tok::Cubed) => e = expr::pow(e, expr::num(3)),
                 Some(Tok::Percent) => e = expr::div(e, expr::num(100)),
+                Some(Tok::Degrees) => e = join_mul(e, Expr::Const(Konst::Deg)),
                 _ => break,
             }
             self.i += 1;
@@ -424,7 +562,31 @@ impl P<'_> {
                 Ok(e)
             }
             Tok::Func(f) => {
-                // sin(x); sin 2x = sin(2x); stops before the next function
+                // sin^2 x = (sin x)^2, sin^-1 x = arcsin x (calculus and trig, agent B)
+                let mut f = *f;
+                let mut power = None;
+                if self.peek() == Some(&Tok::Op('^')) {
+                    let neg = matches!(self.ts.get(self.i + 1).map(|t| &t.tok), Some(Tok::Op('-')));
+                    let at = self.i + 1 + usize::from(neg);
+                    if let Some(Tok::Num(n)) = self.ts.get(at).map(|t| &t.tok) {
+                        let inverse = match f {
+                            Func::Sin => Some(Func::Asin),
+                            Func::Cos => Some(Func::Acos),
+                            Func::Tan => Some(Func::Atan),
+                            _ => None,
+                        };
+                        match (neg, inverse) {
+                            (true, Some(g)) if n.is_one() => f = g,
+                            (false, _) if n.is_int() => power = Some(*n),
+                            _ => return Err(self.err("can't read this power of a function")),
+                        }
+                        self.i = at + 1;
+                    }
+                }
+                let wrap = |e: Expr| match power {
+                    Some(n) => expr::pow(e, Expr::Num(n)),
+                    None => e,
+                };
                 let arg = if self.peek() == Some(&Tok::Op('(')) {
                     self.postfix()?
                 } else {
@@ -435,7 +597,7 @@ impl P<'_> {
                     }
                     a
                 };
-                Ok(expr::func(*f, arg))
+                Ok(wrap(expr::func(f, arg)))
             }
             _ => {
                 self.i -= 1;
@@ -484,6 +646,28 @@ mod tests {
         assert!(err("what is 2x").contains("has no value"));
         assert!(err("solve x^2 - 4").contains("isn't an equation"));
         assert!(err("solve x + y = 3").contains("which letter"));
-        assert!(err("integrate x^2").contains("integration"));
+        assert!(err("determinant of x").contains("matrix"));
+        assert!(err("limit of 1/x").contains("needs a point"));
+        assert!(err("tangent to y = x^2").contains("needs a point"));
+    }
+
+    #[test]
+    fn calculus_and_trig_sentences() {
+        let calc = |s: &str| {
+            let r = parse(s, &ParseOptions::default()).unwrap_or_else(|d| panic!("{s}: {d:?}"));
+            let p = r.calc.point.as_ref().map(|p| print::expr(&p.value, Style::Ascii)).unwrap_or_default();
+            let b = r.calc.bounds.as_ref().map(|b| format!("{}..{}", print::expr(&b.value.0, Style::Ascii), print::expr(&b.value.1, Style::Ascii))).unwrap_or_default();
+            format!("{} | {} | {} | {p} | {b} | {}", r.task.value.key(), print::math(&r.problem.value, Style::Ascii), r.var.value, r.calc.order())
+        };
+        assert_eq!(calc("integrate x^2 dx"), "integrate | x^2 | x |  |  | 1");
+        assert_eq!(calc("integrate x^2 from 0 to 3"), "integrate | x^2 | x |  | 0..3 | 1");
+        assert_eq!(calc("limit of (x^2 - 4)/(x - 2) as x approaches 2"), "limit | (x^2 - 4)/(x - 2) | x | 2 |  | 1");
+        assert_eq!(calc("lim x->0 sin x / x"), "limit | sin(x)/x | x | 0 |  | 1");
+        assert_eq!(calc("limit as x approaches infinity of 1/x"), "limit | 1/x | x | infinity |  | 1");
+        assert_eq!(calc("second derivative of x^4"), "differentiate | x^4 | x |  |  | 2");
+        assert_eq!(calc("tangent to y = x^2 at x = 1"), "tangent | y = x^2 | x | 1 |  | 1");
+        assert_eq!(calc("what is cos(45 degrees)"), "evaluate | cos(45 deg) | x |  |  | 1");
+        assert_eq!(calc("simplify sin^2 x + cos^2 x"), "simplify | sin(x)^2 + cos(x)^2 | x |  |  | 1");
+        assert_eq!(calc("solve sin x = 1/2 for x between 0 and 2pi"), "solve | sin(x) = 1/2 | x |  | 0..2pi | 1");
     }
 }

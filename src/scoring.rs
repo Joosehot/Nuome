@@ -121,7 +121,7 @@ pub fn judge(mv: &Move, before: &Math, path: &[&'static str], req: &Request, p: 
         }
     }
     let grow = mv.result.size() as f64 - before.size() as f64;
-    if grow > 0.0 && task != Task::Expand && task != Task::Differentiate {
+    if grow > 0.0 && !matches!(task, Task::Expand | Task::Differentiate | Task::Integrate | Task::Limit | Task::Tangent) {
         add("growth", grow, format!("grows by {grow}"));
     }
     notes
@@ -135,6 +135,8 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
             .iter()
             .map(|(_, n)| match n {
                 Expr::Deriv(a, _) => 3.0 + a.size() as f64,
+                Expr::Integral(a, _) | Expr::Limit(a, _, _) => 3.0 + a.size() as f64,
+                Expr::Bounds(..) | Expr::At(..) => 2.0,
                 Expr::Mul(f) if matches!(req.task.value, Task::Expand | Task::Simplify) && f.iter().filter(|x| matches!(x, Expr::Add(_))).count() > 0 => 3.0,
                 Expr::Pow(b, _) if matches!(req.task.value, Task::Expand | Task::Simplify) && matches!(**b, Expr::Add(_)) => 3.0,
                 _ => 0.0,
@@ -143,6 +145,7 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
     };
     match m {
         Math::Expr(e) => e.size() as f64 * 0.5 + unfinished(e),
+        Math::Eq(l, r) if req.task.value == Task::Tangent => (l.size() + r.size()) as f64 * 0.5 + unfinished(r),
         Math::Eq(l, r) => eq_distance(l, r, v),
         Math::Or(eqs) => eqs.iter().map(|(l, r)| eq_distance(l, r, v)).sum(),
         Math::NoSolution | Math::AllReals => 0.0,

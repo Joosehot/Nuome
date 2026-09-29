@@ -88,6 +88,39 @@ pub struct Display {
     pub decimals: u32,
 }
 
+/// Calculus and trigonometry (agent B): the numbers the rules and checks
+/// for integrals, limits, higher derivatives and trig equations use.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalcCfg {
+    /// Simpson panels for checking a definite integral against quadrature.
+    pub panels: usize,
+    /// Relative tolerance for a definite integral against quadrature.
+    pub integral_tolerance: f64,
+    /// Step for the numerical n-th derivative that checks a higher derivative.
+    pub higher_step: f64,
+    /// Relative tolerance for higher derivatives and nested d/dx lines.
+    pub higher_tolerance: f64,
+    /// Distances from the point at which a limit is checked, far to near.
+    pub limit_steps: Vec<f64>,
+    /// Where "x -> infinity" is checked, near to far.
+    pub limit_far: Vec<f64>,
+    /// Relative tolerance for a limit at the nearest (or farthest) step.
+    pub limit_tolerance: f64,
+    /// |f| beyond this at the nearest step counts as growing without bound.
+    pub unbounded: f64,
+    /// A number smaller than this counts as 0 when a rule reads a value
+    /// (0/0 for L'Hopital, a trig value from the table).
+    pub zero: f64,
+    /// Grid points per unit of length when counting a trig equation's solutions.
+    pub trig_scan: usize,
+    /// General solutions are checked for k = -k_range ..= k_range.
+    pub k_range: i64,
+    /// When too few sample points lie in an expression's domain (arcsin x),
+    /// the samples are scaled by this and tried again.
+    pub narrow: f64,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -104,6 +137,7 @@ pub struct Config {
     pub judges: BTreeMap<String, JudgeCfg>,
     pub check: CheckCfg,
     pub display: Display,
+    pub calculus: CalcCfg,
 }
 
 pub const JUDGES: &[&str] = &["fractions", "negative_lead", "method_switch", "growth", "branch_order", "brackets_first", "arithmetic_first"];
@@ -177,6 +211,21 @@ impl Config {
         }
         if self.check.samples.len() < 3 {
             bail!("[check] needs at least 3 samples");
+        }
+        // calculus and trig (agent B)
+        let c = &self.calculus;
+        if c.panels < 2 || c.trig_scan < 10 || c.k_range < 1 {
+            bail!("[calculus]: panels must be at least 2, trig_scan at least 10, k_range at least 1");
+        }
+        let positive = [c.integral_tolerance, c.higher_step, c.higher_tolerance, c.limit_tolerance, c.unbounded, c.zero, c.narrow];
+        if positive.iter().any(|x| !(x.is_finite() && *x > 0.0)) {
+            bail!("[calculus]: tolerances, steps, unbounded and zero must be positive numbers");
+        }
+        if c.limit_steps.len() < 2 || !c.limit_steps.windows(2).all(|w| w[0] > w[1] && w[1] > 0.0) {
+            bail!("[calculus] limit_steps: at least 2 positive steps, far to near (decreasing)");
+        }
+        if c.limit_far.len() < 2 || !c.limit_far.windows(2).all(|w| w[1] > w[0] && w[0] > 0.0) {
+            bail!("[calculus] limit_far: at least 2 positive points, near to far (increasing)");
         }
         Ok(())
     }

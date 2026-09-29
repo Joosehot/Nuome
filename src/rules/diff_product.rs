@@ -15,6 +15,9 @@ impl Rule for DiffProduct {
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("diff_product", m, |e, _| {
             let Expr::Deriv(inner, v) = e else { return vec![] };
+            if inner.has_deriv() {
+                return vec![]; // a higher derivative: the inner one first
+            }
             let Expr::Mul(fs) = &**inner else { return vec![] };
             if fs.iter().any(|f| !f.has_var(v)) || fs.len() < 2 {
                 return vec![];
