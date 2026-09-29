@@ -62,7 +62,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
             min_n: p.formula_min_n.unwrap_or(1000),
             split: p.formula_split.unwrap_or(100_000_000_000),
             price_per_parameter: p.formula_price.unwrap_or(0.02),
-            check_up_to: n,
+            check_up_to: requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))),
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),

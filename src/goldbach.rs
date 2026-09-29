@@ -94,7 +94,21 @@ pub struct Run {
 const SMALL: u64 = 5_000;
 const WINDOW: u64 = 1 << 24;
 
+/// Numbers where the smallest prime exceeds a formula a (ln n)^b: how many,
+/// and the worst few (n, p, formula value), worst ratio first.
+#[derive(Clone, Debug, Default)]
+pub struct Over {
+    pub count: u64,
+    pub worst: Vec<(u64, u64, f64)>,
+}
+
 fn segment(lo: u64, hi: u64, small: &[u64], base: &[u64]) -> (Vec<(u64, u64)>, Option<u64>) {
+    let (r, bad, _) = segment_with(lo, hi, small, base, None);
+    (r, bad)
+}
+
+fn segment_with(lo: u64, hi: u64, small: &[u64], base: &[u64], bound: Option<(f64, f64)>) -> (Vec<(u64, u64)>, Option<u64>, Over) {
+    let mut over = Over::default();
     // sieve the odd numbers in [lo - SMALL, hi]
     let start = lo.saturating_sub(SMALL) | 1;
     let len = ((hi - start) / 2 + 1) as usize;
@@ -130,7 +144,7 @@ fn segment(lo: u64, hi: u64, small: &[u64], base: &[u64]) -> (Vec<(u64, u64)>, O
                     let mut p = SMALL + 1;
                     loop {
                         if p > n / 2 {
-                            return (records, Some(n));
+                            return (records, Some(n), over);
                         }
                         if is_prime(p) && is_prime(n - p) {
                             break p;
@@ -144,9 +158,52 @@ fn segment(lo: u64, hi: u64, small: &[u64], base: &[u64]) -> (Vec<(u64, u64)>, O
             best = p;
             records.push((n, p));
         }
+        if let Some((a, b)) = bound {
+            let f = a * (n as f64).ln().powf(b);
+            if p as f64 > f {
+                over.count += 1;
+                over.worst.push((n, p, f));
+                if over.worst.len() > 64 {
+                    over.worst.sort_by(|x, y| (y.1 as f64 / y.2).partial_cmp(&(x.1 as f64 / x.2)).expect("finite"));
+                    over.worst.truncate(8);
+                }
+            }
+        }
         n += 2;
     }
-    (records, None)
+    (records, None, over)
+}
+
+/// Every even n from 4 to `limit`: how often the smallest prime exceeds a (ln n)^b.
+pub fn exceed(limit: u64, from: u64, threads: usize, a: f64, b: f64) -> (Over, f64) {
+    let t0 = Instant::now();
+    let small = small_primes(SMALL);
+    let base = small_primes(((limit as f64).sqrt() as u64 + 2).max(SMALL));
+    let chunks = limit.div_ceil(WINDOW);
+    let next = AtomicU64::new(0);
+    let total: Mutex<Over> = Mutex::new(Over::default());
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| loop {
+                let c = next.fetch_add(1, Ordering::Relaxed);
+                if c >= chunks {
+                    break;
+                }
+                let lo = (c * WINDOW).max(4).max(from);
+                let hi = ((c + 1) * WINDOW - 1).min(limit);
+                if lo > hi {
+                    continue;
+                }
+                let (_, _, o) = segment_with(lo, hi, &small, &base, Some((a, b)));
+                let mut t = total.lock().expect("no panics while holding it");
+                t.count += o.count;
+                t.worst.extend(o.worst);
+                t.worst.sort_by(|x, y| (y.1 as f64 / y.2).partial_cmp(&(x.1 as f64 / x.2)).expect("finite"));
+                t.worst.truncate(8);
+            });
+        }
+    });
+    (total.into_inner().expect("threads done"), t0.elapsed().as_secs_f64())
 }
 
 pub fn run(limit: u64, threads: usize) -> Run {

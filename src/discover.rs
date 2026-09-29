@@ -135,6 +135,24 @@ pub fn goldbach_formula(s: &Settings) -> Vec<String> {
     for &(n, p) in test.iter().step_by((test.len() / 6).max(1)) {
         out.push(format!("  n = {:.3e}: predicted {:>6.0}, actual {:>5}", n, predict(f, c, n), p));
     }
+    // 3. the formula against every single even number, not just the records
+    if f.name == "a (ln n)^b" {
+        let (a, b) = (c[0].exp(), c[1]);
+        let (over, secs) = goldbach::exceed(s.check_up_to, s.min_n, threads, a, b);
+        let evens = (s.check_up_to - s.min_n) / 2 + 1;
+        out.push(format!("every even n from {} to {}: is the smallest prime p(n) at most {a:.3} (ln n)^{b:.3}? ({evens} numbers, {secs:.1} s; below {} the formula isn't meant to hold)", s.min_n, s.check_up_to, s.min_n));
+        if over.count == 0 {
+            out.push("  yes, for every one of them".into());
+        } else {
+            out.push(format!("  no: {} numbers exceed it (one in {:.0}); the worst:", over.count, evens as f64 / over.count as f64));
+            for (n, p, fv) in &over.worst {
+                out.push(format!("    n = {n}: p = {p}, formula {fv:.0} ({:+.0}%)", (*p as f64 / fv - 1.0) * 100.0));
+            }
+            // the smallest factor that makes it a bound over this whole range
+            let k = over.worst.first().map_or(1.0, |(_, p, fv)| *p as f64 / fv);
+            out.push(format!("  as an upper bound it needs a factor {k:.3}: p(n) <= {:.3} (ln n)^{b:.3} holds for every even n up to {} (checked, not proved beyond)", a * k, s.check_up_to));
+        }
+    }
     out.push("this is a fitted formula, not a theorem: it describes the records seen so far".into());
     out
 }
