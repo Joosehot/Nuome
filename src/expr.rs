@@ -96,6 +96,11 @@ pub enum Expr {
     SetConst(bool),
     /// "x is in A": the element's letter and the set.
     Member(String, Box<Expr>),
+    /// "for all x" (true) or "there exists x" (false), the letter it binds,
+    /// and the statement about it.
+    Quant(bool, String, Box<Expr>),
+    /// A one-place predicate of a letter: P(x).
+    Pred(String, String),
 }
 
 use Expr::*;
@@ -153,8 +158,8 @@ impl Expr {
             Limit(a, _, p) | At(a, _, p) => vec![a, p],
             // logic and sets (agent L)
             Logic(_, v) | Set(_, v) => v.iter().collect(),
-            Truth(_) | SetConst(_) => vec![],
-            Member(_, a) => vec![a],
+            Truth(_) | SetConst(_) | Pred(..) => vec![],
+            Member(_, a) | Quant(_, _, a) => vec![a],
         }
     }
     fn child_mut(&mut self, i: usize) -> &mut Expr {
@@ -184,8 +189,8 @@ impl Expr {
             }
             // logic and sets (agent L)
             Logic(_, v) | Set(_, v) => &mut v[i],
-            Truth(_) | SetConst(_) => unreachable!("leaf has no children"),
-            Member(_, a) => a,
+            Truth(_) | SetConst(_) | Pred(..) => unreachable!("leaf has no children"),
+            Member(_, a) | Quant(_, _, a) => a,
         }
     }
     pub fn get(&self, path: &[usize]) -> &Expr {
@@ -308,7 +313,7 @@ impl Expr {
             Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
             Integral(..) | Limit(..) => None,
             // logic and sets (agent L): truth values, not numbers
-            Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) => None,
+            Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) | Quant(..) | Pred(..) => None,
             At(e, v, p) => {
                 let at = p.eval_q(env)?;
                 e.eval_q(&|n| if n == v { Some(at) } else { env(n) })
@@ -387,7 +392,7 @@ impl Expr {
             // an indefinite integral has no single value; a limit is estimated by the checks
             Integral(..) | Limit(..) => f64::NAN,
             // logic and sets (agent L): truth values, not numbers
-            Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) => f64::NAN,
+            Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) | Quant(..) | Pred(..) => f64::NAN,
             At(e, v, p) => {
                 let at = p.eval_f(env);
                 e.eval_f(&|n| if n == v { at } else { env(n) })
@@ -540,6 +545,7 @@ pub fn tidy(e: Expr) -> Expr {
             }
         }
         Member(x, a) => Member(x, Box::new(tidy(*a))),
+        Quant(q, x, a) => Quant(q, x, Box::new(tidy(*a))),
         x => x,
     }
 }

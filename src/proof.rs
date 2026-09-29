@@ -149,50 +149,53 @@ fn listed(names: &[String]) -> String {
 fn logic_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     use crate::logic;
     let m = &req.problem.value;
-    let names = logic::letters(m);
+    let names = logic::case_names(m);
     let n = names.len();
-    if n > cfg.logic.check_letters {
-        out.push(ck("truth table", false, format!("{n} letters is more than the {} whose truth tables Nuome checks", cfg.logic.check_letters)));
+    let quantified = logic::quantified(m);
+    if (!quantified && n > cfg.logic.check_letters) || (quantified && n > cfg.logic.predicates) {
+        out.push(ck("truth table", false, format!("{n} letters or predicates is more than Nuome checks exhaustively")));
         return;
     }
-    let rows = 1usize << n;
+    let cases = logic::cases(m);
+    let count = cases.len();
     let sets = matches!(m, Math::Eq(..) | Math::Subset(..));
-    let bad = (0..rows).map(|k| logic::row(n, k)).find(|v| logic::at(m, &names, v) != Some(true));
+    let bad = cases.iter().find(|c| logic::holds(m, &names, c) != Some(true));
     out.push(match bad {
-        Some(v) => ck("truth table", false, format!("fails when {}", logic::describe_row(&names, &v, sets))),
+        Some(c) => ck(if quantified { "domains" } else { "truth table" }, false, format!("fails for {}", logic::describe(&names, c, sets))),
         None => {
             let what = match m {
-                Math::Taut(_) => format!("true in all {rows} rows of its truth table ({})", listed(&names)),
-                Math::Equiv(..) => format!("both sides agree in all {rows} rows of the truth table ({})", listed(&names)),
-                Math::Eq(..) => format!("both sides contain the same regions, in all {rows} regions of the Venn diagram of {} (every element lies in exactly one)", listed(&names)),
-                _ => format!("in all {rows} regions of the Venn diagram of {}, a region inside the left side is inside the right", listed(&names)),
+                _ if quantified => format!("true in all {count} kinds of domain for {} (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are)", listed(&names)),
+                Math::Taut(_) => format!("true in all {count} rows of its truth table ({})", listed(&names)),
+                Math::Equiv(..) => format!("both sides agree in all {count} rows of the truth table ({})", listed(&names)),
+                Math::Eq(..) => format!("both sides contain the same regions, in all {count} regions of the Venn diagram of {} (every element lies in exactly one)", listed(&names)),
+                _ => format!("in all {count} regions of the Venn diagram of {}, a region inside the left side is inside the right", listed(&names)),
             };
-            ck("truth table", true, format!("{what}: every case, checked exactly"))
+            ck(if quantified { "domains" } else { "truth table" }, true, format!("{what}: every case, checked exactly"))
         }
     });
-    // every step: a rewrite keeps each side's value in every row; a step that
+    // every step: a rewrite keeps each side's value in every case; a step that
     // changes the form of the statement (assume, chase an element) keeps the
-    // statement's value in every row; the last step's claim holds in every row
+    // statement's value in every case; the last step's claim holds in every case
     for (k, st) in path.steps.iter().enumerate() {
         let (a, b) = (&st.before, &st.mv.result);
         let fail = |why: String| ck("steps", false, format!("step {} ({}) {why}", k + 1, st.mv.rule));
-        let every = |f: &dyn Fn(&[bool]) -> bool| (0..rows).map(|r| logic::row(n, r)).all(|v| f(&v));
+        let every = |f: &dyn Fn(&logic::Case) -> bool| cases.iter().all(f);
         if *b == Math::Proved {
-            if !every(&|v| logic::at(a, &names, v) == Some(true)) {
-                out.push(fail("claims a statement that fails in some row".into()));
+            if !every(&|c| logic::holds(a, &names, c) == Some(true)) {
+                out.push(fail("claims a statement that fails in some case".into()));
                 return;
             }
             continue;
         }
         let same_shape = std::mem::discriminant(a) == std::mem::discriminant(b) && a.slots().len() == b.slots().len();
-        let kept = same_shape && a.slots().iter().zip(b.slots()).all(|(x, y)| every(&|v| logic::value_at(x, &names, v).is_some() && logic::value_at(x, &names, v) == logic::value_at(y, &names, v)));
-        let meaning = every(&|v| logic::at(a, &names, v).is_some() && logic::at(a, &names, v) == logic::at(b, &names, v));
+        let kept = same_shape && a.slots().iter().zip(b.slots()).all(|(x, y)| every(&|c| logic::value(x, &names, c).is_some() && logic::value(x, &names, c) == logic::value(y, &names, c)));
+        let meaning = every(&|c| logic::holds(a, &names, c).is_some() && logic::holds(a, &names, c) == logic::holds(b, &names, c));
         if !(kept || meaning) {
-            out.push(fail("changes a truth value in some row".into()));
+            out.push(fail("changes a truth value in some case".into()));
             return;
         }
     }
     let steps = path.steps.len();
-    let cases = if sets { format!("{rows} regions") } else { format!("{rows} rows") };
+    let cases = if quantified { format!("{count} kinds of domain") } else if sets { format!("{count} regions") } else { format!("{count} rows") };
     out.push(ck("steps", true, if steps == 1 { format!("the step's claim holds in all {cases}") } else { format!("each of the {steps} steps keeps every truth value in all {cases}") }));
 }

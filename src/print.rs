@@ -412,7 +412,7 @@ fn write(e: &Expr, s: Style, out: &mut String) {
             }
         }
         // logic and sets (agent L)
-        Expr::Logic(..) | Expr::Truth(_) | Expr::Set(..) | Expr::SetConst(_) | Expr::Member(..) => logic(e, s, out),
+        Expr::Logic(..) | Expr::Truth(_) | Expr::Set(..) | Expr::SetConst(_) | Expr::Member(..) | Expr::Quant(..) | Expr::Pred(..) => logic(e, s, out),
     }
 }
 
@@ -677,6 +677,26 @@ fn logic(e: &Expr, s: Style, out: &mut String) {
                 Style::Latex => " \\in ",
             });
             write(a, s, out);
+        }
+        // forall x P(x), exists x (P(x) and Q(x))
+        Expr::Quant(all, x, a) => {
+            out.push_str(match (all, s) {
+                (true, Style::Ascii) => "forall ",
+                (false, Style::Ascii) => "exists ",
+                (true, Style::Unicode) => "∀",
+                (false, Style::Unicode) => "∃",
+                (true, Style::Latex) => "\\forall ",
+                (false, Style::Latex) => "\\exists ",
+            });
+            out.push_str(x);
+            out.push_str(if s == Style::Latex { "\\, " } else { " " });
+            part(a, out);
+        }
+        Expr::Pred(p, x) => {
+            out.push_str(p);
+            out.push('(');
+            out.push_str(x);
+            out.push(')');
         }
         _ => out.push_str(logic_sign(e, s)),
     }

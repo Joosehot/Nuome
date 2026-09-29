@@ -116,6 +116,7 @@ pub fn canon(e: &Expr) -> String {
         Expr::Logic(c, v) => format!("{c:?}({})", v.iter().map(canon).collect::<Vec<_>>().join(",")),
         Expr::Set(o, v) => format!("{o:?}({})", v.iter().map(canon).collect::<Vec<_>>().join(",")),
         Expr::Member(x, a) => format!("{x} in {}", canon(a)),
+        Expr::Quant(q, x, a) => format!("{}{x}({})", if *q { "A" } else { "E" }, canon(a)),
         e => print::expr(e, Style::Ascii),
     }
 }
@@ -228,7 +229,7 @@ pub fn size(m: &Math) -> usize {
 /// commutativity, "an intersection is inside each of its sets") gives way to
 /// the truth table, which proves it without assuming it.
 pub fn table_first(m: &Math, cx: &Cx) -> bool {
-    *m == cx.req.start() && letters(m).len() <= cx.cfg.logic.table_letters
+    *m == cx.req.start() && !quantified(m) && letters(m).len() <= cx.cfg.logic.table_letters
 }
 
 /// Would the proof end right here: both sides the same, T, or the goal among
@@ -263,7 +264,20 @@ pub fn entails_by_parts(l: &Expr, r: &Expr) -> Option<&'static str> {
     if shared_part(l, r).is_some() {
         return Some("part");
     }
+    if instance(l, r).is_some() {
+        return Some("instance");
+    }
     None
+}
+
+/// From "everything is B" to "something is B": a part of `l` that is
+/// forall x B while `r` (or one of its or-parts) is exists x B.
+pub fn instance(l: &Expr, r: &Expr) -> Option<Expr> {
+    let rs = disjuncts(r);
+    conjuncts(l).into_iter().find(|c| {
+        let Expr::Quant(true, x, b) = c else { return false };
+        rs.iter().any(|d| matches!(d, Expr::Quant(false, y, b2) if y == x && same(b, b2)))
+    })
 }
 
 /// An and-part of `l` that is one of the or-parts of `r`: from p and q, p or r.
@@ -274,31 +288,85 @@ pub fn shared_part(l: &Expr, r: &Expr) -> Option<Expr> {
 
 // ---- truth values (for the checks and the truth table) ------------------------
 
-/// The value of a statement (or whether an element of the region lies in a
-/// set) when each letter has the value `env` gives it.
-pub fn eval(e: &Expr, env: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
-    let all = |v: &[Expr]| v.iter().try_fold(true, |a, x| Some(eval(x, env)? && a));
-    let any = |v: &[Expr]| v.iter().try_fold(false, |a, x| Some(eval(x, env)? || a));
+/// One case a statement is checked in. Without quantifiers: a row of the
+/// truth table (a region of the Venn diagram), a value for each letter. With
+/// quantifiers: a kind of domain, given by which combinations of the
+/// predicates occur in it (one thing of each kind; each entry is the set of
+/// predicates that thing has, as bits).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Case {
+    pub row: Vec<bool>,
+    pub domain: Vec<u32>,
+}
+
+/// What the cases range over: the letters, or the predicates.
+pub fn case_names(m: &Math) -> Vec<String> {
+    if quantified(m) {
+        predicates(m)
+    } else {
+        letters(m)
+    }
+}
+
+/// Every case there is. For one-place predicates and no equality, whether a
+/// statement holds depends only on which combinations of the predicates occur
+/// (Lowenheim, Behmann), so the 2^(2^k) - 1 kinds of domain are all the
+/// cases there are: the check is exact, like a truth table.
+pub fn cases(m: &Math) -> Vec<Case> {
+    let n = case_names(m).len();
+    if quantified(m) {
+        let kinds = 1u64 << n;
+        (1u64..1u64 << kinds).map(|set| Case { row: vec![], domain: (0..kinds as u32).filter(|t| set >> t & 1 == 1).collect() }).collect()
+    } else {
+        (0..1usize << n).map(|k| Case { row: row(n, k), domain: vec![] }).collect()
+    }
+}
+
+fn ev(e: &Expr, names: &[String], c: &Case, at: &[(String, usize)]) -> Option<bool> {
+    let go = |x: &Expr| ev(x, names, c, at);
+    let all = |v: &[Expr]| v.iter().try_fold(true, |acc, x| Some(go(x)? && acc));
+    let any = |v: &[Expr]| v.iter().try_fold(false, |acc, x| Some(go(x)? || acc));
     match e {
-        Expr::Var(v) => env(v),
+        Expr::Var(v) => names.iter().position(|n| n == v).and_then(|i| c.row.get(i).copied()),
         Expr::Truth(b) | Expr::SetConst(b) => Some(*b),
-        Expr::Member(_, a) => eval(a, env),
-        Expr::Logic(Conn::Not, v) | Expr::Set(SetOp::Complement, v) => Some(!eval(&v[0], env)?),
+        Expr::Member(_, a) => go(a),
+        Expr::Logic(Conn::Not, v) | Expr::Set(SetOp::Complement, v) => Some(!go(&v[0])?),
         Expr::Logic(Conn::And, v) | Expr::Set(SetOp::Inter, v) => all(v),
         Expr::Logic(Conn::Or, v) | Expr::Set(SetOp::Union, v) => any(v),
-        Expr::Logic(Conn::Implies, v) => Some(!eval(&v[0], env)? || eval(&v[1], env)?),
-        Expr::Logic(Conn::Iff, v) => Some(eval(&v[0], env)? == eval(&v[1], env)?),
-        Expr::Set(SetOp::Diff, v) => Some(eval(&v[0], env)? && !eval(&v[1], env)?),
+        Expr::Logic(Conn::Implies, v) => Some(!go(&v[0])? || go(&v[1])?),
+        Expr::Logic(Conn::Iff, v) => Some(go(&v[0])? == go(&v[1])?),
+        Expr::Set(SetOp::Diff, v) => Some(go(&v[0])? && !go(&v[1])?),
+        Expr::Pred(p, x) => {
+            let i = names.iter().position(|n| n == p)?;
+            let (_, thing) = at.iter().rev().find(|(y, _)| y == x)?;
+            Some(c.domain.get(*thing)? >> i & 1 == 1)
+        }
+        Expr::Quant(forall, x, body) => {
+            let mut vals = Vec::new();
+            for thing in 0..c.domain.len() {
+                let mut at2 = at.to_vec();
+                at2.push((x.clone(), thing));
+                vals.push(ev(body, names, c, &at2)?);
+            }
+            Some(if *forall { vals.iter().all(|v| *v) } else { vals.iter().any(|v| *v) })
+        }
         _ => None,
     }
 }
 
-/// Whether the statement holds in one row (one region).
-pub fn holds(m: &Math, env: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
+/// The value of a statement (or whether an element of the region lies in a
+/// set) in one case.
+pub fn value(e: &Expr, names: &[String], c: &Case) -> Option<bool> {
+    ev(e, names, c, &[])
+}
+
+/// Whether the statement holds in one case.
+pub fn holds(m: &Math, names: &[String], c: &Case) -> Option<bool> {
+    let v = |e: &Expr| value(e, names, c);
     match m {
-        Math::Taut(e) => eval(e, env),
-        Math::Equiv(l, r) | Math::Eq(l, r) => Some(eval(l, env)? == eval(r, env)?),
-        Math::Entails(l, r) | Math::Subset(l, r) => Some(!eval(l, env)? || eval(r, env)?),
+        Math::Taut(e) => v(e),
+        Math::Equiv(l, r) | Math::Eq(l, r) => Some(v(l)? == v(r)?),
+        Math::Entails(l, r) | Math::Subset(l, r) => Some(!v(l)? || v(r)?),
         Math::Proved => Some(true),
         _ => None,
     }
@@ -310,41 +378,70 @@ pub fn letters(m: &Math) -> Vec<String> {
     set.into_iter().collect()
 }
 
+/// The predicates of a statement, in order.
+pub fn predicates(m: &Math) -> Vec<String> {
+    let set: BTreeSet<String> = m.slots().iter().flat_map(|e| e.walk().into_iter().filter_map(|(_, n)| if let Expr::Pred(p, _) = n { Some(p.clone()) } else { None })).collect();
+    set.into_iter().collect()
+}
+
+/// Does the statement use quantifiers (or predicates)?
+pub fn quantified(m: &Math) -> bool {
+    m.slots().iter().any(|e| e.walk().iter().any(|(_, n)| matches!(n, Expr::Quant(..) | Expr::Pred(..))))
+}
+
 /// Row k of the table over n letters: the first row is all true, the last
 /// all false, the first letter changing slowest (the textbook order).
 pub fn row(n: usize, k: usize) -> Vec<bool> {
     (0..n).map(|i| (k >> (n - 1 - i)) & 1 == 0).collect()
 }
 
-/// The value of a statement in a row.
+/// The value of a statement in a row of the truth table.
 pub fn at(m: &Math, names: &[String], vals: &[bool]) -> Option<bool> {
-    holds(m, &|v| names.iter().position(|n| n == v).map(|i| vals[i]))
+    holds(m, names, &Case { row: vals.to_vec(), domain: vec![] })
 }
 
 pub fn value_at(e: &Expr, names: &[String], vals: &[bool]) -> Option<bool> {
-    eval(e, &|v| names.iter().position(|n| n == v).map(|i| vals[i]))
+    value(e, names, &Case { row: vals.to_vec(), domain: vec![] })
 }
 
-/// A row where the statement fails, if there is one.
-pub fn counterexample(m: &Math) -> Option<Vec<bool>> {
-    let names = letters(m);
-    let n = names.len();
-    (0..1usize << n).map(|k| row(n, k)).find(|vals| at(m, &names, vals) == Some(false))
+/// A case where the statement fails, if there is one.
+pub fn counterexample(m: &Math) -> Option<Case> {
+    let names = case_names(m);
+    cases(m).into_iter().find(|c| holds(m, &names, c) == Some(false))
 }
 
-/// "p = true, q = false" or "an element in A but not in B".
-pub fn describe_row(names: &[String], vals: &[bool], sets: bool) -> String {
-    if sets {
-        let ins: Vec<&str> = names.iter().zip(vals).filter(|(_, v)| **v).map(|(n, _)| n.as_str()).collect();
-        let outs: Vec<&str> = names.iter().zip(vals).filter(|(_, v)| !**v).map(|(n, _)| n.as_str()).collect();
-        let join = |v: &[&str]| match v.split_last() {
-            Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
-            _ => v.join(""),
+fn join(v: &[String], word: &str) -> String {
+    match v.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} {word} {last}", rest.join(", ")),
+        _ => v.join(""),
+    }
+}
+
+/// "p = true, q = false", "an element in A but not in B", or "a domain of
+/// two things: one that is P but not Q, one that is Q but not P".
+pub fn describe(names: &[String], c: &Case, sets: bool) -> String {
+    if !c.domain.is_empty() || c.row.is_empty() && !names.is_empty() {
+        let kind = |t: u32| {
+            let has: Vec<String> = names.iter().enumerate().filter(|(i, _)| t >> i & 1 == 1).map(|(_, n)| n.clone()).collect();
+            let lacks: Vec<String> = names.iter().enumerate().filter(|(i, _)| t >> i & 1 == 0).map(|(_, n)| n.clone()).collect();
+            match (has.is_empty(), lacks.is_empty()) {
+                (false, false) => format!("one that is {} but not {}", join(&has, "and"), join(&lacks, "or")),
+                (false, true) => format!("one that is {}", join(&has, "and")),
+                _ => format!("one that is not {}", join(&lacks, "or")),
+            }
         };
+        let things = c.domain.len();
+        let count = ["", "one thing", "two things", "three things", "four things"].get(things).map_or(format!("{things} things"), |s| s.to_string());
+        return format!("a domain of {count}: {}", c.domain.iter().map(|t| kind(*t)).collect::<Vec<_>>().join(", "));
+    }
+    let vals = &c.row;
+    if sets {
+        let ins: Vec<String> = names.iter().zip(vals).filter(|(_, v)| **v).map(|(n, _)| n.clone()).collect();
+        let outs: Vec<String> = names.iter().zip(vals).filter(|(_, v)| !**v).map(|(n, _)| n.clone()).collect();
         return match (ins.is_empty(), outs.is_empty()) {
-            (false, false) => format!("an element in {} but not in {}", join(&ins), join(&outs)),
-            (false, true) => format!("an element in {}", join(&ins)),
-            (true, _) => format!("an element in none of {}", join(&outs)),
+            (false, false) => format!("an element in {} but not in {}", join(&ins, "and"), join(&outs, "and")),
+            (false, true) => format!("an element in {}", join(&ins, "and")),
+            (true, _) => format!("an element in none of {}", join(&outs, "and")),
         };
     }
     names.iter().zip(vals).map(|(n, v)| format!("{n} = {v}")).collect::<Vec<_>>().join(", ")
@@ -406,6 +503,8 @@ enum L {
     Close,
     /// "is a tautology", "is always true".
     Taut,
+    /// "for all", "forall", "∀" (true); "there exists", "exists", "∃" (false).
+    Quant(bool),
     Prove,
     Method(&'static str),
     Mod(Modifier),
@@ -442,6 +541,26 @@ fn scan(s: &str) -> Option<Vec<Lt>> {
                 if let Some(t) = lexicon::phrase(&phrase) {
                     best = Some((j + 1 - k, t));
                 }
+            }
+            // quantifiers are read here, not in the shared vocabulary ("for all n"
+            // belongs to other kinds of proof)
+            let two = words.get(k + 1).map(|w| format!("{} {}", words[k].0.to_lowercase(), w.0.to_lowercase()));
+            let quant = match (words[k].0.to_lowercase().as_str(), two.as_deref()) {
+                (_, Some("for all" | "for every" | "for some" | "there exists" | "there exist" | "there is")) => Some((two.as_deref() != Some("for some") && !two.as_deref().is_some_and(|t| t.starts_with("there")), 2)),
+                ("forall", _) => Some((true, 1)),
+                ("exists", _) => Some((false, 1)),
+                _ => None,
+            };
+            if two.as_deref() == Some("such that") {
+                out.push(Lt { l: L::Skip, words: "such that".into(), strong: false });
+                k += 2;
+                continue;
+            }
+            if let Some((all, n)) = quant {
+                let text = words[k..k + n].iter().map(|w| w.0.as_str()).collect::<Vec<_>>().join(" ");
+                out.push(Lt { l: L::Quant(all), words: text, strong: true });
+                k += n;
+                continue;
             }
             let one = &words[k].0;
             let text: String = words[k..k + best.map_or(1, |b| b.0)].iter().map(|w| w.0.as_str()).collect::<Vec<_>>().join(" ");
@@ -527,6 +646,8 @@ fn scan(s: &str) -> Option<Vec<Lt>> {
             ('⊆' | '⊂', ..) => (L::Subset, 1, true),
             ('=', ..) => (L::Eq, 1, false),
             ('∅', ..) => (L::Empty, 1, true),
+            ('∀', ..) => (L::Quant(true), 1, true),
+            ('∃', ..) => (L::Quant(false), 1, true),
             ('⊤', ..) => (L::True, 1, true),
             ('⊥', ..) => (L::False, 1, true),
             ('(' | '[', ..) => (L::Open, 1, false),
@@ -620,6 +741,17 @@ impl P<'_> {
                 self.i += 1;
                 Ok(Expr::Logic(Conn::Not, vec![self.unary()?]))
             }
+            // forall x P(x): the quantifier governs what follows it, as tightly as "not"
+            Some(L::Quant(all)) => {
+                let all = *all;
+                self.i += 1;
+                let x = match self.ts.get(self.i).map(|t| &t.l) {
+                    Some(L::Letter(x)) if x.chars().all(|c| c.is_lowercase()) => x.clone(),
+                    _ => return Err(self.err("a quantifier needs a letter").hint("e.g. \"forall x P(x)\"")),
+                };
+                self.i += 1;
+                Ok(Expr::Quant(all, x, Box::new(self.unary()?)))
+            }
             // "the complement of A intersect B" is (A intersect B)'
             Some(L::Comp) => {
                 self.i += 1;
@@ -639,6 +771,12 @@ impl P<'_> {
         let Some(t) = self.ts.get(self.i) else { return Err(self.err("expected a letter")) };
         self.i += 1;
         match &t.l {
+            // P(x): a capital letter, then a letter in brackets
+            L::Letter(p) if p.chars().all(|c| c.is_uppercase()) && self.peek() == Some(&L::Open) && matches!(self.ts.get(self.i + 1).map(|t| &t.l), Some(L::Letter(x)) if x.chars().all(|c| c.is_lowercase())) && self.ts.get(self.i + 2).map(|t| &t.l) == Some(&L::Close) => {
+                let Some(L::Letter(x)) = self.ts.get(self.i + 1).map(|t| t.l.clone()) else { unreachable!("checked") };
+                self.i += 3;
+                Ok(Expr::Pred(p.clone(), x))
+            }
             L::Letter(v) => Ok(Expr::Var(v.clone())),
             L::True => Ok(Expr::Truth(true)),
             L::False => Ok(Expr::Truth(false)),
@@ -678,6 +816,8 @@ fn settle(e: Expr, sets: bool) -> Result<Expr, Diag> {
         Expr::Truth(_) if sets => return Err(mixed()),
         Expr::Logic(..) if sets => return Err(mixed()),
         Expr::Set(..) | Expr::SetConst(_) if !sets => return Err(mixed()),
+        Expr::Quant(..) | Expr::Pred(..) if sets => return Err(mixed()),
+        Expr::Quant(q, x, a) => Expr::Quant(q, x, Box::new(settle(*a, sets)?)),
         Expr::Logic(c, v) => Expr::Logic(c, kids(v)?),
         Expr::Set(o, v) => Expr::Set(o, kids(v)?),
         e => e,
@@ -764,6 +904,18 @@ fn build(sentence: &str, toks: &[Lt], cfg: &Config) -> Result<Request, (bool, Ve
     let problem = Said::new(problem, words);
     let names = letters(&problem.value);
     let shown = print::math(&problem.value, Style::Ascii);
+    if quantified(&problem.value) {
+        let preds = predicates(&problem.value);
+        if !names.is_empty() {
+            return Err((true, vec![Diag::new(format!("{shown} mixes letters ({}) with quantifiers", names.join(", "))).hint("a statement with quantifiers uses one-place predicates like P(x) only")]));
+        }
+        if preds.len() > cfg.logic.predicates {
+            return Err((true, vec![Diag::new(format!("{shown} has {} predicates", preds.len())).hint(format!("Nuome proves statements with quantifiers about up to {} one-place predicates, so that every kind of domain can be checked", cfg.logic.predicates))]));
+        }
+        if let Some(x) = free_letter(&problem.value) {
+            return Err((true, vec![Diag::new(format!("{x} is free in {shown}")).hint(format!("bind it: \"forall {x}\" or \"exists {x}\""))]));
+        }
+    }
     if names.len() > cfg.logic.check_letters {
         return Err((true, vec![Diag::new(format!("{shown} has {} letters", names.len())).hint(format!("Nuome proves statements with up to {} letters, so that every row of the truth table can be checked", cfg.logic.check_letters))]));
     }
@@ -772,19 +924,39 @@ fn build(sentence: &str, toks: &[Lt], cfg: &Config) -> Result<Request, (bool, Ve
             return Err((true, vec![Diag::new(format!("\"{}\" is a way to prove statements about sets", m.words)).hint("for logic, try \"by truth table\"")]));
         }
     }
-    // a false statement is refused with the row that shows it
-    if let Some(vals) = counterexample(&problem.value) {
-        let row = describe_row(&names, &vals, sets);
+    // a false statement is refused with the case that shows it
+    if let Some(c) = counterexample(&problem.value) {
+        let names = case_names(&problem.value);
+        let case = describe(&names, &c, sets);
+        let side = |e: &Expr| value(e, &names, &c) == Some(true);
         let (what, why) = match &problem.value {
-            Math::Taut(_) => ("isn't a tautology", format!("{row} makes it false")),
-            Math::Equiv(l, _) => ("isn't an equivalence", format!("{row} makes the left side {} and the right side {}", value_at(l, &names, &vals) == Some(true), value_at(l, &names, &vals) != Some(true))),
-            Math::Eq(l, _) => ("isn't true for every choice of sets", format!("{row} is in the {} side only", if value_at(l, &names, &vals) == Some(true) { "left" } else { "right" })),
-            _ => ("isn't true for every choice of sets", format!("{row} is in the left side but not the right")),
+            Math::Taut(_) => ("isn't a tautology", format!("{case} makes it false")),
+            Math::Equiv(l, _) => ("isn't an equivalence", format!("{case} makes the left side {} and the right side {}", side(l), !side(l))),
+            Math::Eq(l, _) => ("isn't true for every choice of sets", format!("{case} is in the {} side only", if side(l) { "left" } else { "right" })),
+            _ => ("isn't true for every choice of sets", format!("{case} is in the left side but not the right")),
         };
         return Err((true, vec![Diag::new(format!("{shown} {what}, so it can't be proved")).hint(why)]));
     }
+    let names = if quantified(&problem.value) { vec!["x".to_string()] } else { names };
     let var = if sets { Said::new("x".to_string(), "(an element of the sets)") } else { Said::new(names.first().cloned().unwrap_or_else(|| "p".into()), "(first letter)") };
     Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given: vec![], method, modifiers, decimals: None, notes: vec![], calc: Calc::default() })
+}
+
+/// A letter of a predicate that no quantifier binds.
+fn free_letter(m: &Math) -> Option<String> {
+    fn go(e: &Expr, bound: &mut Vec<String>) -> Option<String> {
+        match e {
+            Expr::Pred(_, x) if !bound.contains(x) => Some(x.clone()),
+            Expr::Quant(_, x, a) => {
+                bound.push(x.clone());
+                let r = go(a, bound);
+                bound.pop();
+                r
+            }
+            e => e.children().into_iter().find_map(|c| go(c, bound)),
+        }
+    }
+    m.slots().into_iter().find_map(|e| go(e, &mut Vec::new()))
 }
 
 /// The tokens of a logic sentence, for --explain.
@@ -864,6 +1036,9 @@ mod tests {
         assert_eq!(show("prove A \\ B = A ∩ B'"), "prove | A \\ B = A intersect B'");
         assert_eq!(show("prove A ∩ B ⊆ A"), "prove | A intersect B subset of A");
         assert_eq!(show("prove p ^ ~p = F"), "prove | p and ~p <=> F");
+        assert_eq!(show("prove ∀x (P(x) → Q(x)) ∧ ∀x P(x) → ∀x Q(x)"), "prove | (forall x (P(x) -> Q(x)) and forall x P(x)) -> forall x Q(x)");
+        assert_eq!(show("prove not forall x P(x) <-> there exists x such that not P(x)"), "prove | ~forall x P(x) <=> exists x ~P(x)");
+        assert!(show("prove P(x) or not P(x)").contains("x is free"));
     }
 
     #[test]
@@ -878,5 +1053,6 @@ mod tests {
     fn false_statements_are_refused_with_a_row() {
         assert!(show("prove (p -> q) -> p").contains("p = false, q = true makes it false"));
         assert!(show("prove A union B = A").contains("an element in B but not in A"));
+        assert!(show("prove (exists x P(x) and exists x Q(x)) -> exists x (P(x) and Q(x))").contains("a domain of two things: one that is P but not Q, one that is Q but not P"));
     }
 }

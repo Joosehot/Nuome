@@ -199,6 +199,9 @@ pub struct LogicCfg {
     /// A step may make the statement at most this many times as big as it
     /// was asked (plus 2): spreading and over or can grow without end.
     pub growth: f64,
+    /// The most one-place predicates a statement with quantifiers may have:
+    /// it is checked in every kind of domain, 2^(2^k) - 1 of them.
+    pub predicates: usize,
 }
 
 /// Algebra checks (inequalities).
@@ -316,6 +319,9 @@ impl Config {
         }
         if !(l.growth.is_finite() && l.growth >= 1.0) {
             bail!("[logic]: growth must be at least 1");
+        }
+        if l.predicates == 0 || l.predicates > 4 {
+            bail!("[logic]: predicates must be 1 to 4");
         }
         Ok(())
     }

@@ -935,7 +935,7 @@ pub fn vocabulary() -> Vec<String> {
     v.extend(["any single letter (a variable)", "e", "d/dx", "+ - * / ^ ( ) = % ² ³ √ π × ÷", "< <= > >= ≤ ≥ | _"].map(String::from));
     v.extend(["dx (after an integrand)", "-> → ° ∞"].map(String::from));
     // logic and sets (agent L)
-    v.extend([r"~ ¬ ! & ^ ∧ /\ | ∨ \/ -> => → <-> <=> ↔ ≡ T F (in a statement of logic)", r"∪ ∩ ' ^c \ ∖ ⊆ ⊂ ∅ {} U, capital letters (in a statement about sets)"].map(String::from));
+    v.extend([r"~ ¬ ! & ^ ∧ /\ | ∨ \/ -> => → <-> <=> ↔ ≡ T F (in a statement of logic)", r"∪ ∩ ' ^c \ ∖ ⊆ ⊂ ∅ {} U, capital letters (in a statement about sets)", "forall, for all, for every, exists, there exists, for some, such that, ∀ ∃, P(x) (in a statement with quantifiers)"].map(String::from));
     v.sort();
     v.dedup();
     v

@@ -15,7 +15,7 @@ impl Rule for EntailsEnd {
         "entails_end"
     }
     fn variants(&self) -> &'static [&'static str] {
-        &["same", "conjunct", "disjunct", "part", "trivial"]
+        &["same", "conjunct", "disjunct", "part", "instance", "trivial"]
     }
     fn moves(&self, m: &Math, cx: &Cx) -> Vec<Move> {
         if !logic::applies("entails_end", m, cx) || logic::table_first(m, cx) {
@@ -34,6 +34,10 @@ impl Rule for EntailsEnd {
             ("part", false) => {
                 let c = logic::shared_part(l, r).unwrap_or_else(|| l.clone());
                 Line::new().t("In particular ").e(&c).t(", one of the alternatives in ").e(r).t(", so ").e(r).t(" holds.")
+            }
+            ("instance", _) => {
+                let c = logic::instance(l, r).unwrap_or_else(|| l.clone());
+                Line::new().t("A domain is never empty, so from ").e(&c).t(" there is something it holds for: ").e(r).t(".")
             }
             ("part", true) => Line::new().t("An intersection is inside each of its sets, and each set is inside any union it is part of: ").m(m).t("."),
             (_, false) => Line::new().t("It holds whatever was assumed: ").m(m).t("."),

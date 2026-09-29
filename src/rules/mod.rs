@@ -130,6 +130,8 @@ pub mod element_chase;
 pub mod equiv_end;
 pub mod entails_end;
 pub mod truth_table;
+pub mod quant_negation;
+pub mod quant_distribution;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -338,6 +340,8 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &equiv_end::EquivEnd,
         &entails_end::EntailsEnd,
         &truth_table::TruthTable,
+        &quant_negation::QuantNegation,
+        &quant_distribution::QuantDistribution,
     ]
 }
 

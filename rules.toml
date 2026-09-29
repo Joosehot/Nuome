@@ -54,7 +54,7 @@ expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribut
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors", "factor_theorem"]
 solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict", "trig_exact", "trig_solve"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
-prove = ["sides_equal", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "impl_elim", "iff_elim", "de_morgan", "double_negation", "distributive", "absorption", "idempotence", "excluded_middle", "logic_identity", "domination", "negate_constant", "modus_ponens", "set_difference", "assume", "element_chase", "equiv_end", "entails_end", "truth_table"]
+prove = ["sides_equal", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "impl_elim", "iff_elim", "de_morgan", "double_negation", "distributive", "absorption", "idempotence", "excluded_middle", "logic_identity", "domination", "negate_constant", "modus_ponens", "set_difference", "assume", "element_chase", "equiv_end", "entails_end", "truth_table", "quant_negation", "quant_distribution"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
 # calculus and trig (agent B). int_constant goes last: C is written once the rest is done.
@@ -843,6 +843,7 @@ weight = 1.0
 [rules.entails_end.variants.conjunct]
 [rules.entails_end.variants.disjunct]
 [rules.entails_end.variants.part]
+[rules.entails_end.variants.instance]
 [rules.entails_end.variants.trivial]
 
 [rules.truth_table]          # every row written out: a proof, but brute force; the laws are preferred unless asked for (or the statement IS a law)
@@ -856,9 +857,26 @@ brevity = 0.2
 clarity = -1.0
 elegance = -2.5
 
+[rules.quant_negation]          # ~(forall x P(x)) is exists x ~P(x); ~(exists x P(x)) is forall x ~P(x)
+weight = 1.0
+[rules.quant_negation.variants.forall]
+clarity = 0.1
+[rules.quant_negation.variants.exists]
+clarity = 0.1
+
+[rules.quant_distribution]      # forall over and, exists over or; or gathered back under one quantifier
+weight = 1.0
+[rules.quant_distribution.variants.forall_and]
+[rules.quant_distribution.variants.exists_or]
+[rules.quant_distribution.variants.gather_forall]
+elegance = 0.1
+[rules.quant_distribution.variants.gather_exists]
+elegance = 0.1
+
 [logic]
 table_letters = 3          # the most letters a truth table written out as the proof may have (8 rows)
 check_letters = 16         # the most letters a statement may have: every one of the 2^n rows is checked
+predicates = 3             # the most one-place predicates with quantifiers: checked in all 2^(2^k) - 1 kinds of domain
 growth = 1.5               # a step may make the statement at most 1.5 times its size as asked (+2): distributing can grow without end
 
 # ---- Open problems ---------------------------------------------------------------

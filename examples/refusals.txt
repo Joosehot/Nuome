@@ -29,3 +29,5 @@ prove (p -> q) <-> (q -> p)
 prove p or q is equivalent to p and q
 prove A ∪ B = A
 prove A ⊆ A ∩ B
+prove (exists x P(x) and exists x Q(x)) -> exists x (P(x) and Q(x))
+prove forall x (P(x) or Q(x)) -> forall x P(x) or forall x Q(x)

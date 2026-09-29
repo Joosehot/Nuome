@@ -1,0 +1,7 @@
+prove not forall x P(x) <-> exists x not P(x)
+prove not exists x P(x) is equivalent to forall x not P(x)
+prove not exists x (P(x) and Q(x)) <-> forall x (P(x) -> not Q(x))
+prove forall x (P(x) and Q(x)) <-> forall x P(x) and forall x Q(x)
+prove exists x (P(x) or Q(x)) <-> exists x P(x) or exists x Q(x)
+prove (forall x (P(x) -> Q(x)) and forall x P(x)) -> forall x Q(x)
+prove forall x P(x) -> exists x P(x)

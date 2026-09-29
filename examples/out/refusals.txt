@@ -167,3 +167,13 @@ error: A union B = A isn't true for every choice of sets, so it can't be proved
 error: A subset of A intersect B isn't true for every choice of sets, so it can't be proved
   hint: an element in A but not in B is in the left side but not the right
 
+### prove (exists x P(x) and exists x Q(x)) -> exists x (P(x) and Q(x))
+
+error: (exists x P(x) and exists x Q(x)) -> exists x (P(x) and Q(x)) isn't a tautology, so it can't be proved
+  hint: a domain of two things: one that is P but not Q, one that is Q but not P makes it false
+
+### prove forall x (P(x) or Q(x)) -> forall x P(x) or forall x Q(x)
+
+error: forall x (P(x) or Q(x)) -> (forall x P(x) or forall x Q(x)) isn't a tautology, so it can't be proved
+  hint: a domain of two things: one that is P but not Q, one that is Q but not P makes it false
+

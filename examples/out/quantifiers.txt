@@ -1,0 +1,108 @@
+### prove not forall x P(x) <-> exists x not P(x)
+
+Prove ~forall x P(x) <=> exists x ~P(x)
+
+      ~forall x P(x) <=> exists x ~P(x)
+  1.  Negating a quantifier: ~forall x P(x) <=> exists x ~P(x).   [quant_negation]
+      exists x ~P(x) <=> exists x ~P(x)
+  2.  Both sides are the same: exists x ~P(x).   [equiv_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 3 kinds of domain for P (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 3 kinds of domain
+
+### prove not exists x P(x) is equivalent to forall x not P(x)
+
+Prove ~exists x P(x) <=> forall x ~P(x)
+
+      ~exists x P(x) <=> forall x ~P(x)
+  1.  Negating a quantifier: ~exists x P(x) <=> forall x ~P(x).   [quant_negation]
+      forall x ~P(x) <=> forall x ~P(x)
+  2.  Both sides are the same: forall x ~P(x).   [equiv_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 3 kinds of domain for P (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 3 kinds of domain
+
+### prove not exists x (P(x) and Q(x)) <-> forall x (P(x) -> not Q(x))
+
+Prove ~exists x (P(x) and Q(x)) <=> forall x (P(x) -> ~Q(x))
+
+      ~exists x (P(x) and Q(x)) <=> forall x (P(x) -> ~Q(x))
+  1.  Negating a quantifier: ~exists x P(x) <=> forall x ~P(x).   [quant_negation]
+      forall x ~(P(x) and Q(x)) <=> forall x (P(x) -> ~Q(x))
+  2.  Implication law: (P -> Q) <=> ~P or Q.   [impl_elim]
+      forall x ~(P(x) and Q(x)) <=> forall x (~P(x) or ~Q(x))
+  3.  De Morgan's law: ~(P and Q) <=> ~P or ~Q.   [de_morgan]
+      forall x (~P(x) or ~Q(x)) <=> forall x (~P(x) or ~Q(x))
+  4.  Both sides are the same: forall x (~P(x) or ~Q(x)).   [equiv_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 15 kinds of domain for P and Q (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 15 kinds of domain
+
+### prove forall x (P(x) and Q(x)) <-> forall x P(x) and forall x Q(x)
+
+Prove forall x (P(x) and Q(x)) <=> forall x P(x) and forall x Q(x)
+
+      forall x (P(x) and Q(x)) <=> forall x P(x) and forall x Q(x)
+  1.  Quantifier over a connective: forall x P(x) and forall x Q(x) <=> forall x (P(x) and Q(x)).   [quant_distribution]
+      forall x (P(x) and Q(x)) <=> forall x (P(x) and Q(x))
+  2.  Both sides are the same: forall x (P(x) and Q(x)).   [equiv_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 15 kinds of domain for P and Q (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 15 kinds of domain
+
+### prove exists x (P(x) or Q(x)) <-> exists x P(x) or exists x Q(x)
+
+Prove exists x (P(x) or Q(x)) <=> exists x P(x) or exists x Q(x)
+
+      exists x (P(x) or Q(x)) <=> exists x P(x) or exists x Q(x)
+  1.  Quantifier over a connective: exists x P(x) or exists x Q(x) <=> exists x (P(x) or Q(x)).   [quant_distribution]
+      exists x (P(x) or Q(x)) <=> exists x (P(x) or Q(x))
+  2.  Both sides are the same: exists x (P(x) or Q(x)).   [equiv_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 15 kinds of domain for P and Q (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 15 kinds of domain
+
+### prove (forall x (P(x) -> Q(x)) and forall x P(x)) -> forall x Q(x)
+
+Prove (forall x (P(x) -> Q(x)) and forall x P(x)) -> forall x Q(x)
+
+      (forall x (P(x) -> Q(x)) and forall x P(x)) -> forall x Q(x)
+  1.  Assume forall x (P(x) -> Q(x)) and forall x P(x); it remains to show forall x Q(x).   [assume]
+      forall x (P(x) -> Q(x)) and forall x P(x) => forall x Q(x)
+  2.  Quantifier over a connective: forall x P(x) and forall x Q(x) <=> forall x (P(x) and Q(x)).   [quant_distribution]
+      forall x ((P(x) -> Q(x)) and P(x)) => forall x Q(x)
+  3.  Modus ponens: (P -> Q) and P <=> Q and P.   [modus_ponens]
+      forall x (Q(x) and P(x)) => forall x Q(x)
+  4.  Quantifier over a connective: forall x (P(x) and Q(x)) <=> forall x P(x) and forall x Q(x).   [quant_distribution]
+      forall x Q(x) and forall x P(x) => forall x Q(x)
+  5.  In particular forall x Q(x): it is part of what was assumed.   [entails_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 15 kinds of domain for P and Q (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 5 steps keeps every truth value in all 15 kinds of domain
+
+### prove forall x P(x) -> exists x P(x)
+
+Prove forall x P(x) -> exists x P(x)
+
+      forall x P(x) -> exists x P(x)
+  1.  Assume forall x P(x); it remains to show exists x P(x).   [assume]
+      forall x P(x) => exists x P(x)
+  2.  A domain is never empty, so from forall x P(x) there is something it holds for: exists x P(x).   [entails_end]
+      proved
+
+Answer: proved
+  ok domains: true in all 3 kinds of domain for P (one for each choice of which combinations of the predicates occur; for one-place predicates these are all the cases there are): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 3 kinds of domain
+
