@@ -1,0 +1,264 @@
+### what is sin(pi/6)
+
+Evaluate sin(pi/6)
+
+      sin(pi/6)
+  1.  Exact value: sin(pi/6) = 1/2.   [trig_exact]
+      1/2
+
+Answer: 1/2
+  ok steps: all 1 steps agree at 6 sample points
+  ok value: equals sin(pi/6) to 9 decimal places
+
+### what is cos(45 degrees)
+
+Evaluate cos(45 deg)
+
+      cos(45 deg)
+  1.  Exact value: cos(45 deg) = sqrt(2)/2.   [trig_exact]
+      sqrt(2)/2
+
+Answer: sqrt(2)/2 ~ 0.707
+  ok steps: all 1 steps agree at 6 sample points
+  ok value: equals cos(45 deg) to 9 decimal places
+
+### what is tan(2pi/3)
+
+Evaluate tan(2pi/3)
+
+      tan(2pi/3)
+  1.  Exact value: tan(2pi/3) = -sqrt(3).   [trig_exact]
+        reference angle pi/3; tan is negative in the second quadrant
+      -sqrt(3)
+
+Answer: -sqrt(3) ~ -1.732
+  ok steps: all 1 steps agree at 6 sample points
+  ok value: equals tan(2pi/3) to 9 decimal places
+
+### what is sin(210 degrees) + cos(60 degrees)
+
+Evaluate sin(210 deg) + cos(60 deg)
+
+      sin(210 deg) + cos(60 deg)
+  1.  Exact value: sin(210 deg) = -1/2.   [trig_exact]
+        reference angle 30 deg; sin is negative in the third quadrant
+      -1/2 + cos(60 deg)
+  2.  Exact value: cos(60 deg) = 1/2.   [trig_exact]
+      -1/2 + 1/2
+  3.  Work out -1/2 + 1/2 = 0.   [fold]
+        -1/2 + 1/2 = -1/2 + 1/2   (common denominator 2)
+      0
+
+Answer: 0
+  ok steps: all 3 steps agree at 6 sample points
+  ok value: equals sin(210 deg) + cos(60 deg) to 9 decimal places
+
+### simplify sin^2 x + cos^2 x
+
+Simplify sin(x)^2 + cos(x)^2
+
+      sin(x)^2 + cos(x)^2
+  1.  Pythagorean identity: sin^2 + cos^2 = 1.   [trig_identity]
+      1
+
+Answer: 1
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify 3sin^2 x + 3cos^2 x
+
+Simplify 3sin(x)^2 + 3cos(x)^2
+
+      3sin(x)^2 + 3cos(x)^2
+  1.  Pythagorean identity: sin^2 + cos^2 = 1.   [trig_identity]
+      3
+
+Answer: 3
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify 1 - cos^2 x
+
+Simplify 1 - cos(x)^2
+
+      1 - cos(x)^2
+  1.  Pythagorean identity: 1 - cos^2 = sin^2.   [trig_identity]
+      sin(x)^2
+
+Answer: sin(x)^2
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify 2 sin x cos x
+
+Simplify 2sin(x) cos(x)
+
+      2sin(x) cos(x)
+  1.  Double angle: 2 sin u cos u = sin(2u).   [trig_identity]
+      sin(2x)
+
+Answer: sin(2x)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify cos^2 x - sin^2 x
+
+Simplify cos(x)^2 - sin(x)^2
+
+      cos(x)^2 - sin(x)^2
+  1.  Double angle: cos^2 u - sin^2 u = cos(2u).   [trig_identity]
+      cos(2x)
+
+Answer: cos(2x)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify sin x / cos x
+
+Simplify sin(x)/cos(x)
+
+      sin(x)/cos(x)
+  1.  Quotient identity: sin u / cos u = tan u.   [trig_identity]
+      tan(x)
+
+Answer: tan(x)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### solve sin x = 1/2
+
+Solve sin(x) = 1/2 for x
+
+      sin(x) = 1/2
+  1.  Read the angles off the unit circle; sin repeats every 2pi, so add 2k pi for any whole number k.   [trig_solve]
+        sin(x) = 1/2 at x = pi/6 and 5pi/6
+      x = pi/6 + 2k pi or x = 5pi/6 + 2k pi
+
+Answer: x = pi/6 + 2k pi or x = 5pi/6 + 2k pi
+  ok satisfies: x = pi/6 + 2k pi holds for k = -3..3; x = 5pi/6 + 2k pi holds for k = -3..3
+  ok complete: a scan of [0.000, 6.283) finds 2 solutions, the same as the answer
+
+### solve 2cos x - 1 = 0
+
+Solve 2cos(x) - 1 = 0 for x
+
+      2cos(x) - 1 = 0
+  1.  Add 1 to both sides.   [move_term]
+      2cos(x) = 1
+  2.  Divide both sides by 2.   [scale]
+      cos(x) = 1/2
+  3.  Read the angles off the unit circle; cos repeats every 2pi, so add 2k pi for any whole number k.   [trig_solve]
+        cos(x) = 1/2 at x = pi/3 and -pi/3
+      x = pi/3 + 2k pi or x = 5pi/3 + 2k pi
+
+Answer: x = pi/3 + 2k pi or x = 5pi/3 + 2k pi
+  ok satisfies: x = pi/3 + 2k pi holds for k = -3..3; x = 5pi/3 + 2k pi holds for k = -3..3
+  ok complete: a scan of [0.000, 6.283) finds 2 solutions, the same as the answer
+
+### solve tan x = 1
+
+Solve tan(x) = 1 for x
+
+      tan(x) = 1
+  1.  Read the angles off the unit circle; tan repeats every pi, so add k pi for any whole number k.   [trig_solve]
+        tan(x) = 1 at x = pi/4
+      x = pi/4 + k pi
+
+Answer: x = pi/4 + k pi
+  ok satisfies: x = pi/4 + k pi holds for k = -3..3
+  ok complete: a scan of [0.000, 6.283) finds 2 solutions, the same as the answer
+
+### solve sin x = -1/2 for x between 0 and 2pi
+
+Solve sin(x) = -1/2 for x from 0 to 2pi
+
+      sin(x) = -1/2
+  1.  Read the angles off the unit circle and keep the ones from 0 to 2pi.   [trig_solve]
+        sin(x) = -1/2 at x = -pi/6 and 7pi/6
+      x = 7pi/6 or x = 11pi/6
+
+Answer: x = 7pi/6 ~ 3.665 or x = 11pi/6 ~ 5.760
+  ok satisfies: x = 7pi/6 holds; x = 11pi/6 holds
+  ok complete: a scan of [0.000, 6.283] finds 2 solutions, the same as the answer
+
+### solve cos x = 1/2 for x between 0 and 360 degrees
+
+Solve cos(x) = 1/2 for x from 0 to 360 deg
+
+      cos(x) = 1/2
+  1.  Read the angles off the unit circle and keep the ones from 0 to 360 deg.   [trig_solve]
+        cos(x) = 1/2 at x = 60 deg and -60 deg
+      x = 60 deg or x = 300 deg
+
+Answer: x = 60 deg or x = 300 deg
+  ok satisfies: x = 60 deg holds; x = 300 deg holds
+  ok complete: a scan of [0.000, 6.283] finds 2 solutions, the same as the answer
+
+### solve 2sin(2x) = sqrt(3) for x between 0 and 2pi
+
+Solve 2sin(2x) = sqrt(3) for x from 0 to 2pi
+
+      2sin(2x) = sqrt(3)
+  1.  Divide both sides by 2.   [scale]
+      sin(2x) = sqrt(3)/2
+  2.  Read the angles off the unit circle and keep the ones from 0 to 2pi.   [trig_solve]
+        sin(2x) = sqrt(3)/2 at 2x = pi/3 and 2pi/3
+      x = pi/6 or x = pi/3 or x = 7pi/6 or x = 4pi/3
+
+Answer: x = pi/6 ~ 0.524 or x = pi/3 ~ 1.047 or x = 7pi/6 ~ 3.665 or x = 4pi/3 ~ 4.189
+  ok satisfies: x = pi/6 holds; x = pi/3 holds; x = 7pi/6 holds; x = 4pi/3 holds
+  ok complete: a scan of [0.000, 6.283] finds 4 solutions, the same as the answer
+
+### solve sin x = 2
+
+Solve sin(x) = 2 for x
+
+      sin(x) = 2
+  1.  sin(x) is always between -1 and 1, so it never equals 2.   [trig_solve]
+      no real solution
+
+Answer: no real solution
+  ok samples: the equation fails at all 6 sample points tried
+  ok complete: a scan of [0.000, 6.283) finds 0 solutions, the same as the answer
+
+### solve sin x = 0.3
+
+Solve sin(x) = 3/10 for x
+
+      sin(x) = 3/10
+  1.  3/10 is not in the table: arcsin gives one angle, the unit circle the rest; add 2k pi for any whole number k.   [trig_solve]
+        sin(x) = 3/10 at x = arcsin(3/10) and pi - arcsin(3/10)
+      x = arcsin(3/10) + 2k pi or x = pi - arcsin(3/10) + 2k pi
+
+Answer: x = arcsin(3/10) + 2k pi or x = pi - arcsin(3/10) + 2k pi
+  ok satisfies: x = arcsin(3/10) + 2k pi holds for k = -3..3; x = pi - arcsin(3/10) + 2k pi holds for k = -3..3
+  ok complete: a scan of [0.000, 6.283) finds 2 solutions, the same as the answer
+
+### solve tan(2x) = 1
+
+Solve tan(2x) = 1 for x
+
+      tan(2x) = 1
+  1.  Read the angles off the unit circle; tan repeats every pi, so add k pi for any whole number k.   [trig_solve]
+        tan(2x) = 1 at 2x = pi/4
+        2x = pi/4 + k pi; divide by 2
+      x = pi/8 + k pi/2
+
+Answer: x = pi/8 + k pi/2
+  ok satisfies: x = pi/8 + k pi/2 holds for k = -3..3
+  ok complete: a scan of [0.000, 6.283) finds 4 solutions, the same as the answer
+
+### solve sin(x + pi/4) = 1
+
+Solve sin(x + pi/4) = 1 for x
+
+      sin(x + pi/4) = 1
+  1.  Read the angles off the unit circle; sin repeats every 2pi, so add 2k pi for any whole number k.   [trig_solve]
+        sin(x + pi/4) = 1 at x + pi/4 = pi/2
+        x + pi/4 = pi/2 + 2k pi; subtract pi/4
+      x = pi/4 + 2k pi
+
+Answer: x = pi/4 + 2k pi
+  ok satisfies: x = pi/4 + 2k pi holds for k = -3..3
+  ok complete: a scan of [0.000, 6.283) finds 1 solution, the same as the answer
+

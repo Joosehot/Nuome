@@ -21,3 +21,11 @@ integrate sin x from 0 to pi
 integrate e^x from 0 to 1
 integrate 1/x from 1 to e
 integrate (x + 1)^2 dx
+integrate (x^2 + 1)^2
+integrate cos^2 x
+integrate tan x
+integrate x ln x
+integrate arctan x
+integrate x/(x^2 + 1)^2
+integrate 1/(x^2 + 3x + 2)
+integrate cos x from 0 to pi/2

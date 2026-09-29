@@ -56,7 +56,7 @@ impl Rule for IntPower {
             let x = expr::var(v);
             if !inner.has_var(v) {
                 let new = match inner.as_num() {
-                    Some(k) => with_coeff(k, x),
+                    Some(k) => scaled(k, x),
                     None => expr::mul(vec![(**inner).clone(), x]),
                 };
                 let says = Line::new().t("The integral of a constant: ").e(e).t(" = ").e(&new).t(".");

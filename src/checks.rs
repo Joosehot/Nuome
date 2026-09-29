@@ -482,7 +482,7 @@ fn definite_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check
     let got = fin.eval_f(&|_| f64::NAN);
     // the value first: an improper integral is the reason to name
     out.push(match quadrature(f, v, lo, hi, req, cfg) {
-        Err(t) => ck("value", false, format!("the integrand is undefined at {v} = {}, inside the interval: improper integrals are not in Nuome v0", q::decimal(t, 3))),
+        Err(t) => ck("value", false, format!("the integrand is undefined at {v} = {}, inside the interval: improper integrals are not in Nuome v0", short(t))),
         Ok(s) if close(s, got, tol) => ck("value", true, format!("Simpson's rule with {} panels gives {}", cfg.calculus.panels, q::decimal(s, 6))),
         Ok(s) => ck("value", false, format!("Simpson's rule gives {} but the answer is {}", q::decimal(s, 6), q::decimal(got, 6))),
     });
@@ -759,6 +759,10 @@ fn trig_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     }
     if !sols.is_empty() {
         out.push(ck("satisfies", ok, notes.join("; ")));
+    } else {
+        let tried: Vec<f64> = (0..cfg.check.samples.len()).map(|k| g(env(req, cfg, k)(v))).filter(|y| y.is_finite()).collect();
+        let held = tried.iter().filter(|y| y.abs() <= tol).count();
+        out.push(ck("samples", tried.len() >= 3 && held == 0, format!("the equation fails at all {} sample points tried", tried.len())));
     }
     // no solution missed: scan the interval (or one turn) for every root
     let (lo, hi, closed) = trig_interval(req);
@@ -801,10 +805,18 @@ pub fn why_not(req: &Request, cfg: &Config) -> Option<String> {
         (Task::Limit, Math::Expr(Expr::Limit(f, v, p))) => {
             let at = p.eval_f(&|_| f64::NAN);
             if at.is_infinite() {
-                return None;
+                // values far out that neither settle nor grow: nothing to read off
+                let pts = approach(&f, &v, at, req, cfg);
+                let (first, last) = (pts[0], pts[pts.len() - 1]);
+                let (a, b) = (first.2, last.2);
+                let settles = (a - b).abs() <= cfg.calculus.limit_tolerance * 1f64.max(a.abs()).max(b.abs());
+                let grows = b.abs() > cfg.calculus.unbounded && b.abs() > a.abs();
+                return (a.is_finite() && b.is_finite() && !settles && !grows).then(|| {
+                    format!("the values far out don't settle: f({}) = {}, f({}) = {}, so there is no limit to read off", short(first.0 * at.signum()), short(a), short(last.0 * at.signum()), short(b))
+                });
             }
             let (l, r) = sides(&f, &v, at, req, cfg);
-            let say = |x: f64| if x.is_infinite() { if x > 0.0 { "infinity".to_string() } else { "-infinity".to_string() } } else { q::decimal(x, 3) };
+            let say = |x: f64| if x.is_infinite() { if x > 0.0 { "infinity".to_string() } else { "-infinity".to_string() } } else { short(x) };
             let point = print::expr(&p, Style::Ascii);
             match (l.is_nan(), r.is_nan()) {
                 (true, true) => Some(format!("the function is undefined on both sides of {v} = {point}")),
@@ -817,10 +829,11 @@ pub fn why_not(req: &Request, cfg: &Config) -> Option<String> {
         (Task::Integrate, Math::Expr(Expr::Bounds(g, v, a, b))) => {
             let Expr::Integral(f, _) = *g else { return None };
             match quadrature(&f, &v, a.eval_f(&|_| f64::NAN), b.eval_f(&|_| f64::NAN), req, cfg) {
-                Err(t) => Some(format!("the integrand is undefined at {v} = {}, inside the interval: improper integrals are not in Nuome v0", q::decimal(t, 3))),
+                Err(t) => Some(format!("the integrand is undefined at {v} = {}, inside the interval: improper integrals are not in Nuome v0", short(t))),
                 Ok(_) => None,
             }
         }
+        (Task::Solve, _) if trig_equation(req) => Some("Nuome v0 solves sin, cos or tan of ax + b = c at the table's angles, and sin x, cos x, tan x = c in general with arcsin, arccos, arctan (not in an interval or in degrees)".into()),
         _ => None,
     }
 }

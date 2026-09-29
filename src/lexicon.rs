@@ -567,4 +567,16 @@ mod tests {
         assert_eq!(lex("solfe x = 2").unwrap()[0].tok, Unknown);
         assert_eq!(suggest("solfe").as_deref(), Some("did you mean \"solve\"?"));
     }
+
+    #[test]
+    fn calculus_words_and_symbols() {
+        let toks = |s: &str| lex(s).unwrap().into_iter().map(|t| t.tok).collect::<Vec<Tok>>();
+        assert_eq!(toks("integrate x^2 dx")[4..], [For, Var("x".into())]);
+        assert_eq!(toks("lim x->0")[2], Approaches);
+        assert_eq!(toks("x → ∞")[1..], [Approaches, Const(Konst::Inf)]);
+        assert_eq!(toks("cos 45°")[2], Degrees);
+        assert_eq!(toks("tangent to y")[0], Task(Task::Tangent));
+        assert_eq!(toks("tangent of x")[0], Func(Func::Tan));
+        assert_eq!(toks("do")[0], Filler);
+    }
 }

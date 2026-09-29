@@ -18,11 +18,6 @@ error: x^2 - 4 isn't an equation
 error: which letter? x + y = 3 has x, y
   hint: say "for x" or "with respect to x"
 
-### integrate x^2
-
-error: "integrate": integration is not in Nuome v0
-  hint: v0 evaluates, simplifies, expands, factors, solves one equation in one unknown, and differentiates
-
 ### solve x^5 + x + 1 = 0
 
 error: none of my rules can solve x^5 + x + 1 = 0
@@ -47,4 +42,38 @@ error: more than one problem: "x = 1", "y = 2"
 
 error: no way to factor x^4 + 4 passes the checks
   hint: factored: can't prove x^4 + 4 doesn't split into quadratics
+
+### integrate e^(x^2)
+
+error: none of my rules can integrate e^(x^2)
+  hint: no integration rule (the table, the power rule, substitution, parts, partial fractions) fits; some functions, like e^(x^2), have no antiderivative in elementary functions
+
+### integrate 1/x^2 from -1 to 1
+
+error: no way to integrate 1/x^2 passes the checks
+  hint: value: the integrand is undefined at x = 0, inside the interval: improper integrals are not in Nuome v0
+
+### limit of 1/x as x approaches 0
+
+error: none of my rules can find the limit of 1/x
+  hint: the limit doesn't exist: from the left it heads for -infinity, from the right for infinity
+
+### limit of abs(x)/x as x approaches 0
+
+error: none of my rules can find the limit of |x|/x
+  hint: the limit doesn't exist: from the left it heads for -1, from the right for 1
+
+### limit of sin x as x approaches infinity
+
+error: none of my rules can find the limit of sin(x)
+  hint: the values far out don't settle: f(1000) = 0.82688, f(1000000) = -0.349994, so there is no limit to read off
+
+### differentiate x^2 from 0 to 1
+
+error: "from 0 to 1": bounds go with an integral or with solving in an interval
+
+### solve sin x = 0.3 for x between 0 and 2pi
+
+error: none of my rules can solve sin(x) = 3/10
+  hint: Nuome v0 solves sin, cos or tan of ax + b = c at the table's angles, and sin x, cos x, tan x = c in general with arcsin, arccos, arctan (not in an interval or in degrees)
 

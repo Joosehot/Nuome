@@ -121,6 +121,11 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
             i += 1;
             continue;
         }
+        // "in degrees" with no number before it: only says how angles are measured
+        if t.tok == Tok::Degrees && cur.is_empty() {
+            i += 1;
+            continue;
+        }
         // "as x approaches 2", "lim x->0": the letter before, the point after
         if t.tok == Tok::Approaches {
             let Some(Token { tok: Tok::Var(v), words: vw }) = cur.last().cloned() else {

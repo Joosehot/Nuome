@@ -47,10 +47,12 @@ pub mod func_exact;
 pub mod int_bounds;
 pub mod int_constant;
 pub mod int_elementary;
+pub mod int_expand;
 pub mod int_linear;
 pub mod int_parts;
 pub mod int_partial_fractions;
 pub mod int_power;
+pub mod int_power_reduction;
 pub mod int_substitution;
 pub mod lim_factor;
 pub mod lim_infinite;
@@ -60,6 +62,8 @@ pub mod lim_standard;
 pub mod lim_substitute;
 pub mod line_form;
 pub mod trig_exact;
+pub mod trig_identity;
+pub mod trig_solve;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -187,6 +191,8 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &int_parts::IntParts,
         &int_partial_fractions::IntPartialFractions,
         &int_bounds::IntBounds,
+        &int_expand::IntExpand,
+        &int_power_reduction::IntPowerReduction,
         &int_constant::IntConstant,
         &func_exact::FuncExact,
         &trig_exact::TrigExact,
@@ -198,6 +204,8 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &lim_lhopital::LimLhopital,
         &evaluate_at::EvaluateAt,
         &line_form::LineForm,
+        &trig_identity::TrigIdentity,
+        &trig_solve::TrigSolve,
     ]
 }
 

@@ -1,5 +1,6 @@
 //! A straight line is written y = mx + c: the x term first, the number last.
 
+use super::int_linear::scaled;
 use super::{Cx, Line, Move, Rule};
 use crate::expr::{Expr, Math};
 use crate::poly;
@@ -19,8 +20,9 @@ impl Rule for LineForm {
             return vec![];
         }
         let Some(p) = poly::from_expr(r, cx.var).filter(|p| p.deg() == Some(1)) else { return vec![] };
-        // only the order changes: same terms, written as mx + c
-        let tidy = p.to_expr(cx.var);
+        // only the order changes: same terms, written as mx + c (-x/4 + 1, not -1/4 * x + 1)
+        let mx = scaled(p.coef(1), crate::expr::var(cx.var));
+        let tidy = if p.coef(0).is_zero() { mx } else { crate::expr::add(vec![mx, Expr::Num(p.coef(0))]) };
         let same_terms = crate::expr::terms(&tidy).len() == crate::expr::terms(r).len();
         if tidy == *r || !same_terms {
             return vec![];

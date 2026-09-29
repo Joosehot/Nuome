@@ -1,0 +1,277 @@
+### limit of x^2 + 3x as x approaches 2
+
+Find the limit of x^2 + 3x as x -> 2
+
+      lim(x->2) (x^2 + 3x)
+  1.  The function is continuous at x = 2, so put in x = 2.   [lim_substitute]
+      2^2 + 3 * 2
+  2.  Work out 2^2 = 4.   [fold]
+      4 + 3 * 2
+  3.  Work out 3 * 2 = 6.   [fold]
+      4 + 6
+  4.  Work out 4 + 6 = 10.   [fold]
+      10
+
+Answer: 10
+  ok steps: all 4 steps keep the limit
+  ok limit: on both sides, f(1.99999) = 9.99993, f(2.00001) = 10.00007: heading for 10
+
+### limit of (x^2 - 4)/(x - 2) as x approaches 2
+
+Find the limit of (x^2 - 4)/(x - 2) as x -> 2
+
+      lim(x->2) (x^2 - 4)/(x - 2)
+  1.  Top and bottom are both 0 at x = 2: factor out x - 2 and cancel it (x is never 2 on the way to the limit).   [lim_factor]
+        x^2 - 4 = (x - 2)(x + 2)
+      lim(x->2) (x + 2)
+  2.  The function is continuous at x = 2, so put in x = 2.   [lim_substitute]
+      2 + 2
+  3.  Work out 2 + 2 = 4.   [fold]
+      4
+
+Answer: 4
+  ok steps: all 3 steps keep the limit
+  ok limit: on both sides, f(1.99999) = 3.99999, f(2.00001) = 4.00001: heading for 4
+
+### lim x->1 (x^2 - 1)/(x^2 + x - 2)
+
+Find the limit of (x^2 - 1)/(x^2 + x - 2) as x -> 1
+
+      lim(x->1) (x^2 - 1)/(x^2 + x - 2)
+  1.  Top and bottom are both 0 at x = 1: factor out x - 1 and cancel it (x is never 1 on the way to the limit).   [lim_factor]
+        x^2 - 1 = (x - 1)(x + 1)
+        x^2 + x - 2 = (x - 1)(x + 2)
+      lim(x->1) (x + 1)/(x + 2)
+  2.  The function is continuous at x = 1, so put in x = 1.   [lim_substitute]
+      (1 + 1)/(1 + 2)
+  3.  Work out 1 + 1 = 2.   [fold]
+      2/(1 + 2)
+  4.  Work out 1 + 2 = 3.   [fold]
+      2/3
+
+Answer: 2/3
+  ok steps: all 4 steps keep the limit
+  ok limit: on both sides, f(0.99999) = 0.666666, f(1.00001) = 0.666668: heading for 0.666667
+
+### limit of (x^3 - 8)/(x - 2) as x tends to 2
+
+Find the limit of (x^3 - 8)/(x - 2) as x -> 2
+
+      lim(x->2) (x^3 - 8)/(x - 2)
+  1.  Top and bottom are both 0 at x = 2: factor out x - 2 and cancel it (x is never 2 on the way to the limit).   [lim_factor]
+        x^3 - 8 = (x - 2)(x^2 + 2x + 4)
+      lim(x->2) (x^2 + 2x + 4)
+  2.  The function is continuous at x = 2, so put in x = 2.   [lim_substitute]
+      2^2 + 2 * 2 + 4
+  3.  Work out 2^2 = 4.   [fold]
+      4 + 2 * 2 + 4
+  4.  Work out 2 * 2 = 4.   [fold]
+      4 + 4 + 4
+  5.  Work out 4 + 4 + 4 = 12.   [fold]
+      12
+
+Answer: 12
+  ok steps: all 5 steps keep the limit
+  ok limit: on both sides, f(1.99999) = 11.99994, f(2.00001) = 12.00006: heading for 12
+
+### limit of sin x / x as x approaches 0
+
+Find the limit of sin(x)/x as x -> 0
+
+      lim(x->0) sin(x)/x
+  1.  Standard limit: sin(t)/t -> 1 as t -> 0.   [lim_standard]
+      1
+
+Answer: 1
+  ok steps: all 1 steps keep the limit
+  ok limit: on both sides, f(-0.00001) = 1, f(0.00001) = 1: heading for 1
+
+### limit of sin(3x)/(2x) as x approaches 0
+
+Find the limit of sin(3x)/(2x) as x -> 0
+
+      lim(x->0) sin(3x)/(2x)
+  1.  Standard limit: sin(t)/t -> 1 as t -> 0.   [lim_standard]
+        with t = 3x: sin(3x)/(2x) = 3/2 * sin(3x)/(3x) -> 3/2 * 1
+      3/2
+
+Answer: 3/2
+  ok steps: all 1 steps keep the limit
+  ok limit: on both sides, f(-0.00001) = 1.5, f(0.00001) = 1.5: heading for 1.5
+
+### limit of (1 - cos x)/x as x approaches 0
+
+Find the limit of (1 - cos(x))/x as x -> 0
+
+      lim(x->0) (1 - cos(x))/x
+  1.  Standard limit: (1 - cos(t))/t -> 0 as t -> 0.   [lim_standard]
+      0
+
+Answer: 0
+  ok steps: all 1 steps keep the limit
+  ok limit: on both sides, f(-0.00001) = -0.000005, f(0.00001) = 0.000005: heading for 0
+
+### limit of (e^x - 1)/x as x approaches 0
+
+Find the limit of (e^x - 1)/x as x -> 0
+
+      lim(x->0) (e^x - 1)/x
+  1.  Standard limit: (e^t - 1)/t -> 1 as t -> 0.   [lim_standard]
+      1
+
+Answer: 1
+  ok steps: all 1 steps keep the limit
+  ok limit: on both sides, f(-0.00001) = 0.999995, f(0.00001) = 1.000005: heading for 1
+
+### limit of (3x^2 + 1)/(x^2 - 5) as x approaches infinity
+
+Find the limit of (3x^2 + 1)/(x^2 - 5) as x -> infinity
+
+      lim(x->infinity) (3x^2 + 1)/(x^2 - 5)
+  1.  Divide the top and the bottom by x^2, the highest power in the bottom.   [lim_infinity]
+      lim(x->infinity) (3 + 1/x^2)/(1 - 5/x^2)
+  2.  As x -> infinity, a number over something that grows without bound goes to 0.   [lim_infinity]
+      (3 + 0)/(1 + 0)
+  3.  Work out 3 + 0 = 3.   [fold]
+      3/(1 + 0)
+  4.  Work out 1 + 0 = 1.   [fold]
+      3/1
+  5.  Work out 3/1 = 3.   [fold]
+      3
+
+Answer: 3
+  ok steps: all 5 steps keep the limit
+  ok limit: far out, f(1000000) = 3: heading for 3
+
+### limit of (2x + 1)/(x^2 + 3) as x approaches infinity
+
+Find the limit of (2x + 1)/(x^2 + 3) as x -> infinity
+
+      lim(x->infinity) (2x + 1)/(x^2 + 3)
+  1.  Divide the top and the bottom by x^2, the highest power in the bottom.   [lim_infinity]
+      lim(x->infinity) (2/x + 1/x^2)/(1 + 3/x^2)
+  2.  As x -> infinity, a number over something that grows without bound goes to 0.   [lim_infinity]
+      (0 + 0)/(1 + 0)
+  3.  Work out 0 + 0 = 0.   [fold]
+      0/(1 + 0)
+  4.  Work out 1 + 0 = 1.   [fold]
+      0/1
+  5.  Work out 0/1 = 0.   [fold]
+      0
+
+Answer: 0
+  ok steps: all 5 steps keep the limit
+  ok limit: far out, f(1000000) = 0.000002: heading for 0
+
+### limit of (x^3 + 1)/(2x - 1) as x approaches infinity
+
+Find the limit of (x^3 + 1)/(2x - 1) as x -> infinity
+
+      lim(x->infinity) (x^3 + 1)/(2x - 1)
+  1.  The top has the higher degree, so the fraction grows without bound, like x^3/(2x).   [lim_infinity]
+      infinity
+
+Answer: infinity
+  ok steps: all 1 steps keep the limit
+  ok limit: far out, f(1000000) = 500000250000.125: heading for infinity
+
+### limit of 1/x^2 as x approaches 0
+
+Find the limit of 1/x^2 as x -> 0
+
+      lim(x->0) 1/x^2
+  1.  The top goes to 1 and the bottom to 0, staying positive on both sides of x = 0: the fraction grows without bound.   [lim_infinite]
+      infinity
+
+Answer: infinity
+  ok steps: all 1 steps keep the limit
+  ok limit: on both sides, f(-0.00001) = 9999999999.999998, f(0.00001) = 9999999999.999998: heading for infinity
+
+### limit of (sqrt(x) - 2)/(x - 4) as x approaches 4
+
+Find the limit of (sqrt(x) - 2)/(x - 4) as x -> 4
+
+      lim(x->4) (sqrt(x) - 2)/(x - 4)
+  1.  The limit has the form 0/0: by L'Hopital's rule, differentiate the top and the bottom.   [lim_lhopital]
+      lim(x->4) d/dx[sqrt(x) - 2]/d/dx[x - 4]
+  2.  Differentiate term by term.   [diff_linear]
+      lim(x->4) (d/dx[sqrt(x)] + d/dx[-2])/(d/dx[x] + d/dx[-4])
+  3.  The derivative of a constant is 0.   [diff_power]
+      lim(x->4) (d/dx[sqrt(x)] + 0)/(d/dx[x] + 0)
+  4.  Adding 0 changes nothing.   [identity]
+      lim(x->4) d/dx[sqrt(x)]/d/dx[x]
+  5.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      lim(x->4) d/dx[sqrt(x)]/1
+  6.  Dividing by 1 changes nothing.   [identity]
+      lim(x->4) d/dx[sqrt(x)]
+  7.  Standard derivative: d/dx[sqrt(x)] = 1/(2sqrt(x)).   [diff_elementary]
+      lim(x->4) 1/(2sqrt(x))
+  8.  The function is continuous at x = 4, so put in x = 4.   [lim_substitute]
+      1/(2sqrt(4))
+  9.  sqrt(4) = 2, because 2 squared is 4.   [roots]
+      1/(2 * 2)
+ 10.  Work out 2 * 2 = 4.   [fold]
+      1/4
+
+Answer: 1/4
+  ok steps: all 10 steps keep the limit
+  ok limit: on both sides, f(3.99999) = 0.25, f(4.00001) = 0.25: heading for 0.25
+
+### limit of x/e^x as x approaches infinity
+
+Find the limit of x/e^x as x -> infinity
+
+      lim(x->infinity) x/e^x
+  1.  The limit has the form infinity/infinity: by L'Hopital's rule, differentiate the top and the bottom.   [lim_lhopital]
+      lim(x->infinity) d/dx[x]/d/dx[e^x]
+  2.  Standard derivative: d/dx[e^x] = e^x.   [diff_elementary]
+      lim(x->infinity) d/dx[x]/e^x
+  3.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      lim(x->infinity) 1/e^x
+  4.  As x -> infinity, a number over something that grows without bound goes to 0.   [lim_infinity]
+      0
+
+Answer: 0
+  ok steps: 2 of 4 steps keep the limit; 2 can't be measured numerically
+  ok limit: far out, f(1000000) = 0: heading for 0
+
+### limit of ln(x)/(x - 1) as x approaches 1
+
+Find the limit of ln(x)/(x - 1) as x -> 1
+
+      lim(x->1) ln(x)/(x - 1)
+  1.  The limit has the form 0/0: by L'Hopital's rule, differentiate the top and the bottom.   [lim_lhopital]
+      lim(x->1) d/dx[ln(x)]/d/dx[x - 1]
+  2.  Differentiate term by term.   [diff_linear]
+      lim(x->1) d/dx[ln(x)]/(d/dx[x] + d/dx[-1])
+  3.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      lim(x->1) d/dx[ln(x)]/(1 + d/dx[-1])
+  4.  Standard derivative: d/dx[ln(x)] = 1/x.   [diff_elementary]
+      lim(x->1) 1/x/(1 + d/dx[-1])
+  5.  The derivative of a constant is 0.   [diff_power]
+      lim(x->1) 1/x/(1 + 0)
+  6.  Work out 1 + 0 = 1.   [fold]
+      lim(x->1) 1/x/1
+  7.  Dividing by 1 changes nothing.   [identity]
+      lim(x->1) 1/x
+  8.  The function is continuous at x = 1, so put in x = 1.   [lim_substitute]
+      1/1
+  9.  Work out 1/1 = 1.   [fold]
+      1
+
+Answer: 1
+  ok steps: all 9 steps keep the limit
+  ok limit: on both sides, f(0.99999) = 1.000005, f(1.00001) = 0.999995: heading for 1
+
+### limit of (3x^2 + 1)/(x^2 - 5) as x approaches infinity quickly
+
+Find the limit of (3x^2 + 1)/(x^2 - 5) as x -> infinity
+
+      lim(x->infinity) (3x^2 + 1)/(x^2 - 5)
+  1.  Only the leading terms matter as x -> infinity: 3x^2/x^2 -> 3.   [lim_infinity]
+      3
+
+Answer: 3
+  ok steps: all 1 steps keep the limit
+  ok limit: far out, f(1000000) = 3: heading for 3
+

@@ -48,14 +48,14 @@ minor_share = 0.3
 # Factoring never sees distribute (it would undo it), expanding never sees
 # the factoring rules.
 [tasks]
-evaluate = ["substitute", "fold", "roots", "cancel", "identity"]
-simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity", "trig_exact", "func_exact"]
+simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "trig_exact", "func_exact", "trig_identity"]
 expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "trig_exact", "trig_solve"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
 # calculus and trig (agent B). int_constant goes last: C is written once the rest is done.
-integrate = ["int_linear", "int_power", "int_elementary", "int_substitution", "int_parts", "int_partial_fractions", "int_bounds", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "trig_exact", "func_exact", "int_constant"]
+integrate = ["int_linear", "int_power", "int_elementary", "int_substitution", "int_parts", "int_partial_fractions", "int_bounds", "int_expand", "int_power_reduction", "fold", "identity", "cancel", "roots", "powers", "collect", "trig_exact", "func_exact", "int_constant"]
 limit = ["lim_substitute", "lim_factor", "lim_standard", "lim_infinity", "lim_infinite", "lim_lhopital", "diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "roots", "powers", "collect", "trig_exact", "func_exact"]
 tangent = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "evaluate_at", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "trig_exact", "func_exact", "line_form"]
 
@@ -297,6 +297,15 @@ weight = 1.0
 weight = 1.0
 [rules.int_bounds.variants.subtract]
 
+[rules.int_expand]
+weight = 1.0
+[rules.int_expand.variants.polynomial]
+
+[rules.int_power_reduction]
+weight = 1.0
+[rules.int_power_reduction.variants.cos_squared]
+[rules.int_power_reduction.variants.sin_squared]
+
 [rules.int_constant]
 weight = 1.0
 minor = true
@@ -355,6 +364,21 @@ weight = 1.0
 weight = 1.0
 minor = true
 [rules.line_form.variants.slope_intercept]
+
+[rules.trig_identity]
+weight = 1.0
+[rules.trig_identity.variants.pythagorean]
+elegance = 0.3
+[rules.trig_identity.variants.double_angle]
+elegance = 0.3
+[rules.trig_identity.variants.quotient]
+
+[rules.trig_solve]
+weight = 1.0
+[rules.trig_solve.variants.general]
+[rules.trig_solve.variants.interval]
+[rules.trig_solve.variants.impossible]
+[rules.trig_solve.variants.inverse]
 
 [calculus]
 panels = 2000              # Simpson panels for checking a definite integral

@@ -99,7 +99,7 @@ fn superscript(n: &str) -> Option<String> {
 fn joins(prev: &Expr, next: &Expr) -> bool {
     let letterish = |e: &Expr| match e {
         Expr::Var(_) | Expr::Const(_) | Expr::Func(..) => true,
-        Expr::Pow(b, _) => matches!(**b, Expr::Var(_) | Expr::Const(_) | Expr::Add(_)),
+        Expr::Pow(b, _) => matches!(**b, Expr::Var(_) | Expr::Const(_) | Expr::Add(_) | Expr::Func(..)),
         Expr::Add(_) => true,
         _ => false,
     };
@@ -116,7 +116,8 @@ fn joins(prev: &Expr, next: &Expr) -> bool {
         return false;
     }
     match prev {
-        Expr::Num(q) => q.is_int() && letterish(next),
+        // 1 * e^x must not read "1e^x"
+        Expr::Num(q) => q.is_int() && letterish(next) && !(q.is_one() && matches!(next, Expr::Func(Func::Exp, _))),
         Expr::Var(_) | Expr::Const(_) => letterish(next),
         Expr::Pow(b, _) => matches!(**b, Expr::Var(_)) && matches!(next, Expr::Var(_) | Expr::Func(..) | Expr::Add(_)),
         Expr::Add(_) => letterish(next),

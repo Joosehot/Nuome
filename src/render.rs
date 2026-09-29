@@ -64,6 +64,10 @@ fn approx(e: &Expr, places: u32, s: Style) -> Option<String> {
     if !x.is_finite() {
         return None;
     }
+    // an angle in degrees (60 deg) is already exact; its value in radians would mislead
+    if e.walk().iter().any(|(_, n)| matches!(n, Expr::Const(crate::expr::Konst::Deg))) {
+        return None;
+    }
     let approx = if s == Style::Ascii { "~" } else if s == Style::Latex { "\\approx" } else { "≈" };
     match rational {
         Some(q) if q.is_int() => None,

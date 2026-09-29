@@ -2,10 +2,15 @@ solfe 2x = 4
 what is 3 x 4
 solve x^2 - 4
 solve x + y = 3
-integrate e^(x^2)
-integrate 1/x^2 from -1 to 1
 solve x^5 + x + 1 = 0
 solve x + 1 = 0 using the quadratic formula
 what is 1/0
 solve x = 1 and y = 2
 factor x^4 + 4
+integrate e^(x^2)
+integrate 1/x^2 from -1 to 1
+limit of 1/x as x approaches 0
+limit of abs(x)/x as x approaches 0
+limit of sin x as x approaches infinity
+differentiate x^2 from 0 to 1
+solve sin x = 0.3 for x between 0 and 2pi

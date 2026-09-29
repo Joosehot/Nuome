@@ -254,4 +254,14 @@ mod tests {
         let broken = DEFAULT_RULES.replacen("[rules.fold.variants.one]", "[rules.fold.variants.onee]", 1);
         assert!(Config::parse(&broken).is_err());
     }
+
+    #[test]
+    fn calculus_section_is_validated() {
+        let cfg = Config::builtin();
+        assert!(cfg.calculus.panels >= 2);
+        let upward = DEFAULT_RULES.replacen("limit_steps = [1e-2, 1e-3, 1e-4, 1e-5]", "limit_steps = [1e-5, 1e-2]", 1);
+        assert!(Config::parse(&upward).is_err());
+        let no_task = DEFAULT_RULES.replacen("\nlimit = [", "\nlimits = [", 1);
+        assert!(Config::parse(&no_task).is_err());
+    }
 }

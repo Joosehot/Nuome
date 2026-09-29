@@ -1,0 +1,20 @@
+what is sin(pi/6)
+what is cos(45 degrees)
+what is tan(2pi/3)
+what is sin(210 degrees) + cos(60 degrees)
+simplify sin^2 x + cos^2 x
+simplify 3sin^2 x + 3cos^2 x
+simplify 1 - cos^2 x
+simplify 2 sin x cos x
+simplify cos^2 x - sin^2 x
+simplify sin x / cos x
+solve sin x = 1/2
+solve 2cos x - 1 = 0
+solve tan x = 1
+solve sin x = -1/2 for x between 0 and 2pi
+solve cos x = 1/2 for x between 0 and 360 degrees
+solve 2sin(2x) = sqrt(3) for x between 0 and 2pi
+solve sin x = 2
+solve sin x = 0.3
+solve tan(2x) = 1
+solve sin(x + pi/4) = 1
