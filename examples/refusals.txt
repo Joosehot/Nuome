@@ -7,3 +7,5 @@ solve x^5 + x + 1 = 0
 solve x + 1 = 0 using the quadratic formula
 what is 1/0
 factor x^4 + 4
+solve |x - 2| < 3
+solve |x - 1| + |x + 2| = 5

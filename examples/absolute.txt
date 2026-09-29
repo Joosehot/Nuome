@@ -1,0 +1,8 @@
+solve |2x - 3| = 5
+solve |x + 4| - 2 = 5
+solve 3|x - 1| = 12
+solve |x + 1| = -2
+solve |3x - 6| = 0
+solve |x - 1| = |2x + 3|
+solve |x - 1| = 2x + 1
+solve the absolute value of (x - 4) equals 9

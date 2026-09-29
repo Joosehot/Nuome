@@ -43,3 +43,13 @@ error: no way to evaluate 1/0 passes the checks
 error: no way to factor x^4 + 4 passes the checks
   hint: factored: can't prove x^4 + 4 doesn't split into quadratics
 
+### solve |x - 2| < 3
+
+error: none of my rules can solve |x - 2| < 3
+  hint: Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess
+
+### solve |x - 1| + |x + 2| = 5
+
+error: none of my rules can solve |x - 1| + |x + 2| = 5
+  hint: Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess
+
