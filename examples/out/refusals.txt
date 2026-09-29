@@ -170,7 +170,7 @@ error: The Poincare conjecture: an attempt
   known: dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)
   attempt 1, run the engine on: "prove that every simply connected closed 3-manifold is homeomorphic to the 3-sphere"
     stopped while reading it (1 problem):
-      "manifold": algebraic geometry has no rules in Nuome
+      "simply connected", "manifold", "homeomorphic": topology has no rules in Nuome
     so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
   attempt 2, compute:
     nothing: no finite calculation bears on this statement
