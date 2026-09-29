@@ -100,9 +100,13 @@ pub fn exact(f: Func, t: Q) -> Option<(Expr, Option<(Q, u8)>)> {
     Some((sign, Some((reference, q))))
 }
 
-fn angle(t: Q, degrees: bool) -> Expr {
+/// An angle of t turns of pi, written in radians (5pi/6) or degrees (150 deg).
+pub fn angle(t: Q, degrees: bool) -> Expr {
     if degrees {
         return expr::mul(vec![Expr::Num(t.mul(&Q::int(180)).unwrap_or(t)), Expr::Const(Konst::Deg)]);
+    }
+    if t.is_zero() {
+        return expr::num(0);
     }
     let top = expr::with_coeff(Q::int(t.num()), Expr::Const(Konst::Pi));
     if t.den() == 1 {

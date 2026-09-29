@@ -37,7 +37,11 @@ Answer: x = 1
 | simplify / expand | simplify, expand, multiply out | `(x + 1)^2 - x^2`, `(x + 2)(x - 3)`, `3x + 2y - x + 4y` |
 | factor | factor, factorise | `2x^2 - 8`, `2x^2 + 7x + 3`, `x^4 - 16`, `4x^2 - 25y^2` |
 | solve | solve, find x if | linear, quadratic, cubic with rational roots, simple rational equations |
-| differentiate | differentiate, derivative of, d/dx | power, product, quotient and chain rules; sin, cos, tan, e^x, ln, sqrt; `at x = 2` |
+| differentiate | differentiate, derivative of, d/dx | power, product, quotient and chain rules; sin, cos, tan, sec, e^x, a^x, ln, sqrt, arcsin, arctan; `at x = 2`; `second derivative of x^4` |
+| integrate | integrate, integral of, antiderivative, `dx` | `3x^2 + 2x - 5`, `cos(3x)`, `x(x^2 + 1)^3` (substitution), `x e^x`, `ln x` (parts, LIATE), `1/(x^2 - 1)` (partial fractions), `cos^2 x`; `x^2 from 0 to 3` |
+| limit | limit of ... as x approaches, lim x->2, tends to | `(x^2 - 4)/(x - 2)` at 2 (factor and cancel), `sin(3x)/(2x)` at 0, `(3x^2 + 1)/(x^2 - 5)` at infinity, L'Hopital |
+| tangent | tangent to, tangent line to | `tangent to y = x^3 - 2x at x = 2` -> y = 10x - 16 |
+| trig | (evaluate, simplify, solve) | `cos(45 degrees)`, `sin^2 x + cos^2 x`, `2 sin x cos x`, `solve 2cos x - 1 = 0`, `solve sin x = -1/2 for x between 0 and 2pi` |
 
 Math can be typed (`2x^2 - 3x + 1 = 0`) or spoken (`x squared minus 4 equals 0`). `2x` means 2·x, `sin 2x` means sin(2x), and `-x^2` means -(x²).
 
@@ -50,7 +54,7 @@ sentence -> lexicon -> parser -> beam search over solution paths -> checks -> wo
 
 1. **Lexicon** (`lexicon.rs`): a closed vocabulary. An unknown word is an error with the nearest known word (`solfe` → did you mean "solve"?), never a guess. `x` is always a letter, so `3 x 4` is refused with a hint to write `*`.
 2. **Parser** (`parser.rs`): the sentence becomes a request (task, problem, letter, given values, method, profile words, decimal places), and each value remembers the words that produced it.
-3. **Rules** (`src/rules/`, 29 files): one piece of math knowledge per file. Each offers moves, meaning steps a person would write down, with variants: the quadratic formula vs factoring vs square roots vs completing the square; `(a + b)^2` by the identity or as a product; arithmetic one operation at a time or all at once. When the same step applies in several places (the power rule on every term, "add 2 to both sides" in both alternatives), it is one step. Which rules each task may use is in `rules.toml`, so factoring never sees `distribute`, the rule that would undo it.
+3. **Rules** (`src/rules/`, 51 files): one piece of math knowledge per file. Each offers moves, meaning steps a person would write down, with variants: the quadratic formula vs factoring vs square roots vs completing the square; `(a + b)^2` by the identity or as a product; arithmetic one operation at a time or all at once. When the same step applies in several places (the power rule on every term, "add 2 to both sides" in both alternatives), it is one step. Which rules each task may use is in `rules.toml`, so factoring never sees `distribute`, the rule that would undo it.
 4. **Profile**: every variant is scored on brevity · clarity · elegance. `quickly`, `step by step`, `for a beginner` and `elegantly` shift the profile. The same question gets a different, still correct, solution:
 
    | x^2 - 4x + 1 = 0 | method |
@@ -66,7 +70,11 @@ sentence -> lexicon -> parser -> beam search over solution paths -> checks -> wo
    - **Solve:** every answer satisfies the original equation, exactly in rationals where possible. The real solutions are **counted from the equation's own polynomial** (rational root theorem + discriminant), so a lost root fails the check. Every line of the working holds at every answer.
    - **Evaluate:** the result equals the problem computed directly, exactly.
    - **Factor:** the product multiplies back out, and no factor has a rational root or a common factor left.
-   - **Differentiate:** the result matches the slope measured numerically.
+   - **Differentiate:** the result matches the slope measured numerically (a second or third derivative: the n-th central difference).
+   - **Integrate:** differentiating the answer numerically gives back the integrand; every step keeps the derivative. A definite integral also equals Simpson's rule on the integrand (2000 panels), and an integrand undefined inside the interval is refused as improper.
+   - **Limit:** the function evaluated ever closer to the point from both sides (or ever farther out) settles on the answer. Sides that disagree are a refusal that says so.
+   - **Tangent:** the line touches the curve at the point with the curve's measured slope.
+   - **Trig equations:** every answer satisfies the equation (a general solution for k = -3..3), and a fine scan of the interval, or of one turn, finds no solution the answer missed.
    - **Every step** of an expression keeps its value at the sample points.
 
    A path that fails a check is never shown; the next finalist is tried. If nothing passes, Nuome says why.
@@ -112,7 +120,7 @@ Every weight, every variant's axes, every judge, the beam width, the sample poin
 ## Tests
 
 ```
-cargo test                   # 37 unit tests (each rule: one case where it applies, one where it doesn't)
+cargo test                   # 62 unit tests (each rule: one case where it applies, one where it doesn't)
                              # + golden tests: examples/*.txt -> examples/out/*.txt
 NUOME_BLESS=1 cargo test     # accept intended changes to the goldens
 ```
@@ -121,7 +129,8 @@ The golden test runs each example file three times to prove determinism and comp
 
 ## Next
 
-- equation systems, inequalities, integration by the reverse rules
+- equation systems, inequalities
+- stationary points (f'(x) = 0, classified by f''), one-sided limits, improper integrals, e^x sin x (parts that come back round)
 - complex roots (v0 answers "no real solution")
 - rational expression simplification: (x^2 - 1)/(x - 1) → x + 1 with the x ≠ 1 caveat
 - factoring quartics into quadratics (x^4 + 4)

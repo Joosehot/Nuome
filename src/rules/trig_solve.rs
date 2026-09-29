@@ -5,7 +5,7 @@
 //! general solution with k, every solution in an interval, or none at all
 //! (sin and cos never leave [-1, 1]).
 
-use super::trig_exact::{exact, turns};
+use super::trig_exact::{angle, exact, turns};
 use super::{per_eq, Branch, Cx, EqRewrite, Line, Move, Rule};
 use crate::expr::{self, Expr, Func, Konst, Math};
 use crate::poly;
@@ -15,22 +15,6 @@ pub struct TrigSolve;
 
 /// The letter of the general solution: k, any whole number.
 pub const K: &str = "k";
-
-/// An angle of t turns of pi, written in radians (5pi/6) or degrees (150 deg).
-pub fn angle(t: Q, degrees: bool) -> Expr {
-    if degrees {
-        return expr::mul(vec![Expr::Num(t.mul(&Q::int(180)).unwrap_or(t)), Expr::Const(Konst::Deg)]);
-    }
-    if t.is_zero() {
-        return expr::num(0);
-    }
-    let top = expr::with_coeff(Q::int(t.num()), Expr::Const(Konst::Pi));
-    if t.den() == 1 {
-        top
-    } else {
-        expr::div(top, expr::num(t.den()))
-    }
-}
 
 /// r + s k turns: pi/6 + 2k pi, 30 deg + 360k deg.
 fn family(r: Q, s: Q, degrees: bool) -> Expr {

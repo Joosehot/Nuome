@@ -730,6 +730,7 @@ fn scan_roots(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64, cfg: &Config) -> Vec<f64
 }
 
 fn trig_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
+    use crate::rules::trig_solve::K;
     let v = req.var.value.as_str();
     let Math::Eq(l, r) = &req.problem.value else { return };
     let tol = cfg.check.tolerance;
@@ -737,11 +738,11 @@ fn trig_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     let sols = claimed(&path.state, v);
     let kk = cfg.calculus.k_range;
     // what each answer stands for: one number, or a family over k
-    let value = |s: &Expr, k: i64| s.eval_f(&|n: &str| if n == "k" { k as f64 } else { f64::NAN });
+    let value = |s: &Expr, k: i64| s.eval_f(&|n: &str| if n == K { k as f64 } else { f64::NAN });
     let mut ok = true;
     let mut notes = Vec::new();
     for s in &sols {
-        let ks: Vec<i64> = if s.has_var("k") { (-kk..=kk).collect() } else { vec![0] };
+        let ks: Vec<i64> = if s.has_var(K) { (-kk..=kk).collect() } else { vec![0] };
         let bad = ks.iter().find(|&&k| {
             let x = value(s, k);
             let (a, b) = (at_x(l, v, x, req, cfg, 0), at_x(r, v, x, req, cfg, 0));
@@ -753,7 +754,7 @@ fn trig_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
                 ok = false;
                 notes.push(format!("{shown} fails at k = {k}"));
             }
-            None if s.has_var("k") => notes.push(format!("{shown} holds for k = {}..{kk}", -kk)),
+            None if s.has_var(K) => notes.push(format!("{shown} holds for k = {}..{kk}", -kk)),
             None => notes.push(format!("{shown} holds")),
         }
     }
@@ -770,7 +771,7 @@ fn trig_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     let found: Vec<f64> = found.into_iter().filter(|&x| closed || x < hi - 1e3 * tol).collect();
     let mut claimed_here: Vec<f64> = Vec::new();
     for s in &sols {
-        if s.has_var("k") {
+        if s.has_var(K) {
             let (s0, s1) = (value(s, 0), value(s, 1));
             let period = (s1 - s0).abs();
             if !(period > 0.0) {

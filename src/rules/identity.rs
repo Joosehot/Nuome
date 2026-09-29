@@ -47,7 +47,7 @@ impl Rule for Identity {
                     out.push(rw(expr::add(v.iter().filter(|t| !t.is_num(0)).cloned().collect()), Line::new().t("Adding 0 changes nothing.")));
                 }
                 // 2 + sqrt(3), not sqrt(3) + 2: a number leads a sum with no letters
-                Expr::Add(v) if e.vars().is_empty() && v.len() >= 2 && v.last().is_some_and(|t| t.as_num().is_some_and(|q| !q.is_neg())) &&v[..v.len() - 1].iter().all(|t| t.as_num().is_none()) => {
+                Expr::Add(v) if e.vars().is_empty() && v.len() >= 2 && v.last().is_some_and(|t| t.as_num().is_some_and(|q| !q.is_neg())) && v[..v.len() - 1].iter().all(|t| t.as_num().is_none()) => {
                     let mut o = vec![v[v.len() - 1].clone()];
                     o.extend(v[..v.len() - 1].iter().cloned());
                     out.push(rw(Expr::Add(o), Line::new().t("Write the number first.")));
