@@ -106,6 +106,39 @@ pub struct Finance {
     pub months_per_year: u32,
 }
 
+/// Calculus and trigonometry (agent B): the numbers the rules and checks
+/// for integrals, limits, higher derivatives and trig equations use.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalcCfg {
+    /// Simpson panels for checking a definite integral against quadrature.
+    pub panels: usize,
+    /// Relative tolerance for a definite integral against quadrature.
+    pub integral_tolerance: f64,
+    /// Step for the numerical n-th derivative that checks a higher derivative.
+    pub higher_step: f64,
+    /// Relative tolerance for higher derivatives and nested d/dx lines.
+    pub higher_tolerance: f64,
+    /// Distances from the point at which a limit is checked, far to near.
+    pub limit_steps: Vec<f64>,
+    /// Where "x -> infinity" is checked, near to far.
+    pub limit_far: Vec<f64>,
+    /// Relative tolerance for a limit at the nearest (or farthest) step.
+    pub limit_tolerance: f64,
+    /// |f| beyond this at the nearest step counts as growing without bound.
+    pub unbounded: f64,
+    /// A number smaller than this counts as 0 when a rule reads a value
+    /// (0/0 for L'Hopital, a trig value from the table).
+    pub zero: f64,
+    /// Grid points per unit of length when counting a trig equation's solutions.
+    pub trig_scan: usize,
+    /// General solutions are checked for k = -k_range ..= k_range.
+    pub k_range: i64,
+    /// When too few sample points lie in an expression's domain (arcsin x),
+    /// the samples are scaled by this and tried again.
+    pub narrow: f64,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -125,6 +158,7 @@ pub struct Config {
     pub finance: Finance,
     pub numbers: Numbers,
     pub algebra: AlgebraCfg,
+    pub calculus: CalcCfg,
 }
 
 /// Algebra checks (inequalities).
@@ -215,6 +249,21 @@ impl Config {
         if !(self.algebra.sign_tolerance > 0.0 && self.algebra.sign_tolerance < self.algebra.boundary_offset * self.algebra.boundary_offset) {
             bail!("[algebra] sign_tolerance must be positive and below boundary_offset squared (or a double root looks like a sign change)");
         }
+        // calculus and trig (agent B)
+        let c = &self.calculus;
+        if c.panels < 2 || c.trig_scan < 10 || c.k_range < 1 {
+            bail!("[calculus]: panels must be at least 2, trig_scan at least 10, k_range at least 1");
+        }
+        let positive = [c.integral_tolerance, c.higher_step, c.higher_tolerance, c.limit_tolerance, c.unbounded, c.zero, c.narrow];
+        if positive.iter().any(|x| !(x.is_finite() && *x > 0.0)) {
+            bail!("[calculus]: tolerances, steps, unbounded and zero must be positive numbers");
+        }
+        if c.limit_steps.len() < 2 || !c.limit_steps.windows(2).all(|w| w[0] > w[1] && w[1] > 0.0) {
+            bail!("[calculus] limit_steps: at least 2 positive steps, far to near (decreasing)");
+        }
+        if c.limit_far.len() < 2 || !c.limit_far.windows(2).all(|w| w[1] > w[0] && w[0] > 0.0) {
+            bail!("[calculus] limit_far: at least 2 positive points, near to far (increasing)");
+        }
         Ok(())
     }
     /// The rules a task may use, in order.
@@ -241,5 +290,15 @@ mod tests {
         assert!(cfg.search.beam > 0);
         let broken = DEFAULT_RULES.replacen("[rules.fold.variants.one]", "[rules.fold.variants.onee]", 1);
         assert!(Config::parse(&broken).is_err());
+    }
+
+    #[test]
+    fn calculus_section_is_validated() {
+        let cfg = Config::builtin();
+        assert!(cfg.calculus.panels >= 2);
+        let upward = DEFAULT_RULES.replacen("limit_steps = [1e-2, 1e-3, 1e-4, 1e-5]", "limit_steps = [1e-5, 1e-2]", 1);
+        assert!(Config::parse(&upward).is_err());
+        let no_task = DEFAULT_RULES.replacen("\nlimit = [", "\nlimits = [", 1);
+        assert!(Config::parse(&no_task).is_err());
     }
 }

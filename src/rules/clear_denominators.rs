@@ -45,6 +45,10 @@ impl Rule for ClearDenominators {
             if !(l.has_var(v) || r.has_var(v)) {
                 return vec![];
             }
+            // a solved equation keeps its fractions: x = pi/6 + 2k pi
+            if *l == Expr::Var(v.to_string()) && !r.has_var(v) {
+                return vec![];
+            }
             if var_in_denominator(l, v) || var_in_denominator(r, v) {
                 let d = [l, r].iter().flat_map(|s| s.walk().into_iter().map(|(_, n)| n.clone()).collect::<Vec<_>>()).find_map(|n| match n {
                     Expr::Div(_, d) if d.has_var(v) => Some(*d),

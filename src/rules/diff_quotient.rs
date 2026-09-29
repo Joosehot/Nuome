@@ -15,6 +15,9 @@ impl Rule for DiffQuotient {
     fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
         local("diff_quotient", m, |e, _| {
             let Expr::Deriv(inner, v) = e else { return vec![] };
+            if inner.has_deriv() {
+                return vec![]; // a higher derivative: the inner one first
+            }
             let Expr::Div(f, g) = &**inner else { return vec![] };
             if !g.has_var(v) {
                 return vec![];

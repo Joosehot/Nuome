@@ -1,0 +1,263 @@
+### second derivative of x^4 - 3x^2
+
+Differentiate x^4 - 3x^2 with respect to x twice
+
+      d/dx[d/dx[x^4 - 3x^2]]
+  1.  Differentiate term by term.   [diff_linear]
+      d/dx[d/dx[x^4] + d/dx[-3x^2]]
+  2.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[d/dx[x^4] - 6x]
+  3.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[4x^3 - 6x]
+  4.  Differentiate term by term.   [diff_linear]
+      d/dx[4x^3] + d/dx[-6x]
+  5.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      12x^2 - 6
+
+Answer: 12x^2 - 6
+  ok steps: all 5 steps keep the value
+  ok derivative: matches the second difference measured numerically at 6 points
+
+### the second derivative of sin(2x)
+
+Differentiate sin(2x) with respect to x twice
+
+      d/dx[d/dx[sin(2x)]]
+  1.  Chain rule: differentiate the outside, times the derivative of the inside.   [diff_chain]
+        inside: u = 2x.
+      d/dx[cos(2x) * d/dx[2x]]
+  2.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[cos(2x) * 2]
+  3.  The constant factor 2 stays outside.   [diff_linear]
+      2 * d/dx[cos(2x)]
+  4.  Chain rule: differentiate the outside, times the derivative of the inside.   [diff_chain]
+        inside: u = 2x.
+      2 * (-sin(2x)) * d/dx[2x]
+  5.  Bring the minus sign to the front.   [identity]
+      -2sin(2x) * d/dx[2x]
+  6.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      -2sin(2x) * 2
+  7.  Work out -2 * 2 = -4.   [fold]
+      -4sin(2x)
+
+Answer: -4sin(2x)
+  ok steps: all 7 steps keep the value
+  ok derivative: matches the second difference measured numerically at 6 points
+
+### third derivative of x^5
+
+Differentiate x^5 with respect to x three times
+
+      d/dx[d/dx[d/dx[x^5]]]
+  1.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[d/dx[5x^4]]
+  2.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[20x^3]
+  3.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      60x^2
+
+Answer: 60x^2
+  ok steps: 2 of 3 steps keep the value; 1 can't be measured numerically
+  ok derivative: matches the third difference measured numerically at 6 points
+
+### differentiate x e^x twice
+
+Differentiate x e^x with respect to x twice
+
+      d/dx[d/dx[x e^x]]
+  1.  Product rule: (fg)' = f'g + fg'.   [diff_product]
+        f = x, g = e^x.
+      d/dx[d/dx[x] * e^x + x * d/dx[e^x]]
+  2.  Standard derivative: d/dx[e^x] = e^x.   [diff_elementary]
+      d/dx[d/dx[x] * e^x + x e^x]
+  3.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[1 * e^x + x e^x]
+  4.  Differentiate term by term.   [diff_linear]
+      d/dx[1 * e^x] + d/dx[x e^x]
+  5.  Product rule: (fg)' = f'g + fg'.   [diff_product]
+        f = x, g = e^x.
+      d/dx[1 * e^x] + d/dx[x] * e^x + x * d/dx[e^x]
+  6.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      d/dx[1 * e^x] + 1 * e^x + x * d/dx[e^x]
+  7.  Multiplying by 1 changes nothing.   [identity]
+      d/dx[e^x] + e^x + x * d/dx[e^x]
+  8.  Standard derivative: d/dx[e^x] = e^x.   [diff_elementary]
+      e^x + e^x + x e^x
+  9.  Collect the e^x terms.   [collect]
+        e^x + e^x = (1 + 1) e^x = 2e^x
+      2e^x + x e^x
+
+Answer: 2e^x + x e^x
+  ok steps: all 9 steps keep the value
+  ok derivative: matches the second difference measured numerically at 6 points
+
+### differentiate 2^x
+
+Differentiate 2^x with respect to x
+
+      d/dx[2^x]
+  1.  Standard derivative: d/dx[2^x] = 2^x * ln(2).   [diff_elementary]
+      2^x * ln(2)
+  2.  Write the factors in the usual order.   [identity]
+      ln(2) * 2^x
+
+Answer: ln(2) * 2^x
+  ok steps: all 2 steps agree at 6 sample points
+  ok derivative: matches the slope measured numerically at 6 points
+
+### differentiate 3^(x^2)
+
+Differentiate 3^(x^2) with respect to x
+
+      d/dx[3^(x^2)]
+  1.  Chain rule: differentiate the outside, times the derivative of the inside.   [diff_chain]
+        inside: u = x^2.
+      3^(x^2) * ln(3) * d/dx[x^2]
+  2.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      3^(x^2) * ln(3) * 2x
+  3.  Write the number first.   [identity]
+      2x ln(3) * 3^(x^2)
+
+Answer: 2x ln(3) * 3^(x^2)
+  ok steps: all 3 steps agree at 6 sample points
+  ok derivative: matches the slope measured numerically at 6 points
+
+### differentiate arctan x
+
+Differentiate arctan(x) with respect to x
+
+      d/dx[arctan(x)]
+  1.  Standard derivative: d/dx[arctan(x)] = 1/(1 + x^2).   [diff_elementary]
+      1/(1 + x^2)
+
+Answer: 1/(1 + x^2)
+  ok steps: all 1 steps agree at 6 sample points
+  ok derivative: matches the slope measured numerically at 6 points
+
+### differentiate arcsin(2x)
+
+Differentiate arcsin(2x) with respect to x
+
+      d/dx[arcsin(2x)]
+  1.  Chain rule: differentiate the outside, times the derivative of the inside.   [diff_chain]
+        inside: u = 2x.
+      (1/sqrt(1 - (2x)^2)) * d/dx[2x]
+  2.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      (1/sqrt(1 - (2x)^2)) * 2
+  3.  Multiplying by 1/sqrt(1 - (2x)^2) is dividing by sqrt(1 - (2x)^2).   [identity]
+      2/sqrt(1 - (2x)^2)
+  4.  Raise each factor to the power: (2x)^2 = 2^2 * x^2.   [powers]
+      2/sqrt(1 - 2^2 * x^2)
+  5.  Work out 2^2 = 4.   [fold]
+      2/sqrt(1 - 4x^2)
+
+Answer: 2/sqrt(1 - 4x^2)
+  ok steps: all 5 steps agree at 6 sample points
+  ok derivative: matches the slope measured numerically at 6 points
+
+### differentiate sec x
+
+Differentiate sec(x) with respect to x
+
+      d/dx[sec(x)]
+  1.  Standard derivative: d/dx[sec(x)] = sec(x) tan(x).   [diff_elementary]
+      sec(x) tan(x)
+
+Answer: sec(x) tan(x)
+  ok steps: all 1 steps agree at 6 sample points
+  ok derivative: matches the slope measured numerically at 6 points
+
+### differentiate arcsin x
+
+Differentiate arcsin(x) with respect to x
+
+      d/dx[arcsin(x)]
+  1.  Standard derivative: d/dx[arcsin(x)] = 1/sqrt(1 - x^2).   [diff_elementary]
+      1/sqrt(1 - x^2)
+
+Answer: 1/sqrt(1 - x^2)
+  ok steps: all 1 steps agree at 6 sample points
+  ok derivative: matches the slope measured numerically at 6 points
+
+### tangent to y = x^2 at x = 1
+
+Find the tangent to y = x^2 at x = 1
+
+      y = [x^2]_(x=1) + [d/dx[x^2]]_(x=1) * (x - 1)
+  1.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      y = [x^2]_(x=1) + [2x]_(x=1) * (x - 1)
+  2.  Put in x = 1: x^2 = 1^2 = 1.   [evaluate_at]
+      y = 1 + [2x]_(x=1) * (x - 1)
+  3.  Put in x = 1: 2x = 2 * 1 = 2.   [evaluate_at]
+      y = 1 + 2(x - 1)
+  4.  Write it as y = mx + c.   [line_form]
+      y = 2x - 1
+
+Answer: y = 2x - 1
+  ok steps: all 4 steps keep the line
+  ok tangent: at x = 1 the curve is at 1.000000 with slope 2.000000 (measured numerically); the line is at 1.000000 with slope 2
+
+### equation of the tangent line to y = x^3 - 2x at x = 2
+
+Find the tangent to y = x^3 - 2x at x = 2
+
+      y = [x^3 - 2x]_(x=2) + [d/dx[x^3 - 2x]]_(x=2) * (x - 2)
+  1.  Differentiate term by term.   [diff_linear]
+      y = [x^3 - 2x]_(x=2) + [d/dx[x^3] + d/dx[-2x]]_(x=2) * (x - 2)
+  2.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      y = [x^3 - 2x]_(x=2) + [d/dx[x^3] - 2]_(x=2) * (x - 2)
+  3.  Put in x = 2: x^3 - 2x = 2^3 - 2 * 2 = 4.   [evaluate_at]
+      y = 4 + [d/dx[x^3] - 2]_(x=2) * (x - 2)
+  4.  Power rule: d/dx[x^n] = n x^(n-1).   [diff_power]
+      y = 4 + [3x^2 - 2]_(x=2) * (x - 2)
+  5.  Put in x = 2: 3x^2 - 2 = 3 * 2^2 - 2 = 10.   [evaluate_at]
+      y = 4 + 10(x - 2)
+  6.  Write it as y = mx + c.   [line_form]
+      y = 10x - 16
+
+Answer: y = 10x - 16
+  ok steps: all 6 steps keep the line
+  ok tangent: at x = 2 the curve is at 4.000000 with slope 10.000000 (measured numerically); the line is at 4.000000 with slope 10
+
+### tangent to sin x at x = 0
+
+Find the tangent to sin(x) at x = 0
+
+      y = [sin(x)]_(x=0) + [d/dx[sin(x)]]_(x=0) * x
+  1.  Standard derivative: d/dx[sin(x)] = cos(x).   [diff_elementary]
+      y = [sin(x)]_(x=0) + [cos(x)]_(x=0) * x
+  2.  Put in x = 0: sin(x) becomes sin(0).   [evaluate_at]
+      y = sin(0) + [cos(x)]_(x=0) * x
+  3.  Exact value: sin(0) = 0.   [trig_exact]
+      y = 0 + [cos(x)]_(x=0) * x
+  4.  Adding 0 changes nothing.   [identity]
+      y = [cos(x)]_(x=0) * x
+  5.  Put in x = 0: cos(x) becomes cos(0).   [evaluate_at]
+      y = cos(0) * x
+  6.  Exact value: cos(0) = 1.   [trig_exact]
+      y = 1x
+  7.  Multiplying by 1 changes nothing.   [identity]
+      y = x
+
+Answer: y = x
+  ok steps: all 7 steps keep the line
+  ok tangent: at x = 0 the curve is at 0.000000 with slope 1.000000 (measured numerically); the line is at 0.000000 with slope 1
+
+### tangent to y = e^x at x = 0
+
+Find the tangent to y = e^x at x = 0
+
+      y = [e^x]_(x=0) + [d/dx[e^x]]_(x=0) * x
+  1.  Standard derivative: d/dx[e^x] = e^x.   [diff_elementary]
+      y = [e^x]_(x=0) + [e^x]_(x=0) * x
+  2.  Put in x = 0: e^x becomes e^0.   [evaluate_at]
+      y = e^0 + e^0 * x
+  3.  e^0 = 1, since anything to the power 0 is 1.   [func_exact]
+      y = 1 + 1x
+  4.  Write it as y = mx + c.   [line_form]
+      y = x + 1
+
+Answer: y = x + 1
+  ok steps: all 4 steps keep the line
+  ok tangent: at x = 0 the curve is at 1.000000 with slope 1.000000 (measured numerically); the line is at 1.000000 with slope 1
+

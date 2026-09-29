@@ -89,6 +89,12 @@ pub enum Tok {
     Log,
     /// "log base": the base comes next.
     LogBase,
+    /// "approaches", "tends to", "->": the point a limit is taken at follows.
+    Approaches,
+    /// "second derivative", "twice": differentiate this many times.
+    Order(u32),
+    /// "degrees", "°": the number before it is an angle in degrees.
+    Degrees,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -412,12 +418,71 @@ const PHRASES: &[(&str, Tok)] = &[
     ("percent increase from", PctChange),
     ("percentage increase from", PctChange),
     ("change from", PctChange),
+    // calculus and trig (agent B)
+    ("integrate", Task(Task::Integrate)),
+    ("integral", Task(Task::Integrate)),
+    ("integral of", Task(Task::Integrate)),
+    ("the integral of", Task(Task::Integrate)),
+    ("definite integral of", Task(Task::Integrate)),
+    ("the definite integral of", Task(Task::Integrate)),
+    ("indefinite integral of", Task(Task::Integrate)),
+    ("the indefinite integral of", Task(Task::Integrate)),
+    ("antiderivative", Task(Task::Integrate)),
+    ("antiderivative of", Task(Task::Integrate)),
+    ("an antiderivative of", Task(Task::Integrate)),
+    ("the antiderivative of", Task(Task::Integrate)),
+    ("limit", Task(Task::Limit)),
+    ("limit of", Task(Task::Limit)),
+    ("the limit of", Task(Task::Limit)),
+    ("lim", Task(Task::Limit)),
+    ("tangent to", Task(Task::Tangent)),
+    ("tangent line to", Task(Task::Tangent)),
+    ("the tangent to", Task(Task::Tangent)),
+    ("the tangent line to", Task(Task::Tangent)),
+    ("equation of the tangent to", Task(Task::Tangent)),
+    ("equation of the tangent line to", Task(Task::Tangent)),
+    ("second derivative", Order(2)),
+    ("second derivative of", Order(2)),
+    ("the second derivative of", Order(2)),
+    ("third derivative", Order(3)),
+    ("third derivative of", Order(3)),
+    ("the third derivative of", Order(3)),
+    ("twice", Order(2)),
+    ("three times", Order(3)),
+    ("approaches", Approaches),
+    ("approach", Approaches),
+    ("tends to", Approaches),
+    ("goes to", Approaches),
+    ("between", From),
+    ("from the left", Unsupported("a one-sided limit")),
+    ("from the right", Unsupported("a one-sided limit")),
+    ("from below", Unsupported("a one-sided limit")),
+    ("from above", Unsupported("a one-sided limit")),
+    ("infinity", Const(Konst::Inf)),
+    ("infty", Const(Konst::Inf)),
+    ("degrees", Degrees),
+    ("degree", Degrees),
+    ("deg", Degrees),
+    ("radians", Filler),
+    ("in radians", Filler),
+    ("as", Filler),
+    ("general solution", Filler),
+    ("the general solution of", Filler),
+    ("all solutions of", Filler),
+    ("sec", Func(Func::Sec)),
+    ("secant", Func(Func::Sec)),
+    ("csc", Func(Func::Csc)),
+    ("cosec", Func(Func::Csc)),
+    ("cosecant", Func(Func::Csc)),
+    ("cot", Func(Func::Cot)),
+    ("cotangent", Func(Func::Cot)),
+    ("arcsin", Func(Func::Asin)),
+    ("asin", Func(Func::Asin)),
+    ("arccos", Func(Func::Acos)),
+    ("acos", Func(Func::Acos)),
+    ("arctan", Func(Func::Atan)),
+    ("atan", Func(Func::Atan)),
     // recognisably math, not in v0
-    ("integrate", Unsupported("integration")),
-    ("integral", Unsupported("integration")),
-    ("antiderivative", Unsupported("integration")),
-    ("limit", Unsupported("taking limits")),
-    ("lim", Unsupported("taking limits")),
     ("matrix", Unsupported("matrix algebra")),
     ("matrices", Unsupported("matrix algebra")),
     ("determinant", Unsupported("matrix algebra")),
@@ -529,7 +594,21 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
             while i < chars.len() && (chars[i].is_alphabetic() || chars[i] == '\'' || (chars[i] == '-' && i > st + 1 && chars.get(i + 1).is_some_and(|x| x.is_alphabetic()) && chars.get(i + 2).is_some_and(|x| x.is_alphabetic()))) {
                 i += 1;
             }
-            out.push(Raw::Word(chars[st..i].iter().collect::<String>().to_lowercase()));
+            let w = chars[st..i].iter().collect::<String>().to_lowercase();
+            // calculus and trig (agent B): "dx" after an integrand names the letter
+            if w.len() == 2 && w.starts_with('d') && "xyztuvwsr".contains(&w[1..]) {
+                out.push(Raw::Word("wrt".into()));
+                out.push(Raw::Word(w[1..].to_string()));
+                continue;
+            }
+            out.push(Raw::Word(w));
+        } else if (c == '-' && chars.get(i + 1) == Some(&'>')) || c == '→' {
+            // calculus and trig (agent B): x -> 2
+            out.push(Raw::Word("approaches".into()));
+            i += if c == '→' { 1 } else { 2 };
+        } else if c == '∞' {
+            out.push(Raw::Word("infinity".into()));
+            i += 1;
         } else {
             let sym = match c {
                 '+' | '-' | '*' | '/' | '^' | '(' | ')' | '=' | '%' | ',' | ';' | ':' | '?' | '!' | '.' | '$' | '€' | '£' => c,
@@ -538,7 +617,7 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
                 '×' | '·' | '⋅' => '*',
                 '÷' => '/',
                 '−' | '–' => '-',
-                '²' | '³' | '√' | 'π' => c,
+                '²' | '³' | '√' | 'π' | '°' => c,
                 '<' | '>' | '≤' | '≥' | '|' | '_' => c,
                 _ => return Err(format!("unknown symbol \"{c}\"")),
             };
@@ -582,6 +661,7 @@ pub fn lex(s: &str) -> Result<Vec<Token>, String> {
                     '!' => Bang,
                     '$' | '€' | '£' => Filler,
                     ',' | ';' | ':' | '?' | '.' => Sep,
+                    '°' => Degrees,
                     c => Op(*c),
                 };
                 out.push(Token { tok, words: c.to_string() });
@@ -698,6 +778,7 @@ fn distance(a: &str, b: &str) -> usize {
 pub fn vocabulary() -> Vec<String> {
     let mut v: Vec<String> = PHRASES.iter().map(|(p, _)| p.to_string()).collect();
     v.extend(["any single letter (a variable)", "e", "d/dx", "+ - * / ^ ( ) = % ² ³ √ π × ÷", "< <= > >= ≤ ≥ | _"].map(String::from));
+    v.extend(["dx (after an integrand)", "-> → ° ∞"].map(String::from));
     v.sort();
     v.dedup();
     v
@@ -722,5 +803,17 @@ mod tests {
         assert!(t.iter().any(|t| t.tok == Op('=')));
         assert_eq!(lex("solfe x = 2").unwrap()[0].tok, Unknown);
         assert_eq!(suggest("solfe").as_deref(), Some("did you mean \"solve\"?"));
+    }
+
+    #[test]
+    fn calculus_words_and_symbols() {
+        let toks = |s: &str| lex(s).unwrap().into_iter().map(|t| t.tok).collect::<Vec<Tok>>();
+        assert_eq!(toks("integrate x^2 dx")[4..], [For, Var("x".into())]);
+        assert_eq!(toks("lim x->0")[2], Approaches);
+        assert_eq!(toks("x → ∞")[1..], [Approaches, Const(Konst::Inf)]);
+        assert_eq!(toks("cos 45°")[2], Degrees);
+        assert_eq!(toks("tangent to y")[0], Task(Task::Tangent));
+        assert_eq!(toks("tangent of x")[0], Func(Func::Tan));
+        assert_eq!(toks("do")[0], Filler);
     }
 }

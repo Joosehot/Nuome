@@ -17,8 +17,14 @@ pub enum Func {
     Exp,
     Ln,
     Sqrt,
-    /// |x|
+    // calculus and trig (agent B)
     Abs,
+    Sec,
+    Csc,
+    Cot,
+    Asin,
+    Acos,
+    Atan,
 }
 
 impl Func {
@@ -31,6 +37,12 @@ impl Func {
             Func::Ln => "ln",
             Func::Sqrt => "sqrt",
             Func::Abs => "abs",
+            Func::Sec => "sec",
+            Func::Csc => "csc",
+            Func::Cot => "cot",
+            Func::Asin => "arcsin",
+            Func::Acos => "arccos",
+            Func::Atan => "arctan",
         }
     }
 }
@@ -39,6 +51,10 @@ impl Func {
 pub enum Konst {
     Pi,
     E,
+    /// Infinity: only the point a limit approaches, or a limit's value.
+    Inf,
+    /// One degree, pi/180: 45 degrees is 45 * Deg.
+    Deg,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -58,6 +74,15 @@ pub enum Expr {
     Call(Named, Vec<Expr>),
     /// log to a base: Log(base, argument). log(100) is Log(10, 100).
     Log(Box<Expr>, Box<Expr>),
+    /// The indefinite integral of the inner expression d(var), not yet worked out.
+    Integral(Box<Expr>, String),
+    /// [F]_a^b = F(b) - F(a), with (var) bound. Around an integral it is the
+    /// definite integral from a to b.
+    Bounds(Box<Expr>, String, Box<Expr>, Box<Expr>),
+    /// The limit of the inner expression as (var) approaches the point.
+    Limit(Box<Expr>, String, Box<Expr>),
+    /// The inner expression with (var) = the point: f(1), f'(1).
+    At(Box<Expr>, String, Box<Expr>),
 }
 
 use Expr::*;
@@ -110,6 +135,9 @@ impl Expr {
             Div(a, b) | Pow(a, b) => vec![a, b],
             Log(b, a) => vec![b, a],
             Num(_) | Var(_) | Const(_) => vec![],
+            Integral(a, _) => vec![a],
+            Bounds(f, _, a, b) => vec![f, a, b],
+            Limit(a, _, p) | At(a, _, p) => vec![a, p],
         }
     }
     fn child_mut(&mut self, i: usize) -> &mut Expr {
@@ -124,6 +152,19 @@ impl Expr {
                 }
             }
             Num(_) | Var(_) | Const(_) => unreachable!("leaf has no children"),
+            Integral(a, _) => a,
+            Bounds(f, _, a, b) => match i {
+                0 => f,
+                1 => a,
+                _ => b,
+            },
+            Limit(a, _, p) | At(a, _, p) => {
+                if i == 0 {
+                    a
+                } else {
+                    p
+                }
+            }
         }
     }
     pub fn get(&self, path: &[usize]) -> &Expr {
@@ -167,6 +208,9 @@ impl Expr {
         match self {
             Var(x) => x == v,
             Deriv(a, _) => a.has_var(v),
+            // a bound letter isn't free: [F]_0^3, lim(x->2), [f]_(x=1)
+            Bounds(_, w, a, b) if w == v => a.has_var(v) || b.has_var(v),
+            Limit(_, w, p) | At(_, w, p) if w == v => p.has_var(v),
             _ => self.children().iter().any(|c| c.has_var(v)),
         }
     }
@@ -186,10 +230,23 @@ impl Expr {
     pub fn has_deriv(&self) -> bool {
         self.walk().iter().any(|(_, e)| matches!(e, Deriv(..)))
     }
+    /// Is calculus notation still waiting to be worked out: a derivative,
+    /// an integral, bounds, a limit or a value at a point?
+    pub fn is_pending(&self) -> bool {
+        self.walk().iter().any(|(_, e)| matches!(e, Deriv(..) | Integral(..) | Bounds(..) | Limit(..) | At(..)))
+    }
     pub fn subst(&self, v: &str, val: &Expr) -> Expr {
         match self {
             Var(x) if x == v => val.clone(),
-            Deriv(..) => self.clone(),
+            Deriv(..) | Integral(..) => self.clone(),
+            // the bound letter stays; only the bounds or the point change
+            Bounds(_, w, ..) | Limit(_, w, _) | At(_, w, _) if w == v => {
+                let mut out = self.clone();
+                for i in 1..self.children().len() {
+                    *out.child_mut(i) = self.children()[i].subst(v, val);
+                }
+                out
+            }
             _ => {
                 let mut out = self.clone();
                 for i in 0..self.children().len() {
@@ -228,6 +285,19 @@ impl Expr {
             Func(..) => None,
             Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
             Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
+            Integral(..) | Limit(..) => None,
+            At(e, v, p) => {
+                let at = p.eval_q(env)?;
+                e.eval_q(&|n| if n == v { Some(at) } else { env(n) })
+            }
+            Bounds(f, v, a, b) => {
+                if f.walk().iter().any(|(_, n)| matches!(n, Integral(..))) {
+                    return None;
+                }
+                let (lo, hi) = (a.eval_q(env)?, b.eval_q(env)?);
+                let top = f.eval_q(&|n| if n == v { Some(hi) } else { env(n) })?;
+                top.sub(&f.eval_q(&|n| if n == v { Some(lo) } else { env(n) })?)
+            }
         }
     }
     pub fn eval_f(&self, env: &dyn Fn(&str) -> f64) -> f64 {
@@ -236,6 +306,8 @@ impl Expr {
             Var(v) => env(v),
             Const(Konst::Pi) => std::f64::consts::PI,
             Const(Konst::E) => std::f64::consts::E,
+            Const(Konst::Inf) => f64::INFINITY,
+            Const(Konst::Deg) => std::f64::consts::PI / 180.0,
             Add(v) => v.iter().map(|e| e.eval_f(env)).sum(),
             Mul(v) => v.iter().map(|e| e.eval_f(env)).product(),
             Neg(a) => -a.eval_f(env),
@@ -263,6 +335,12 @@ impl Expr {
                     crate::expr::Func::Ln => x.ln(),
                     crate::expr::Func::Sqrt => x.sqrt(),
                     crate::expr::Func::Abs => x.abs(),
+                    crate::expr::Func::Sec => 1.0 / x.cos(),
+                    crate::expr::Func::Csc => 1.0 / x.sin(),
+                    crate::expr::Func::Cot => x.cos() / x.sin(),
+                    crate::expr::Func::Asin => x.asin(),
+                    crate::expr::Func::Acos => x.acos(),
+                    crate::expr::Func::Atan => x.atan(),
                 }
             }
             Log(b, a) => {
@@ -283,6 +361,56 @@ impl Expr {
                 };
                 (at(h) - at(-h)) / (2.0 * h)
             }
+            // an indefinite integral has no single value; a limit is estimated by the checks
+            Integral(..) | Limit(..) => f64::NAN,
+            At(e, v, p) => {
+                let at = p.eval_f(env);
+                e.eval_f(&|n| if n == v { at } else { env(n) })
+            }
+            Bounds(f, v, a, b) => {
+                let (lo, hi) = (a.eval_f(env), b.eval_f(env));
+                match &**f {
+                    // the definite integral itself: Simpson's rule, for checks only
+                    Integral(g, w) if w == v => simpson(&|t| g.eval_f(&|n| if n == v { t } else { env(n) }), lo, hi, QUADRATURE_PANELS),
+                    // F(b) - F(a), each integral in F measured from a
+                    _ => {
+                        let anchored = anchor_integrals(f, v, a);
+                        let at = |t: f64| anchored.eval_f(&|n| if n == v { t } else { env(n) });
+                        at(hi) - at(lo)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Panels for the quadrature inside `eval_f` (for checks only, like the
+/// step of the numerical derivative above); the definite-integral check
+/// takes its own count from rules.toml.
+const QUADRATURE_PANELS: usize = 1000;
+
+/// Composite Simpson's rule over [a, b] with `n` panels (rounded up to even).
+pub fn simpson(f: &dyn Fn(f64) -> f64, a: f64, b: f64, n: usize) -> f64 {
+    let n = n.max(2).div_ceil(2) * 2;
+    let h = (b - a) / n as f64;
+    let mut s = f(a) + f(b);
+    for i in 1..n {
+        s += f(a + i as f64 * h) * if i % 2 == 1 { 4.0 } else { 2.0 };
+    }
+    s * h / 3.0
+}
+
+/// Every integral d(v) inside `e` becomes the definite integral from `from`
+/// to v: one antiderivative out of all of them, so it has a value.
+pub fn anchor_integrals(e: &Expr, v: &str, from: &Expr) -> Expr {
+    match e {
+        Integral(_, w) if w == v => Bounds(Box::new(e.clone()), v.to_string(), Box::new(from.clone()), Box::new(Var(v.to_string()))),
+        _ => {
+            let mut out = e.clone();
+            for i in 0..e.children().len() {
+                *out.child_mut(i) = anchor_integrals(e.children()[i], v, from);
+            }
+            out
         }
     }
 }
@@ -345,6 +473,10 @@ pub fn tidy(e: Expr) -> Expr {
         Deriv(a, v) => Deriv(Box::new(tidy(*a)), v),
         Call(f, args) => Call(f, args.into_iter().map(tidy).collect()),
         Log(b, a) => Log(Box::new(tidy(*b)), Box::new(tidy(*a))),
+        Integral(a, v) => Integral(Box::new(tidy(*a)), v),
+        Bounds(f, v, a, b) => Bounds(Box::new(tidy(*f)), v, Box::new(tidy(*a)), Box::new(tidy(*b))),
+        Limit(a, v, p) => Limit(Box::new(tidy(*a)), v, Box::new(tidy(*p))),
+        At(a, v, p) => At(Box::new(tidy(*a)), v, Box::new(tidy(*p))),
         x => x,
     }
 }

@@ -48,14 +48,18 @@ minor_share = 0.3
 # Factoring never sees distribute (it would undo it), expanding never sees
 # the factoring rules.
 [tasks]
-evaluate = ["substitute", "fold", "roots", "cancel", "identity", "gcd", "lcm", "modulo", "factorial", "choose", "mean", "median", "mode", "range", "spread", "sum_to", "sequence", "compound", "percent", "neg_exponent", "frac_exponent", "rationalise", "log_eval", "log_laws"]
-simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction", "log_eval", "log_laws"]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity", "gcd", "lcm", "modulo", "factorial", "choose", "mean", "median", "mode", "range", "spread", "sum_to", "sequence", "compound", "percent", "neg_exponent", "frac_exponent", "rationalise", "log_eval", "log_laws", "trig_exact", "func_exact"]
+simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction", "log_eval", "log_laws", "trig_exact", "func_exact", "trig_identity"]
 expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "log_laws", "log_eval"]
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors", "factor_theorem"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict", "trig_exact", "trig_solve"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
+# calculus and trig (agent B). int_constant goes last: C is written once the rest is done.
+integrate = ["int_linear", "int_power", "int_elementary", "int_substitution", "int_parts", "int_partial_fractions", "int_bounds", "int_expand", "int_power_reduction", "fold", "identity", "cancel", "roots", "powers", "collect", "trig_exact", "func_exact", "int_constant"]
+limit = ["lim_substitute", "lim_factor", "lim_standard", "lim_infinity", "lim_infinite", "lim_lhopital", "diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "roots", "powers", "collect", "trig_exact", "func_exact"]
+tangent = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "evaluate_at", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "trig_exact", "func_exact", "line_form"]
 
 # Alternative methods for the same job. A path that starts one and switches
 # pays the method_switch judge; "using the quadratic formula" forbids the others.
@@ -257,6 +261,142 @@ weight = 1.0
 weight = 1.0
 [rules.diff_chain.variants.function]
 [rules.diff_chain.variants.power]
+[rules.diff_chain.variants.exponential]   # a^u (calculus and trig, agent B)
+
+# ---- Calculus and trigonometry: integrals, limits, tangents, trig (agent B) ----
+
+[rules.int_linear]
+weight = 1.0
+[rules.int_linear.variants.sum]
+[rules.int_linear.variants.constant]
+
+[rules.int_power]
+weight = 1.0
+[rules.int_power.variants.power]
+[rules.int_power.variants.constant_multiple]   # int 6x^2 dx = 2x^3 in one go
+brevity = 0.3
+[rules.int_power.variants.constant]
+[rules.int_power.variants.reciprocal]          # int 1/x dx = ln|x|
+
+[rules.int_elementary]
+weight = 1.0
+[rules.int_elementary.variants.table]
+
+[rules.int_substitution]
+weight = 1.0
+[rules.int_substitution.variants.linear_inside]       # int cos(3x) dx = sin(3x)/3
+[rules.int_substitution.variants.derivative_present]  # u = x^2 + 1, du = 2x dx
+elegance = 0.5
+
+[rules.int_parts]
+weight = 1.0
+[rules.int_parts.variants.liate]
+[rules.int_parts.variants.times_one]
+
+[rules.int_partial_fractions]
+weight = 1.0
+[rules.int_partial_fractions.variants.distinct_linear]
+
+[rules.int_bounds]
+weight = 1.0
+[rules.int_bounds.variants.subtract]
+
+[rules.int_expand]
+weight = 1.0
+[rules.int_expand.variants.polynomial]
+
+[rules.int_power_reduction]
+weight = 1.0
+[rules.int_power_reduction.variants.cos_squared]
+[rules.int_power_reduction.variants.sin_squared]
+
+[rules.int_constant]
+weight = 1.0
+minor = true
+[rules.int_constant.variants.add]
+
+[rules.func_exact]
+weight = 1.0
+[rules.func_exact.variants.exp_log]
+[rules.func_exact.variants.absolute]
+
+[rules.trig_exact]
+weight = 1.0
+[rules.trig_exact.variants.special_angle]
+[rules.trig_exact.variants.reference_angle]
+
+[rules.lim_substitute]
+weight = 1.0
+[rules.lim_substitute.variants.direct]
+[rules.lim_substitute.variants.constant]
+
+[rules.lim_factor]
+weight = 1.0
+[rules.lim_factor.variants.cancel]
+elegance = 0.5
+
+[rules.lim_standard]
+weight = 1.0
+[rules.lim_standard.variants.sine]
+[rules.lim_standard.variants.exponential]
+[rules.lim_standard.variants.cosine]
+
+[rules.lim_infinity]
+weight = 1.0
+[rules.lim_infinity.variants.divide_highest]   # (3x^2 + 1)/(x^2 - 5) -> (3 + 1/x^2)/(1 - 5/x^2)
+clarity = 0.4
+[rules.lim_infinity.variants.vanish]
+[rules.lim_infinity.variants.leading_terms]    # straight to 3x^2/x^2 -> 3
+brevity = 0.6
+clarity = -1.2
+[rules.lim_infinity.variants.unbounded]
+
+[rules.lim_infinite]
+weight = 1.0
+[rules.lim_infinite.variants.same_sign]
+
+[rules.lim_lhopital]
+weight = 1.0
+[rules.lim_lhopital.variants.zero_over_zero]
+[rules.lim_lhopital.variants.infinity_over_infinity]
+
+[rules.evaluate_at]
+weight = 1.0
+[rules.evaluate_at.variants.substitute]
+
+[rules.line_form]
+weight = 1.0
+minor = true
+[rules.line_form.variants.slope_intercept]
+
+[rules.trig_identity]
+weight = 1.0
+[rules.trig_identity.variants.pythagorean]
+elegance = 0.3
+[rules.trig_identity.variants.double_angle]
+elegance = 0.3
+[rules.trig_identity.variants.quotient]
+
+[rules.trig_solve]
+weight = 1.0
+[rules.trig_solve.variants.general]
+[rules.trig_solve.variants.interval]
+[rules.trig_solve.variants.impossible]
+[rules.trig_solve.variants.inverse]
+
+[calculus]
+panels = 2000              # Simpson panels for checking a definite integral
+integral_tolerance = 1e-7  # relative, definite integral vs Simpson
+higher_step = 1e-3         # step of the n-th central difference (2nd, 3rd derivative)
+higher_tolerance = 1e-4    # relative, higher derivatives and nested d/dx lines
+limit_steps = [1e-2, 1e-3, 1e-4, 1e-5]   # distances from the point, far to near
+limit_far = [1e3, 1e4, 1e5, 1e6]         # where x -> infinity is checked
+limit_tolerance = 1e-3     # relative, the function at the nearest step vs the limit
+unbounded = 1e3            # |f| past this, and growing, heads for infinity
+zero = 1e-12               # smaller counts as 0 when a rule reads a value
+trig_scan = 400            # grid points per unit length when counting trig solutions
+k_range = 3                # general solutions are checked for k = -3..3
+narrow = 0.1               # too few samples in the domain (arcsin x): scale them by this, try again
 
 # ---- Algebra: polynomial division and the factor theorem ----
 

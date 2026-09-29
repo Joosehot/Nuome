@@ -37,6 +37,19 @@ pub fn explain(req: &Request, out: &Outcome, cfg: &Config) -> String {
     if let Some(d) = &req.decimals {
         let _ = writeln!(s, "  decimals {:<14} <- \"{}\"", d.value, d.words);
     }
+    // calculus and trig (agent B)
+    if let Some(o) = &req.calc.order {
+        let _ = writeln!(s, "  order    {:<14} <- \"{}\"", o.value, o.words);
+    }
+    if let Some(b) = &req.calc.bounds {
+        let _ = writeln!(s, "  bounds   {:<14} <- \"{}\"", format!("{} to {}", print::expr(&b.value.0, Style::Ascii), print::expr(&b.value.1, Style::Ascii)), b.words);
+    }
+    if let Some(p) = &req.calc.point {
+        let _ = writeln!(s, "  point    {:<14} <- \"{}\"", print::expr(&p.value, Style::Ascii), p.words);
+    }
+    if let Some(d) = &req.calc.degrees {
+        let _ = writeln!(s, "  angles   {:<14} <- \"{d}\"", "degrees");
+    }
     let p = out.profile;
     let _ = writeln!(s, "profile  brevity {:.2}  clarity {:.2}  elegance {:.2}", p.brevity, p.clarity, p.elegance);
     let _ = writeln!(s, "  base [profile] {:.2} {:.2} {:.2}", cfg.profile.brevity, cfg.profile.clarity, cfg.profile.elegance);

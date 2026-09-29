@@ -47,7 +47,7 @@ impl Rule for Identity {
                     out.push(rw(expr::add(v.iter().filter(|t| !t.is_num(0)).cloned().collect()), Line::new().t("Adding 0 changes nothing.")));
                 }
                 // 2 + sqrt(3), not sqrt(3) + 2: a number leads a sum with no letters
-                Expr::Add(v) if e.vars().is_empty() && v.len() >= 2 && v.last().is_some_and(|t| t.as_num().is_some()) && v[..v.len() - 1].iter().all(|t| t.as_num().is_none()) => {
+                Expr::Add(v) if e.vars().is_empty() && v.len() >= 2 && v.last().is_some_and(|t| t.as_num().is_some_and(|q| !q.is_neg())) && v[..v.len() - 1].iter().all(|t| t.as_num().is_none()) => {
                     let mut o = vec![v[v.len() - 1].clone()];
                     o.extend(v[..v.len() - 1].iter().cloned());
                     out.push(rw(Expr::Add(o), Line::new().t("Write the number first.")));
@@ -57,6 +57,13 @@ impl Rule for Identity {
                 }
                 Expr::Mul(v) if v.iter().any(|t| t.is_num(1)) => {
                     out.push(rw(expr::mul(v.iter().filter(|t| !t.is_num(1)).cloned().collect()), Line::new().t("Multiplying by 1 changes nothing.")));
+                }
+                // 2 * (1/d) = 2/d, unless d is there to cancel (calculus and trig, agent B)
+                Expr::Mul(v) if v.iter().any(|t| matches!(t, Expr::Div(n, d) if n.is_num(1) && !v.contains(d))) => {
+                    let k = v.iter().position(|t| matches!(t, Expr::Div(n, d) if n.is_num(1) && !v.contains(d))).expect("found above");
+                    let Expr::Div(_, d) = &v[k] else { unreachable!("a quotient") };
+                    let rest: Vec<Expr> = v.iter().enumerate().filter(|(i, _)| *i != k).map(|(_, t)| t.clone()).collect();
+                    out.push(rw(expr::div(expr::mul(rest), (**d).clone()), Line::new().t("Multiplying by 1/").e(d).t(" is dividing by ").e(d).t(".")));
                 }
                 Expr::Mul(v) if !e.vars().is_empty() && !v.iter().any(|t| matches!(t, Expr::Neg(_))) && ordered(v) != *v => {
                     let o = ordered(v);

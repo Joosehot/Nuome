@@ -86,6 +86,29 @@ pub mod substitution;
 pub mod back_substitute;
 pub mod system_scale;
 pub mod system_verdict;
+// calculus and trig (agent B)
+pub mod evaluate_at;
+pub mod func_exact;
+pub mod int_bounds;
+pub mod int_constant;
+pub mod int_elementary;
+pub mod int_expand;
+pub mod int_linear;
+pub mod int_parts;
+pub mod int_partial_fractions;
+pub mod int_power;
+pub mod int_power_reduction;
+pub mod int_substitution;
+pub mod lim_factor;
+pub mod lim_infinite;
+pub mod lim_infinity;
+pub mod lim_lhopital;
+pub mod lim_standard;
+pub mod lim_substitute;
+pub mod line_form;
+pub mod trig_exact;
+pub mod trig_identity;
+pub mod trig_solve;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -250,6 +273,29 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &back_substitute::BackSubstitute,
         &system_scale::SystemScale,
         &system_verdict::SystemVerdict,
+        // calculus and trig (agent B)
+        &int_linear::IntLinear,
+        &int_power::IntPower,
+        &int_elementary::IntElementary,
+        &int_substitution::IntSubstitution,
+        &int_parts::IntParts,
+        &int_partial_fractions::IntPartialFractions,
+        &int_bounds::IntBounds,
+        &int_expand::IntExpand,
+        &int_power_reduction::IntPowerReduction,
+        &int_constant::IntConstant,
+        &func_exact::FuncExact,
+        &trig_exact::TrigExact,
+        &lim_substitute::LimSubstitute,
+        &lim_factor::LimFactor,
+        &lim_standard::LimStandard,
+        &lim_infinity::LimInfinity,
+        &lim_infinite::LimInfinite,
+        &lim_lhopital::LimLhopital,
+        &evaluate_at::EvaluateAt,
+        &line_form::LineForm,
+        &trig_identity::TrigIdentity,
+        &trig_solve::TrigSolve,
     ]
 }
 

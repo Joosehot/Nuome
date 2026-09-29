@@ -1,0 +1,553 @@
+### integrate x^2
+
+Integrate x^2 with respect to x
+
+      int x^2 dx
+  1.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      x^3/3
+  2.  Add the constant of integration, C.   [int_constant]
+      x^3/3 + C
+
+Answer: x^3/3 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate 3x^2 + 2x - 5 dx
+
+Integrate 3x^2 + 2x - 5 with respect to x
+
+      int (3x^2 + 2x - 5) dx
+  1.  Integrate term by term.   [int_linear]
+      int 3x^2 dx + int 2x dx + int -5 dx
+  2.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      x^3 + x^2 + int -5 dx
+  3.  The integral of a constant: int -5 dx = -5x.   [int_power]
+      x^3 + x^2 - 5x
+  4.  Add the constant of integration, C.   [int_constant]
+      x^3 + x^2 - 5x + C
+
+Answer: x^3 + x^2 - 5x + C
+  ok steps: all 4 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate 1/x^2
+
+Integrate 1/x^2 with respect to x
+
+      int 1/x^2 dx
+  1.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      -1/x
+  2.  Add the constant of integration, C.   [int_constant]
+      -1/x + C
+
+Answer: -1/x + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate sqrt x
+
+Integrate sqrt(x) with respect to x
+
+      int sqrt(x) dx
+  1.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      2x^(3/2)/3
+  2.  Add the constant of integration, C.   [int_constant]
+      2x^(3/2)/3 + C
+
+Answer: 2x^(3/2)/3 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 4 points
+
+### integrate 4/x
+
+Integrate 4/x with respect to x
+
+      int 4/x dx
+  1.  Standard integral: int 1/x dx = ln|x|.   [int_power]
+      4ln|x|
+  2.  Add the constant of integration, C.   [int_constant]
+      4ln|x| + C
+
+Answer: 4ln|x| + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate cos(3x)
+
+Integrate cos(3x) with respect to x
+
+      int cos(3x) dx
+  1.  Substitute u = 3x, so du = 3 dx.   [int_substitution]
+        int cos(u) du = sin(u), then divide by 3
+      sin(3x)/3
+  2.  Add the constant of integration, C.   [int_constant]
+      sin(3x)/3 + C
+
+Answer: sin(3x)/3 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate e^(2x) dx
+
+Integrate e^(2x) with respect to x
+
+      int e^(2x) dx
+  1.  Substitute u = 2x, so du = 2 dx.   [int_substitution]
+        int e^u du = e^u, then divide by 2
+      e^(2x)/2
+  2.  Add the constant of integration, C.   [int_constant]
+      e^(2x)/2 + C
+
+Answer: e^(2x)/2 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate sin x + sec^2 x
+
+Integrate sin(x) + sec(x)^2 with respect to x
+
+      int (sin(x) + sec(x)^2) dx
+  1.  Integrate term by term.   [int_linear]
+      int sin(x) dx + int sec(x)^2 dx
+  2.  Standard integral: int sec(x)^2 dx = tan(x).   [int_elementary]
+      int sin(x) dx + tan(x)
+  3.  Standard integral: int sin(x) dx = -cos(x).   [int_elementary]
+      -cos(x) + tan(x)
+  4.  Add the constant of integration, C.   [int_constant]
+      -cos(x) + tan(x) + C
+
+Answer: -cos(x) + tan(x) + C
+  ok steps: all 4 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate x(x^2 + 1)^3
+
+Integrate x(x^2 + 1)^3 with respect to x
+
+      int x(x^2 + 1)^3 dx
+  1.  Substitute u = x^2 + 1: du = 2x dx, which is in the integral up to a constant factor.   [int_substitution]
+        (1/2) * int u^3 du = u^4/8
+      (x^2 + 1)^4/8
+  2.  Add the constant of integration, C.   [int_constant]
+      (x^2 + 1)^4/8 + C
+
+Answer: (x^2 + 1)^4/8 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate 2x/(x^2 + 1)
+
+Integrate 2x/(x^2 + 1) with respect to x
+
+      int 2x/(x^2 + 1) dx
+  1.  Substitute u = x^2 + 1: du = 2x dx, which is in the integral up to a constant factor.   [int_substitution]
+        int 1/u du = ln|u|
+      ln|x^2 + 1|
+  2.  Add the constant of integration, C.   [int_constant]
+      ln|x^2 + 1| + C
+
+Answer: ln|x^2 + 1| + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate sin x cos x
+
+Integrate sin(x) cos(x) with respect to x
+
+      int sin(x) cos(x) dx
+  1.  Substitute u = sin(x): du = cos(x) dx, and it is already in the integral.   [int_substitution]
+        int u du = u^2/2
+      sin(x)^2/2
+  2.  Add the constant of integration, C.   [int_constant]
+      sin(x)^2/2 + C
+
+Answer: sin(x)^2/2 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate x e^x
+
+Integrate x e^x with respect to x
+
+      int x e^x dx
+  1.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = x, dv = e^x dx (LIATE)
+        du = dx, v = e^x
+      x e^x - int e^x dx
+  2.  Standard integral: int e^x dx = e^x.   [int_elementary]
+      x e^x - e^x
+  3.  Add the constant of integration, C.   [int_constant]
+      x e^x - e^x + C
+
+Answer: x e^x - e^x + C
+  ok steps: all 3 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate x sin x
+
+Integrate x sin(x) with respect to x
+
+      int x sin(x) dx
+  1.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = x, dv = sin(x) dx (LIATE)
+        du = dx, v = -cos(x)
+      -x cos(x) + int cos(x) dx
+  2.  Standard integral: int cos(x) dx = sin(x).   [int_elementary]
+      -x cos(x) + sin(x)
+  3.  Add the constant of integration, C.   [int_constant]
+      -x cos(x) + sin(x) + C
+
+Answer: -x cos(x) + sin(x) + C
+  ok steps: all 3 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate ln x
+
+Integrate ln(x) with respect to x
+
+      int ln(x) dx
+  1.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = ln(x), dv = dx (dv = 1 dx)
+        du = 1/x dx, v = x
+      x ln(x) - int 1 dx
+  2.  The integral of a constant: int 1 dx = x.   [int_power]
+      x ln(x) - x
+  3.  Add the constant of integration, C.   [int_constant]
+      x ln(x) - x + C
+
+Answer: x ln(x) - x + C
+  ok steps: all 3 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 4 points
+
+### integrate x^2 e^x
+
+Integrate x^2 e^x with respect to x
+
+      int x^2 e^x dx
+  1.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = x^2, dv = e^x dx (LIATE)
+        du = 2x dx, v = e^x
+      x^2 e^x - int 2x e^x dx
+  2.  The constant factor 2 comes outside the integral.   [int_linear]
+      x^2 e^x - 2 * int x e^x dx
+  3.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = x, dv = e^x dx (LIATE)
+        du = dx, v = e^x
+      x^2 e^x - 2(x e^x - int e^x dx)
+  4.  Standard integral: int e^x dx = e^x.   [int_elementary]
+      x^2 e^x - 2(x e^x - e^x)
+  5.  Add the constant of integration, C.   [int_constant]
+      x^2 e^x - 2(x e^x - e^x) + C
+
+Answer: x^2 e^x - 2(x e^x - e^x) + C
+  ok steps: all 5 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate 1/(x^2 - 1)
+
+Integrate 1/(x^2 - 1) with respect to x
+
+      int 1/(x^2 - 1) dx
+  1.  Split into partial fractions: the denominator has the distinct roots 1, -1.   [int_partial_fractions]
+        cover-up, A = P(r)/Q'(r) at each root r: 1/2 at x = 1, -1/2 at x = -1
+        1/(x^2 - 1) = 1/(2(x - 1)) - 1/(2(x + 1))
+      int (1/(2(x - 1)) - 1/(2(x + 1))) dx
+  2.  Integrate term by term.   [int_linear]
+      int 1/(2(x - 1)) dx + int -1/(2(x + 1)) dx
+  3.  Substitute u = x + 1, so du = dx.   [int_substitution]
+        int 1/u du = ln|u|
+      int 1/(2(x - 1)) dx - ln|x + 1|/2
+  4.  Substitute u = x - 1, so du = dx.   [int_substitution]
+        int 1/u du = ln|u|
+      ln|x - 1|/2 - ln|x + 1|/2
+  5.  Add the constant of integration, C.   [int_constant]
+      ln|x - 1|/2 - ln|x + 1|/2 + C
+
+Answer: ln|x - 1|/2 - ln|x + 1|/2 + C
+  ok steps: all 5 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate 1/(1 + x^2)
+
+Integrate 1/(1 + x^2) with respect to x
+
+      int 1/(1 + x^2) dx
+  1.  Standard integral: int 1/(1 + x^2) dx = arctan(x).   [int_elementary]
+      arctan(x)
+  2.  Add the constant of integration, C.   [int_constant]
+      arctan(x) + C
+
+Answer: arctan(x) + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate x^2 from 0 to 3
+
+Integrate x^2 with respect to x from 0 to 3
+
+      int_0^3 x^2 dx
+  1.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      [x^3/3]_0^3
+  2.  Put in the bounds: F(3) - F(0).   [int_bounds]
+      3^3/3 - 0^3/3
+  3.  Work out 3^3/3 - 0^3/3 = 9.   [fold]
+      9
+
+Answer: 9
+  ok value: Simpson's rule with 2000 panels gives 9.000000
+  ok steps: all 3 steps keep the value
+  ok antiderivative: F = x^3/3 differentiates back to the integrand at 6 points
+
+### integrate 3x^2 - 2x from 1 to 2
+
+Integrate 3x^2 - 2x with respect to x from 1 to 2
+
+      int_1^2 (3x^2 - 2x) dx
+  1.  Integrate term by term.   [int_linear]
+      [int 3x^2 dx + int -2x dx]_1^2
+  2.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      [x^3 - x^2]_1^2
+  3.  Put in the bounds: F(2) - F(1).   [int_bounds]
+      2^3 - 2^2 - (1^3 - 1^2)
+  4.  Work out 2^3 - 2^2 - (1^3 - 1^2) = 4.   [fold]
+      4
+
+Answer: 4
+  ok value: Simpson's rule with 2000 panels gives 4.000000
+  ok steps: all 4 steps keep the value
+  ok antiderivative: F = x^3 - x^2 differentiates back to the integrand at 6 points
+
+### integrate sin x from 0 to pi
+
+Integrate sin(x) with respect to x from 0 to pi
+
+      int_0^pi sin(x) dx
+  1.  Standard integral: int sin(x) dx = -cos(x).   [int_elementary]
+      [-cos(x)]_0^pi
+  2.  Put in the bounds: F(pi) - F(0).   [int_bounds]
+      -cos(pi) + cos(0)
+  3.  Exact value: cos(pi) = -1.   [trig_exact]
+      1 + cos(0)
+  4.  Exact value: cos(0) = 1.   [trig_exact]
+      1 + 1
+  5.  Work out 1 + 1 = 2.   [fold]
+      2
+
+Answer: 2
+  ok value: Simpson's rule with 2000 panels gives 2.000000
+  ok steps: all 5 steps keep the value
+  ok antiderivative: F = -cos(x) differentiates back to the integrand at 6 points
+
+### integrate e^x from 0 to 1
+
+Integrate e^x with respect to x from 0 to 1
+
+      int_0^1 e^x dx
+  1.  Standard integral: int e^x dx = e^x.   [int_elementary]
+      [e^x]_0^1
+  2.  Put in the bounds: F(1) - F(0).   [int_bounds]
+      e^1 - e^0
+  3.  e^0 = 1, since anything to the power 0 is 1.   [func_exact]
+      e^1 - 1
+  4.  e^1 = e, by definition.   [func_exact]
+      e - 1
+
+Answer: e - 1 ~ 1.718
+  ok value: Simpson's rule with 2000 panels gives 1.718282
+  ok steps: all 4 steps keep the value
+  ok antiderivative: F = e^x differentiates back to the integrand at 6 points
+
+### integrate 1/x from 1 to e
+
+Integrate 1/x with respect to x from 1 to e
+
+      int_1^e 1/x dx
+  1.  Standard integral: int 1/x dx = ln|x|.   [int_power]
+      [ln|x|]_1^e
+  2.  Put in the bounds: F(e) - F(1).   [int_bounds]
+      ln|e| - ln|1|
+  3.  |1| = 1, since 1 is positive.   [func_exact]
+      ln|e| - ln(1)
+  4.  ln(1) = 0, since e^0 = 1.   [func_exact]
+      ln|e| + 0
+  5.  |e| = e, since e is positive.   [func_exact]
+      ln(e) + 0
+  6.  ln(e) = 1, since e^1 = e.   [func_exact]
+      1 + 0
+  7.  Work out 1 + 0 = 1.   [fold]
+      1
+
+Answer: 1
+  ok value: Simpson's rule with 2000 panels gives 1.000000
+  ok steps: all 7 steps keep the value
+  ok antiderivative: F = ln|x| differentiates back to the integrand at 6 points
+
+### integrate (x + 1)^2 dx
+
+Integrate (x + 1)^2 with respect to x
+
+      int (x + 1)^2 dx
+  1.  Substitute u = x + 1, so du = dx.   [int_substitution]
+        int u^2 du = u^3/3
+      (x + 1)^3/3
+  2.  Add the constant of integration, C.   [int_constant]
+      (x + 1)^3/3 + C
+
+Answer: (x + 1)^3/3 + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate (x^2 + 1)^2
+
+Integrate (x^2 + 1)^2 with respect to x
+
+      int (x^2 + 1)^2 dx
+  1.  Multiply out the integrand: (x^2 + 1)^2 = x^4 + 2x^2 + 1.   [int_expand]
+      int (x^4 + 2x^2 + 1) dx
+  2.  Integrate term by term.   [int_linear]
+      int x^4 dx + int 2x^2 dx + int 1 dx
+  3.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      x^5/5 + int 2x^2 dx + int 1 dx
+  4.  The integral of a constant: int 1 dx = x.   [int_power]
+      x^5/5 + int 2x^2 dx + x
+  5.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      x^5/5 + 2x^3/3 + x
+  6.  Add the constant of integration, C.   [int_constant]
+      x^5/5 + 2x^3/3 + x + C
+
+Answer: x^5/5 + 2x^3/3 + x + C
+  ok steps: all 6 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate cos^2 x
+
+Integrate cos(x)^2 with respect to x
+
+      int cos(x)^2 dx
+  1.  Reduce the power with the double angle: cos^2 u = 1/2 + cos(2u)/2.   [int_power_reduction]
+      int (1/2 + cos(2x)/2) dx
+  2.  Integrate term by term.   [int_linear]
+      int 1/2 dx + int cos(2x)/2 dx
+  3.  Substitute u = 2x, so du = 2 dx.   [int_substitution]
+        int cos(u) du = sin(u), then divide by 2
+      int 1/2 dx + sin(2x)/4
+  4.  The integral of a constant: int 1/2 dx = x/2.   [int_power]
+      x/2 + sin(2x)/4
+  5.  Add the constant of integration, C.   [int_constant]
+      x/2 + sin(2x)/4 + C
+
+Answer: x/2 + sin(2x)/4 + C
+  ok steps: all 5 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate tan x
+
+Integrate tan(x) with respect to x
+
+      int tan(x) dx
+  1.  Standard integral: int tan(x) dx = -ln|cos(x)|.   [int_elementary]
+      -ln|cos(x)|
+  2.  Add the constant of integration, C.   [int_constant]
+      -ln|cos(x)| + C
+
+Answer: -ln|cos(x)| + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate x ln x
+
+Integrate x ln(x) with respect to x
+
+      int x ln(x) dx
+  1.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = ln(x), dv = x dx (LIATE)
+        du = 1/x dx, v = x^2/2
+      x^2 ln(x)/2 - int x/2 dx
+  2.  Power rule for integrals: raise the power by 1 and divide by the new power.   [int_power]
+      x^2 ln(x)/2 - x^2/4
+  3.  Add the constant of integration, C.   [int_constant]
+      x^2 ln(x)/2 - x^2/4 + C
+
+Answer: x^2 ln(x)/2 - x^2/4 + C
+  ok steps: all 3 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 4 points
+
+### integrate arctan x
+
+Integrate arctan(x) with respect to x
+
+      int arctan(x) dx
+  1.  Integrate by parts: int u dv = uv - int v du.   [int_parts]
+        u = arctan(x), dv = dx (dv = 1 dx)
+        du = 1/(1 + x^2) dx, v = x
+      x arctan(x) - int x/(1 + x^2) dx
+  2.  Substitute u = 1 + x^2: du = 2x dx, which is in the integral up to a constant factor.   [int_substitution]
+        (1/2) * int 1/u du = ln|u|/2
+      x arctan(x) - ln|1 + x^2|/2
+  3.  Add the constant of integration, C.   [int_constant]
+      x arctan(x) - ln|1 + x^2|/2 + C
+
+Answer: x arctan(x) - ln|1 + x^2|/2 + C
+  ok steps: all 3 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate x/(x^2 + 1)^2
+
+Integrate x/(x^2 + 1)^2 with respect to x
+
+      int x/(x^2 + 1)^2 dx
+  1.  Substitute u = x^2 + 1: du = 2x dx, which is in the integral up to a constant factor.   [int_substitution]
+        (1/2) * int 1/u^2 du = -1/(2u)
+      -1/(2(x^2 + 1))
+  2.  Add the constant of integration, C.   [int_constant]
+      -1/(2(x^2 + 1)) + C
+
+Answer: -1/(2(x^2 + 1)) + C
+  ok steps: all 2 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate 1/(x^2 + 3x + 2)
+
+Integrate 1/(x^2 + 3x + 2) with respect to x
+
+      int 1/(x^2 + 3x + 2) dx
+  1.  Split into partial fractions: the denominator has the distinct roots -1, -2.   [int_partial_fractions]
+        cover-up, A = P(r)/Q'(r) at each root r: 1 at x = -1, -1 at x = -2
+        1/(x^2 + 3x + 2) = 1/(x + 1) - 1/(x + 2)
+      int (1/(x + 1) - 1/(x + 2)) dx
+  2.  Integrate term by term.   [int_linear]
+      int 1/(x + 1) dx + int -1/(x + 2) dx
+  3.  Substitute u = x + 2, so du = dx.   [int_substitution]
+        int 1/u du = ln|u|
+      int 1/(x + 1) dx - ln|x + 2|
+  4.  Substitute u = x + 1, so du = dx.   [int_substitution]
+        int 1/u du = ln|u|
+      ln|x + 1| - ln|x + 2|
+  5.  Add the constant of integration, C.   [int_constant]
+      ln|x + 1| - ln|x + 2| + C
+
+Answer: ln|x + 1| - ln|x + 2| + C
+  ok steps: all 5 steps keep the derivative
+  ok antiderivative: differentiating the answer numerically gives back the integrand at 6 points
+
+### integrate cos x from 0 to pi/2
+
+Integrate cos(x) with respect to x from 0 to pi/2
+
+      int_0^(pi/2) cos(x) dx
+  1.  Standard integral: int cos(x) dx = sin(x).   [int_elementary]
+      [sin(x)]_0^(pi/2)
+  2.  Put in the bounds: F(pi/2) - F(0).   [int_bounds]
+      sin(pi/2) - sin(0)
+  3.  Exact value: sin(pi/2) = 1.   [trig_exact]
+      1 - sin(0)
+  4.  Exact value: sin(0) = 0.   [trig_exact]
+      1 + 0
+  5.  Work out 1 + 0 = 1.   [fold]
+      1
+
+Answer: 1
+  ok value: Simpson's rule with 2000 panels gives 1.000000
+  ok steps: all 5 steps keep the value
+  ok antiderivative: F = sin(x) differentiates back to the integrand at 6 points
+

@@ -1,0 +1,16 @@
+limit of x^2 + 3x as x approaches 2
+limit of (x^2 - 4)/(x - 2) as x approaches 2
+lim x->1 (x^2 - 1)/(x^2 + x - 2)
+limit of (x^3 - 8)/(x - 2) as x tends to 2
+limit of sin x / x as x approaches 0
+limit of sin(3x)/(2x) as x approaches 0
+limit of (1 - cos x)/x as x approaches 0
+limit of (e^x - 1)/x as x approaches 0
+limit of (3x^2 + 1)/(x^2 - 5) as x approaches infinity
+limit of (2x + 1)/(x^2 + 3) as x approaches infinity
+limit of (x^3 + 1)/(2x - 1) as x approaches infinity
+limit of 1/x^2 as x approaches 0
+limit of (sqrt(x) - 2)/(x - 4) as x approaches 4
+limit of x/e^x as x approaches infinity
+limit of ln(x)/(x - 1) as x approaches 1
+limit of (3x^2 + 1)/(x^2 - 5) as x approaches infinity quickly
