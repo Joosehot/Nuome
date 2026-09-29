@@ -144,6 +144,8 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
             .sum()
     };
     match m {
+        // abstract algebra (agent G)
+        Math::Eq(Expr::Alg(l), Expr::Alg(r)) => crate::abstract_algebra::distance(l, r, req),
         // logic and sets (agent L): two sets to prove equal
         Math::Eq(l, _) if crate::logic::is_set(l) => crate::logic::distance(m),
         // a proof: shorter sides are closer to reading the same

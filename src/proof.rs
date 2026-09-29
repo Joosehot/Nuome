@@ -31,6 +31,8 @@ pub fn checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
         return;
     }
     match &req.problem.value {
+        // abstract algebra (agent G): steps re-derived by matching, lemmas re-proved, models
+        Math::Eq(Expr::Alg(_), Expr::Alg(_)) => crate::abstract_algebra::check::checks(req, cfg, path, out),
         // logic and sets (agent L)
         m if crate::logic::is_statement(m) => logic_checks(req, cfg, path, out),
         Math::Eq(l, r) if l.has_call() || r.has_call() => induction(l, r, cfg, path, out),

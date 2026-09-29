@@ -392,6 +392,8 @@ fn write(e: &Expr, s: Style, out: &mut String) {
             }
             at_least(a, MUL, s, out);
         }
+        // abstract algebra (agent G)
+        Expr::Alg(t) => crate::abstract_algebra::term::write(t, s, out),
         Expr::At(a, v, p) => {
             out.push_str(if s == Style::Latex { "\\left[" } else { "[" });
             write(a, s, out);

@@ -101,6 +101,10 @@ pub enum Expr {
     Quant(bool, String, Box<Expr>),
     /// A one-place predicate of a letter: P(x).
     Pred(String, String),
+    /// abstract algebra (agent G): a term of a group or a ring. A leaf to
+    /// everything else, so no rule for numbers (which may commute a
+    /// product) ever rewrites inside it.
+    Alg(crate::abstract_algebra::term::Term),
 }
 
 use Expr::*;
@@ -160,6 +164,7 @@ impl Expr {
             Logic(_, v) | Set(_, v) => v.iter().collect(),
             Truth(_) | SetConst(_) | Pred(..) => vec![],
             Member(_, a) | Quant(_, _, a) => vec![a],
+            Alg(_) => vec![],
         }
     }
     fn child_mut(&mut self, i: usize) -> &mut Expr {
@@ -173,7 +178,7 @@ impl Expr {
                     b
                 }
             }
-            Num(_) | Var(_) | Const(_) => unreachable!("leaf has no children"),
+            Num(_) | Var(_) | Const(_) | Alg(_) => unreachable!("leaf has no children"),
             Integral(a, _) => a,
             Bounds(f, _, a, b) => match i {
                 0 => f,
@@ -319,7 +324,7 @@ impl Expr {
             }
             Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
             Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
-            Integral(..) | Limit(..) => None,
+            Integral(..) | Limit(..) | Alg(_) => None,
             // logic and sets (agent L): truth values, not numbers
             Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) | Quant(..) | Pred(..) => None,
             At(e, v, p) => {
@@ -412,7 +417,7 @@ impl Expr {
                 (at(h) - at(-h)) / (2.0 * h)
             }
             // an indefinite integral has no single value; a limit is estimated by the checks
-            Integral(..) | Limit(..) => f64::NAN,
+            Integral(..) | Limit(..) | Alg(_) => f64::NAN,
             // logic and sets (agent L): truth values, not numbers
             Logic(..) | Truth(_) | Set(..) | SetConst(_) | Member(..) | Quant(..) | Pred(..) => f64::NAN,
             At(e, v, p) => {

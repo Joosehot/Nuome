@@ -16,6 +16,10 @@ use crate::search::Outcome;
 use std::fmt::Write as _;
 
 pub fn header(req: &Request, s: Style) -> String {
+    // abstract algebra (agent G)
+    if let Some(h) = crate::abstract_algebra::header(req, s) {
+        return h;
+    }
     if let (Task::Divide, Math::Expr(Expr::Div(a, b))) = (req.task.value, &req.problem.value) {
         return format!("Divide {} by {}", print::expr(a, s), print::expr(b, s));
     }

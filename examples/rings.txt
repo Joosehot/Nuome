@@ -1,0 +1,12 @@
+# Ring proofs from the axioms (abstract algebra, agent G): + is commutative,
+# multiplication need not be.
+in a ring, prove a0 = 0
+in a ring, prove 0a = 0
+prove that in any ring (-a)b = -(ab)
+in a ring, prove a(-b) = -(ab)
+prove (-a)(-b) = ab in a ring
+prove that in a ring minus times minus is plus
+in a ring, prove -(-a) = a
+prove that in a ring the additive inverse is unique
+in a ring, prove that if a + b = a + c then b = c
+in a ring, prove (a + b)(c + d) = ((ac + ad) + bc) + bd

@@ -189,6 +189,8 @@ pub struct Config {
     pub calculus: CalcCfg,
     // logic and sets (agent L)
     pub logic: LogicCfg,
+    /// abstract algebra (agent G): group and ring proofs.
+    pub abstract_algebra: crate::abstract_algebra::Cfg,
 }
 
 /// Logic and sets (agent L): how big a truth table gets.
@@ -327,6 +329,8 @@ impl Config {
         if l.predicates == 0 || l.predicates > 4 {
             bail!("[logic]: predicates must be 1 to 4");
         }
+        // abstract algebra (agent G)
+        crate::abstract_algebra::validate(self)?;
         Ok(())
     }
     /// The rules a task may use, in order.

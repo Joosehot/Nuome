@@ -139,6 +139,31 @@ pub mod entails_end;
 pub mod truth_table;
 pub mod quant_negation;
 pub mod quant_distribution;
+// abstract algebra (agent G)
+pub mod group_assoc;
+pub mod group_identity;
+pub mod group_inverse;
+pub mod group_comm;
+pub mod group_inverse_unique;
+pub mod group_cancel_left;
+pub mod group_cancel_right;
+pub mod group_inverse_inverse;
+pub mod group_inverse_identity;
+pub mod group_inverse_product;
+pub mod ring_add_assoc;
+pub mod ring_add_comm;
+pub mod ring_zero;
+pub mod ring_neg;
+pub mod ring_mul_assoc;
+pub mod ring_distrib;
+pub mod ring_add_cancel;
+pub mod ring_neg_unique;
+pub mod ring_mul_zero;
+pub mod ring_zero_mul;
+pub mod ring_neg_neg;
+pub mod ring_neg_mul;
+pub mod ring_mul_neg;
+pub mod use_hypothesis;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -356,6 +381,31 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &truth_table::TruthTable,
         &quant_negation::QuantNegation,
         &quant_distribution::QuantDistribution,
+        // abstract algebra (agent G)
+        &group_assoc::GroupAssoc,
+        &group_identity::GroupIdentity,
+        &group_inverse::GroupInverse,
+        &group_comm::GroupComm,
+        &group_inverse_unique::GroupInverseUnique,
+        &group_cancel_left::GroupCancelLeft,
+        &group_cancel_right::GroupCancelRight,
+        &group_inverse_inverse::GroupInverseInverse,
+        &group_inverse_identity::GroupInverseIdentity,
+        &group_inverse_product::GroupInverseProduct,
+        &ring_add_assoc::RingAddAssoc,
+        &ring_add_comm::RingAddComm,
+        &ring_zero::RingZero,
+        &ring_neg::RingNeg,
+        &ring_mul_assoc::RingMulAssoc,
+        &ring_distrib::RingDistrib,
+        &ring_add_cancel::RingAddCancel,
+        &ring_neg_unique::RingNegUnique,
+        &ring_mul_zero::RingMulZero,
+        &ring_zero_mul::RingZeroMul,
+        &ring_neg_neg::RingNegNeg,
+        &ring_neg_mul::RingNegMul,
+        &ring_mul_neg::RingMulNeg,
+        &use_hypothesis::UseHypothesis,
     ]
 }
 

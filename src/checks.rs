@@ -1489,6 +1489,10 @@ fn trig_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
 /// Why a calculus question can't be answered, when the numbers show it:
 /// the sides of a limit disagree, or a definite integral is improper.
 pub fn why_not(req: &Request, cfg: &Config) -> Option<String> {
+    // abstract algebra (agent G)
+    if req.structure.is_some() {
+        return crate::abstract_algebra::why_not(req, cfg);
+    }
     match (req.task.value, req.start()) {
         (Task::Limit, Math::Expr(Expr::Limit(f, v, p))) => {
             let at = p.eval_f(&|_| f64::NAN);

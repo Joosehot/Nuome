@@ -114,6 +114,9 @@ pub struct Request {
     pub notes: Vec<Said<String>>,
     /// Calculus and trig details: derivative order, bounds, the point.
     pub calc: Calc,
+    /// abstract algebra (agent G): the group or ring the letters live in,
+    /// with the hypotheses; None for ordinary numbers.
+    pub structure: Option<crate::abstract_algebra::Setting>,
 }
 
 /// What a calculus or trig question adds to a request (agent B).

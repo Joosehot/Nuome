@@ -1,0 +1,19 @@
+# Group proofs from the axioms (abstract algebra, agent G). The product is
+# not assumed commutative; every step applies one axiom, one lemma or one
+# hypothesis, and each lemma has its own checked proof.
+in a group, prove (ab)^-1 = b^-1 a^-1
+prove that in any group the inverse of the inverse is the element
+prove that in a group, if ab = ac then b = c
+prove that in a group, if ba = ca then b = c
+prove that in a group, if ab = e then b = a^-1
+prove that the inverse of the identity is the identity
+prove that the identity element is unique
+in a group, prove that if ab = b then a = e
+prove that if every element is its own inverse then the group is abelian
+prove that in a group, if a^2 = e for all a then ab = ba
+in a group, prove (abc)^-1 = c^-1 b^-1 a^-1
+in a group, prove (a^-1 b)^-1 = b^-1 a
+prove that in a group, if ab = ba then a^-1 b^-1 = b^-1 a^-1
+in a group, prove that if ab = ba then (ab)^2 = a^2 b^2
+in a group, prove that if a^3 = e then a^-1 = a^2
+in an abelian group, prove (ab)^-1 = a^-1 b^-1

@@ -36,3 +36,11 @@ prove A ∪ B = A
 prove A ⊆ A ∩ B
 prove (exists x P(x) and exists x Q(x)) -> exists x (P(x) and Q(x))
 prove forall x (P(x) or Q(x)) -> forall x P(x) or forall x Q(x)
+# abstract algebra (agent G): false in some group or ring, refused with the counterexample
+in a group, prove ab = ba
+prove that every group is abelian
+in a group, prove (ab)^-1 = a^-1 b^-1
+in a group, prove that if a^2 = b^2 then a = b
+in a ring, prove ab = ba
+in a ring, prove that if a^2 = 0 then a = 0
+in a group, prove a + b = b + a

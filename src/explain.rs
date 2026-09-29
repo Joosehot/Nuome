@@ -62,7 +62,9 @@ pub fn explain(req: &Request, out: &Outcome, cfg: &Config) -> String {
         let a = cfg.modifiers[m.value.key()];
         let _ = writeln!(s, "  {:<14} {:+.2} {:+.2} {:+.2}  <- \"{}\"", m.value.key(), a.brevity, a.clarity, a.elegance, m.words);
     }
-    let _ = writeln!(s, "rules    {}", cfg.tasks[req.task.value.key()].join(", "));
+    // abstract algebra (agent G): a group or ring proof names its own list
+    let key = req.structure.as_ref().map_or(req.task.value.key(), |st| crate::abstract_algebra::task_key(st.kind));
+    let _ = writeln!(s, "rules    {}", cfg.tasks[key].join(", "));
     let _ = writeln!(s, "search   beam {}{}, {} states expanded, {} finished paths", out.width, if out.widened { " (widened)" } else { "" }, out.expanded, out.finalists.len());
     let _ = writeln!(s, "finalists (best score first)");
     for (i, f) in out.finalists.iter().enumerate().take(8) {

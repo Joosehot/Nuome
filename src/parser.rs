@@ -110,6 +110,10 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
         let words: Vec<String> = topics.iter().map(|t| format!("\"{}\"", t.words)).collect();
         return Err(vec![Diag::new(format!("{}: {area} has no rules in Nuome", words.join(", "))).hint("Nuome covers arithmetic, algebra, calculus, trigonometry, number theory basics, statistics and sequences")]);
     }
+    // abstract algebra (agent G): "in a group, prove ..." has its own grammar
+    if let Some(r) = crate::abstract_algebra::request(sentence, &toks, cfg) {
+        return r;
+    }
     let (toks, notes) = crate::words::rewrite(toks, cfg).map_err(|d| vec![d])?;
     let mut diags = Vec::new();
     let mut task: Option<Said<Task>> = None;
@@ -507,7 +511,7 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
             return Err(vec![Diag::new(format!("\"{}\": the answer is a function, with no single value to round", d.words))]);
         }
     }
-    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals, notes, calc })
+    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals, notes, calc, structure: None })
 }
 
 /// A system: two or three linear equations in at most three letters.

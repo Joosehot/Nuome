@@ -939,7 +939,7 @@ fn build(sentence: &str, toks: &[Lt], cfg: &Config) -> Result<Request, (bool, Ve
     }
     let names = if quantified(&problem.value) { vec!["x".to_string()] } else { names };
     let var = if sets { Said::new("x".to_string(), "(an element of the sets)") } else { Said::new(names.first().cloned().unwrap_or_else(|| "p".into()), "(first letter)") };
-    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given: vec![], method, modifiers, decimals: None, notes: vec![], calc: Calc::default() })
+    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given: vec![], method, modifiers, decimals: None, notes: vec![], calc: Calc::default(), structure: None })
 }
 
 /// A letter of a predicate that no quantifier binds.

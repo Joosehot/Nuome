@@ -139,7 +139,8 @@ struct Run {
 }
 
 fn run(req: &Request, cfg: &Config, p: &Axes, width: usize) -> Run {
-    let rules = cfg.task_rules(req.task.value);
+    // abstract algebra (agent G): a group or ring proof has its own rule list
+    let rules = crate::abstract_algebra::rules(req, cfg).unwrap_or_else(|| cfg.task_rules(req.task.value));
     // "using the quadratic formula": the group's other methods are off, except
     // the forced method's own follow-ups once it has been used
     let forced = req.method.as_ref().and_then(|m| cfg.group_of(&m.value).map(|g| (g, m.value.as_str())));
@@ -208,6 +209,12 @@ fn run(req: &Request, cfg: &Config, p: &Axes, width: usize) -> Run {
             seen.insert(p.state.clone(), p.score);
         }
         if next.is_empty() {
+            break;
+        }
+        // abstract algebra (agent G): no step of a group or ring proof gains
+        // score (checked at load), so once a proof is finished no path still
+        // in the beam can beat it
+        if req.structure.is_some() && out.finished.iter().any(|f| next.iter().all(|p| p.score <= f.score)) {
             break;
         }
         beam = next;

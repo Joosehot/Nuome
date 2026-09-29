@@ -1,0 +1,322 @@
+### in a group, prove (ab)^-1 = b^-1 a^-1
+
+Prove in a group: (ab)^-1 = b^-1 a^-1
+
+      (ab)^-1 = b^-1 a^-1
+  1.  Uniqueness of inverses, if xy = e then y = x^-1: it is enough to show (ab)(b^-1 a^-1) = e.   [group_inverse_unique]
+      (ab)(b^-1 a^-1) = e
+  2.  Associativity: (ab)(b^-1 a^-1) = a(b(b^-1 a^-1)).   [group_assoc]
+      a(b(b^-1 a^-1)) = e
+  3.  Associativity: b(b^-1 a^-1) = (bb^-1)a^-1.   [group_assoc]
+      a((bb^-1)a^-1) = e
+  4.  Inverse: bb^-1 = e.   [group_inverse]
+      a(ea^-1) = e
+  5.  Identity: ea^-1 = a^-1.   [group_identity]
+      aa^-1 = e
+  6.  Inverse: aa^-1 = e.   [group_inverse]
+      e = e
+  7.  Both sides are the same: e.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 7 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if xy = e then y = x^-1 (uniqueness of inverses, 6 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 301 assignments of elements to the letters
+
+### prove that in any group the inverse of the inverse is the element
+
+Prove in a group: (a^-1)^-1 = a
+
+      (a^-1)^-1 = a
+  1.  Uniqueness of inverses: a^-1 a = e (inverse axiom), so (a^-1)^-1 = a.   [group_inverse_unique]
+      a = a
+  2.  Both sides are the same: a.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 2 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if xy = e then y = x^-1 (uniqueness of inverses, 6 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 39 assignments of elements to the letters
+
+### prove that in a group, if ab = ac then b = c
+
+Prove in a group: if ab = ac then b = c
+
+      b = c
+  1.  Identity: b = eb.   [group_identity]
+      eb = c
+  2.  Inverse: e = a^-1 a.   [group_inverse]
+      (a^-1 a)b = c
+  3.  Associativity: (a^-1 a)b = a^-1 (ab).   [group_assoc]
+      a^-1 (ab) = c
+  4.  By the hypothesis, ab = ac.   [use_hypothesis]
+      a^-1 (ac) = c
+  5.  Associativity: a^-1 (ac) = (a^-1 a)c.   [group_assoc]
+      (a^-1 a)c = c
+  6.  Inverse: a^-1 a = e.   [group_inverse]
+      ec = c
+  7.  Identity: ec = c.   [group_identity]
+      c = c
+  8.  Both sides are the same: c.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 8 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis ab = ac is used in step 4
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 301 assignments of elements to the letters where the hypotheses hold
+
+### prove that in a group, if ba = ca then b = c
+
+Prove in a group: if ba = ca then b = c
+
+      b = c
+  1.  Identity: b = be.   [group_identity]
+      be = c
+  2.  Inverse: e = aa^-1.   [group_inverse]
+      b(aa^-1) = c
+  3.  Associativity: b(aa^-1) = (ba)a^-1.   [group_assoc]
+      (ba)a^-1 = c
+  4.  By the hypothesis, ba = ca.   [use_hypothesis]
+      (ca)a^-1 = c
+  5.  Associativity: (ca)a^-1 = c(aa^-1).   [group_assoc]
+      c(aa^-1) = c
+  6.  Inverse: aa^-1 = e.   [group_inverse]
+      ce = c
+  7.  Identity: ce = c.   [group_identity]
+      c = c
+  8.  Both sides are the same: c.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 8 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis ba = ca is used in step 4
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 301 assignments of elements to the letters where the hypotheses hold
+
+### prove that in a group, if ab = e then b = a^-1
+
+Prove in a group: if ab = e then b = a^-1
+
+      b = a^-1
+  1.  Identity: a^-1 = a^-1 e.   [group_identity]
+      b = a^-1 e
+  2.  By the hypothesis, e = ab.   [use_hypothesis]
+      b = a^-1 (ab)
+  3.  Associativity: a^-1 (ab) = (a^-1 a)b.   [group_assoc]
+      b = (a^-1 a)b
+  4.  Inverse: a^-1 a = e.   [group_inverse]
+      b = eb
+  5.  Identity: eb = b.   [group_identity]
+      b = b
+  6.  Both sides are the same: b.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 6 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis ab = e is used in step 2
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 39 assignments of elements to the letters where the hypotheses hold
+
+### prove that the inverse of the identity is the identity
+
+Prove in a group: e^-1 = e
+
+      e^-1 = e
+  1.  Uniqueness of inverses: ee = e (identity axiom), so e^-1 = e.   [group_inverse_unique]
+      e = e
+  2.  Both sides are the same: e.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 2 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if xy = e then y = x^-1 (uniqueness of inverses, 6 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 6 assignments of elements to the letters
+
+### prove that the identity element is unique
+
+Prove in a group: if fa = a for all a then f = e
+
+      f = e
+  1.  Identity: f = fe.   [group_identity]
+      fe = e
+  2.  By the hypothesis fa = a for all a (with a = e), fe = e.   [use_hypothesis]
+      e = e
+  3.  Both sides are the same: e.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 3 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis fa = a (for all a) is used in step 2
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 6 assignments of elements to the letters where the hypotheses hold
+
+### in a group, prove that if ab = b then a = e
+
+Prove in a group: if ab = b then a = e
+
+      a = e
+  1.  Inverse: e = bb^-1.   [group_inverse]
+      a = bb^-1
+  2.  By the hypothesis, b = ab.   [use_hypothesis]
+      a = (ab)b^-1
+  3.  Associativity: (ab)b^-1 = a(bb^-1).   [group_assoc]
+      a = a(bb^-1)
+  4.  Inverse: bb^-1 = e.   [group_inverse]
+      a = ae
+  5.  Identity: ae = a.   [group_identity]
+      a = a
+  6.  Both sides are the same: a.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 6 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis ab = b is used in step 2
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 39 assignments of elements to the letters where the hypotheses hold
+
+### prove that if every element is its own inverse then the group is abelian
+
+Prove in a group: if a^-1 = a for all a then ab = ba
+
+      ab = ba
+  1.  By the hypothesis a^-1 = a for all a (with a = ab), ab = (ab)^-1.   [use_hypothesis]
+      (ab)^-1 = ba
+  2.  By the hypothesis a^-1 = a for all a (with a = b), b = b^-1.   [use_hypothesis]
+      (ab)^-1 = b^-1 a
+  3.  By the hypothesis a^-1 = a for all a, a = a^-1.   [use_hypothesis]
+      (ab)^-1 = b^-1 a^-1
+  4.  Inverse of a product, (xy)^-1 = y^-1 x^-1: (ab)^-1 = b^-1 a^-1.   [group_inverse_product]
+      b^-1 a^-1 = b^-1 a^-1
+  5.  Both sides are the same: b^-1 a^-1.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis a^-1 = a (for all a) is used in steps 1, 2, 3
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: (xy)^-1 = y^-1 x^-1 (inverse of a product, 7 steps)
+  ok models: holds in the group Z/2 x Z/2 at all 16 assignments of elements to the letters where the hypotheses hold (in Z/4, Z/5, S3, Q8 and Z/2 x S3 they never hold)
+
+### prove that in a group, if a^2 = e for all a then ab = ba
+
+Prove in a group: if aa = e for all a then ab = ba
+
+      ab = ba
+  1.  Uniqueness of inverses: (ab)(ab) = e (hypothesis), so ab = (ab)^-1.   [group_inverse_unique]
+      (ab)^-1 = ba
+  2.  Uniqueness of inverses: bb = e (hypothesis), so b = b^-1.   [group_inverse_unique]
+      (ab)^-1 = b^-1 a
+  3.  Uniqueness of inverses: aa = e (hypothesis), so a = a^-1.   [group_inverse_unique]
+      (ab)^-1 = b^-1 a^-1
+  4.  Inverse of a product, (xy)^-1 = y^-1 x^-1: (ab)^-1 = b^-1 a^-1.   [group_inverse_product]
+      b^-1 a^-1 = b^-1 a^-1
+  5.  Both sides are the same: b^-1 a^-1.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 5 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis aa = e (for all a) is used in steps 1, 2, 3
+  ok lemmas: each of the 2 lemmas cited has its own checked proof from the axioms and earlier lemmas: if xy = e then y = x^-1 (uniqueness of inverses, 6 steps); (xy)^-1 = y^-1 x^-1 (inverse of a product, 7 steps)
+  ok models: holds in the group Z/2 x Z/2 at all 16 assignments of elements to the letters where the hypotheses hold (in Z/4, Z/5, S3, Q8 and Z/2 x S3 they never hold)
+
+### in a group, prove (abc)^-1 = c^-1 b^-1 a^-1
+
+Prove in a group: ((ab)c)^-1 = (c^-1 b^-1)a^-1
+
+      ((ab)c)^-1 = (c^-1 b^-1)a^-1
+  1.  Inverse of a product, (xy)^-1 = y^-1 x^-1: ((ab)c)^-1 = c^-1 (ab)^-1.   [group_inverse_product]
+      c^-1 (ab)^-1 = (c^-1 b^-1)a^-1
+  2.  Associativity: (c^-1 b^-1)a^-1 = c^-1 (b^-1 a^-1).   [group_assoc]
+      c^-1 (ab)^-1 = c^-1 (b^-1 a^-1)
+  3.  Inverse of a product, (xy)^-1 = y^-1 x^-1: (ab)^-1 = b^-1 a^-1.   [group_inverse_product]
+      c^-1 (b^-1 a^-1) = c^-1 (b^-1 a^-1)
+  4.  Both sides are the same: c^-1 (b^-1 a^-1).   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 4 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: (xy)^-1 = y^-1 x^-1 (inverse of a product, 7 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 2709 assignments of elements to the letters
+
+### in a group, prove (a^-1 b)^-1 = b^-1 a
+
+Prove in a group: (a^-1 b)^-1 = b^-1 a
+
+      (a^-1 b)^-1 = b^-1 a
+  1.  Inverse of a product, (xy)^-1 = y^-1 x^-1: (a^-1 b)^-1 = b^-1 (a^-1)^-1.   [group_inverse_product]
+      b^-1 (a^-1)^-1 = b^-1 a
+  2.  Inverse of an inverse, (x^-1)^-1 = x: (a^-1)^-1 = a.   [group_inverse_inverse]
+      b^-1 a = b^-1 a
+  3.  Both sides are the same: b^-1 a.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 3 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group
+  ok lemmas: each of the 2 lemmas cited has its own checked proof from the axioms and earlier lemmas: (xy)^-1 = y^-1 x^-1 (inverse of a product, 7 steps); (x^-1)^-1 = x (inverse of an inverse, 2 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 301 assignments of elements to the letters
+
+### prove that in a group, if ab = ba then a^-1 b^-1 = b^-1 a^-1
+
+Prove in a group: if ab = ba then a^-1 b^-1 = b^-1 a^-1
+
+      a^-1 b^-1 = b^-1 a^-1
+  1.  Inverse of a product, (xy)^-1 = y^-1 x^-1: a^-1 b^-1 = (ba)^-1.   [group_inverse_product]
+      (ba)^-1 = b^-1 a^-1
+  2.  By the hypothesis, ba = ab.   [use_hypothesis]
+      (ab)^-1 = b^-1 a^-1
+  3.  Inverse of a product, (xy)^-1 = y^-1 x^-1: (ab)^-1 = b^-1 a^-1.   [group_inverse_product]
+      b^-1 a^-1 = b^-1 a^-1
+  4.  Both sides are the same: b^-1 a^-1.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 4 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis ab = ba is used in step 2
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: (xy)^-1 = y^-1 x^-1 (inverse of a product, 7 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 187 assignments of elements to the letters where the hypotheses hold
+
+### in a group, prove that if ab = ba then (ab)^2 = a^2 b^2
+
+Prove in a group: if ab = ba then (ab)(ab) = (aa)(bb)
+
+      (ab)(ab) = (aa)(bb)
+  1.  Associativity: (ab)(ab) = a(b(ab)).   [group_assoc]
+      a(b(ab)) = (aa)(bb)
+  2.  Associativity: b(ab) = (ba)b.   [group_assoc]
+      a((ba)b) = (aa)(bb)
+  3.  By the hypothesis, ba = ab.   [use_hypothesis]
+      a((ab)b) = (aa)(bb)
+  4.  Associativity: (aa)(bb) = a(a(bb)).   [group_assoc]
+      a((ab)b) = a(a(bb))
+  5.  Associativity: (ab)b = a(bb).   [group_assoc]
+      a(a(bb)) = a(a(bb))
+  6.  Both sides are the same: a(a(bb)).   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 6 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis ab = ba is used in step 3
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 187 assignments of elements to the letters where the hypotheses hold
+
+### in a group, prove that if a^3 = e then a^-1 = a^2
+
+Prove in a group: if (aa)a = e then a^-1 = aa
+
+      a^-1 = aa
+  1.  Uniqueness of inverses, if xy = e then y = x^-1: it is enough to show a(aa) = e.   [group_inverse_unique]
+      a(aa) = e
+  2.  By the hypothesis, e = (aa)a.   [use_hypothesis]
+      a(aa) = (aa)a
+  3.  Associativity: (aa)a = a(aa).   [group_assoc]
+      a(aa) = a(aa)
+  4.  Both sides are the same: a(aa).   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 4 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test group where the hypotheses do; the hypothesis (aa)a = e is used in step 2
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: if xy = e then y = x^-1 (uniqueness of inverses, 6 steps)
+  ok models: holds in the groups Z/4, Z/5, Z/2 x Z/2, S3, Q8 and Z/2 x S3 at all 10 assignments of elements to the letters where the hypotheses hold
+
+### in an abelian group, prove (ab)^-1 = a^-1 b^-1
+
+Prove in an abelian group: (ab)^-1 = a^-1 b^-1
+
+      (ab)^-1 = a^-1 b^-1
+  1.  Commutativity: ab = ba.   [group_comm]
+      (ba)^-1 = a^-1 b^-1
+  2.  Inverse of a product, (xy)^-1 = y^-1 x^-1: (ba)^-1 = a^-1 b^-1.   [group_inverse_product]
+      a^-1 b^-1 = a^-1 b^-1
+  3.  Both sides are the same: a^-1 b^-1.   [sides_equal]
+      proved
+
+Answer: proved
+  ok steps: each of the 3 steps is one instance of the axiom, lemma or hypothesis it names, found again by matching the two lines, and holds in every test abelian group
+  ok lemmas: the lemma cited has its own checked proof from the axioms and earlier lemmas: (xy)^-1 = y^-1 x^-1 (inverse of a product, 7 steps)
+  ok models: holds in the abelian groups Z/4, Z/5 and Z/2 x Z/2 at all 57 assignments of elements to the letters
+
