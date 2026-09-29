@@ -107,7 +107,7 @@ fn segment(lo: u64, hi: u64, small: &[u64], base: &[u64]) -> (Vec<(u64, u64)>, O
     (r, bad)
 }
 
-fn segment_with(lo: u64, hi: u64, small: &[u64], base: &[u64], bound: Option<(f64, f64)>) -> (Vec<(u64, u64)>, Option<u64>, Over) {
+fn segment_with(lo: u64, hi: u64, small: &[u64], base: &[u64], bound: Option<&(dyn Fn(f64) -> f64 + Sync)>) -> (Vec<(u64, u64)>, Option<u64>, Over) {
     let mut over = Over::default();
     // sieve the odd numbers in [lo - SMALL, hi]
     let start = lo.saturating_sub(SMALL) | 1;
@@ -158,8 +158,8 @@ fn segment_with(lo: u64, hi: u64, small: &[u64], base: &[u64], bound: Option<(f6
             best = p;
             records.push((n, p));
         }
-        if let Some((a, b)) = bound {
-            let f = a * (n as f64).ln().powf(b);
+        if let Some(formula) = bound {
+            let f = formula(n as f64);
             if p as f64 > f {
                 over.count += 1;
                 over.worst.push((n, p, f));
@@ -175,7 +175,7 @@ fn segment_with(lo: u64, hi: u64, small: &[u64], base: &[u64], bound: Option<(f6
 }
 
 /// Every even n from 4 to `limit`: how often the smallest prime exceeds a (ln n)^b.
-pub fn exceed(limit: u64, from: u64, threads: usize, a: f64, b: f64) -> (Over, f64) {
+pub fn exceed(limit: u64, from: u64, threads: usize, formula: &(dyn Fn(f64) -> f64 + Sync)) -> (Over, f64) {
     let t0 = Instant::now();
     let small = small_primes(SMALL);
     let base = small_primes(((limit as f64).sqrt() as u64 + 2).max(SMALL));
@@ -194,7 +194,7 @@ pub fn exceed(limit: u64, from: u64, threads: usize, a: f64, b: f64) -> (Over, f
                 if lo > hi {
                     continue;
                 }
-                let (_, _, o) = segment_with(lo, hi, &small, &base, Some((a, b)));
+                let (_, _, o) = segment_with(lo, hi, &small, &base, Some(formula));
                 let mut t = total.lock().expect("no panics while holding it");
                 t.count += o.count;
                 t.worst.extend(o.worst);

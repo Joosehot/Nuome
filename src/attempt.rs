@@ -59,6 +59,13 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
     // 2. compute what can be computed
     let computed = match (key, p.check_up_to) {
         ("goldbach", Some(n)) if sentence.to_lowercase().contains("formula") => crate::discover::goldbach_formula(&crate::discover::Settings {
+            evolve: ["evolve", "fitness", "better", "genetic"].iter().any(|w| sentence.to_lowercase().contains(w)).then(|| crate::evolve::Settings {
+                forward: p.evolve_forward.unwrap_or(true),
+                population: p.evolve_population.unwrap_or(300),
+                generations: p.evolve_generations.unwrap_or(200),
+                seed: p.evolve_seed.unwrap_or(2026),
+                price_per_node: p.evolve_price.unwrap_or(0.004),
+            }),
             min_n: p.formula_min_n.unwrap_or(1000),
             split: p.formula_split.unwrap_or(100_000_000_000),
             price_per_parameter: p.formula_price.unwrap_or(0.02),

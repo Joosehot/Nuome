@@ -1030,6 +1030,11 @@ model_doubt = 0.001           # doubt in the Hardy-Littlewood model itself: a st
 formula_min_n = 1000          # "find a formula": fit on record cases from here...
 formula_split = 100000000000  # ...up to here (what Nuome computed itself), then predict the published ones above
 formula_price = 0.02          # added to the training error per parameter, so a simpler formula wins a tie
+evolve_population = 300       # "evolve a better formula": formulas per generation
+evolve_generations = 200      # generations bred
+evolve_seed = 2026            # the same seed evolves the same formulas
+evolve_price = 0.004          # fitness = training error in ln p + this per node of the formula
+evolve_forward = true         # fitness scores forward prediction inside the training data, not just fit
 
 [open.goldbach.guess]
 answer = "true"

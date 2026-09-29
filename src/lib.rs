@@ -13,6 +13,7 @@ pub mod checks;
 pub mod config;
 pub mod discover;
 pub mod evidence;
+pub mod evolve;
 pub mod explain;
 pub mod expr;
 pub mod goldbach;

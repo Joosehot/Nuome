@@ -144,6 +144,19 @@ pub struct OpenProblem {
     /// Added to a family's training error per parameter: simpler formulas win ties.
     #[serde(default)]
     pub formula_price: Option<f64>,
+    /// Evolving formulas: population, generations, seed, and the fitness
+    /// price per node of a formula.
+    #[serde(default)]
+    pub evolve_population: Option<usize>,
+    #[serde(default)]
+    pub evolve_generations: Option<usize>,
+    #[serde(default)]
+    pub evolve_seed: Option<u64>,
+    #[serde(default)]
+    pub evolve_price: Option<f64>,
+    /// Fitness by forward prediction (true) or by fit (false).
+    #[serde(default)]
+    pub evolve_forward: Option<bool>,
 }
 
 /// A best guess at an open problem: what is expected, why, and how firmly.

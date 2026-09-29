@@ -88,6 +88,7 @@ fn errors(f: &Family, c: &[f64], data: &[(f64, f64)]) -> (f64, f64) {
 }
 
 pub struct Settings {
+    pub evolve: Option<crate::evolve::Settings>,
     pub min_n: u64,
     pub split: u64,
     pub price_per_parameter: f64,
@@ -138,7 +139,7 @@ pub fn goldbach_formula(s: &Settings) -> Vec<String> {
     // 3. the formula against every single even number, not just the records
     if f.name == "a (ln n)^b" {
         let (a, b) = (c[0].exp(), c[1]);
-        let (over, secs) = goldbach::exceed(s.check_up_to, s.min_n, threads, a, b);
+        let (over, secs) = goldbach::exceed(s.check_up_to, s.min_n, threads, &|n: f64| a * n.ln().powf(b));
         let evens = (s.check_up_to - s.min_n) / 2 + 1;
         out.push(format!("every even n from {} to {}: is the smallest prime p(n) at most {a:.3} (ln n)^{b:.3}? ({evens} numbers, {secs:.1} s; below {} the formula isn't meant to hold)", s.min_n, s.check_up_to, s.min_n));
         if over.count == 0 {
@@ -151,6 +152,34 @@ pub fn goldbach_formula(s: &Settings) -> Vec<String> {
             // the smallest factor that makes it a bound over this whole range
             let k = over.worst.first().map_or(1.0, |(_, p, fv)| *p as f64 / fv);
             out.push(format!("  as an upper bound it needs a factor {k:.3}: p(n) <= {:.3} (ln n)^{b:.3} holds for every even n up to {} (checked, not proved beyond)", a * k, s.check_up_to));
+        }
+    }
+    // 4. evolution: formulas bred by the fitness function, chosen on training fitness alone
+    if let Some(es) = &s.evolve {
+        let found = crate::evolve::evolve(&train, es);
+        let how = if es.forward { "error predicting the largest third of the training cases from the rest" } else { "training error" };
+        out.push(format!("evolved formulas ({} per generation, {} generations, seed {}; fitness = {how} + {} per node):", es.population, es.generations, es.seed, es.price_per_node));
+        let baseline = rows[best].3;
+        for (i, f) in found.iter().enumerate() {
+            let pred = |n: f64| f.k * f.tree.eval(n);
+            let test_err = (test.iter().map(|&(n, p)| (pred(n).ln() - p.ln()).powi(2)).sum::<f64>() / test.len() as f64).sqrt();
+            let worst = test.iter().map(|&(n, p)| (pred(n) / p - 1.0).abs()).fold(0.0, f64::max) * 100.0;
+            out.push(format!("  {} fitness {:.4}  train {:.3}  test {:.3} (worst {:>4.1}%)  p = {:.4} * {}", if i == 0 { "=>" } else { "  " }, f.fitness, f.train, test_err, worst, f.k, f.tree.show()));
+        }
+        if let Some(top) = found.first() {
+            let pred = |n: f64| top.k * top.tree.eval(n);
+            let test_err = (test.iter().map(|&(n, p)| (pred(n).ln() - p.ln()).powi(2)).sum::<f64>() / test.len() as f64).sqrt();
+            out.push(format!("evolved winner on unseen cases: test error {:.3} against {:.3} for the family fit ({})", test_err, baseline, if test_err < baseline { "better" } else { "not better" }));
+            for &(n, p) in test.iter().step_by((test.len() / 6).max(1)) {
+                out.push(format!("  n = {:.3e}: predicted {:>6.0}, actual {:>5}", n, pred(n), p));
+            }
+            let (over, secs) = goldbach::exceed(s.check_up_to, s.min_n, threads, &|n: f64| top.k * top.tree.eval(n));
+            let evens = (s.check_up_to - s.min_n) / 2 + 1;
+            out.push(format!("  against every even n from {} to {} ({:.1} s): {} numbers exceed it", s.min_n, s.check_up_to, secs, over.count));
+            if let Some((_, p, fv)) = over.worst.first() {
+                let k = *p as f64 / fv;
+                out.push(format!("  times {k:.3} it is an upper bound for every even n in that range ({evens} numbers checked)"));
+            }
         }
     }
     out.push("this is a fitted formula, not a theorem: it describes the records seen so far".into());
