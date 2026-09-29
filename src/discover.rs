@@ -95,6 +95,43 @@ pub struct Settings {
     pub check_up_to: u64,
 }
 
+/// A number as it is printed with three decimals.
+fn round3(x: f64) -> f64 {
+    format!("{x:.3}").parse().unwrap_or(x)
+}
+
+/// The tree with every constant and exponent as printed.
+fn round_tree(t: &crate::evolve::Node) -> crate::evolve::Node {
+    use crate::evolve::Node;
+    match t {
+        Node::Const(c) => Node::Const(round3(*c)),
+        Node::Add(a, b) => Node::Add(Box::new(round_tree(a)), Box::new(round_tree(b))),
+        Node::Mul(a, b) => Node::Mul(Box::new(round_tree(a)), Box::new(round_tree(b))),
+        Node::Pow(a, e) => Node::Pow(Box::new(round_tree(a)), round3(*e)),
+        n => n.clone(),
+    }
+}
+
+/// The smallest multiplier c, rounded UP to three decimals, with
+/// p(n) <= c * shape(n) for every even n in the range, and whether a recheck
+/// of exactly that printed bound against every n found no exception.
+fn verified_bound(s: &Settings, threads: usize, guess: f64, shape: &(dyn Fn(f64) -> f64 + Sync)) -> (f64, bool) {
+    let up = |x: f64| (x * 1000.0).ceil() / 1000.0;
+    let (over, _) = goldbach::exceed(s.check_up_to, s.min_n, threads, &|n: f64| guess * shape(n));
+    let mut c = match over.worst.first() {
+        Some((_, p, fv)) => up(guess * (*p as f64 / fv)),
+        None => up(guess),
+    };
+    for _ in 0..3 {
+        let (again, _) = goldbach::exceed(s.check_up_to, s.min_n, threads, &|n: f64| c * shape(n));
+        if again.count == 0 {
+            return (c, true);
+        }
+        c += 0.001;
+    }
+    (c, false)
+}
+
 pub fn goldbach_formula(s: &Settings) -> Vec<String> {
     let mut out = Vec::new();
     let data = records();
@@ -149,9 +186,13 @@ pub fn goldbach_formula(s: &Settings) -> Vec<String> {
             for (n, p, fv) in &over.worst {
                 out.push(format!("    n = {n}: p = {p}, formula {fv:.0} ({:+.0}%)", (*p as f64 / fv - 1.0) * 100.0));
             }
-            // the smallest factor that makes it a bound over this whole range
-            let k = over.worst.first().map_or(1.0, |(_, p, fv)| *p as f64 / fv);
-            out.push(format!("  as an upper bound it needs a factor {k:.3}: p(n) <= {:.3} (ln n)^{b:.3} holds for every even n up to {} (checked, not proved beyond)", a * k, s.check_up_to));
+            let b3 = round3(b);
+            let (c, ok) = verified_bound(s, threads, a, &|n: f64| n.ln().powf(b3));
+            out.push(if ok {
+                format!("  as an upper bound, exactly as printed: p(n) <= {c:.3} (ln n)^{b3:.3} for every even n from {} to {} (this printed formula rechecked against all of them; not proved beyond)", s.min_n, s.check_up_to)
+            } else {
+                "  no bound could be confirmed with the printed constants".to_string()
+            });
         }
     }
     // 4. evolution: formulas bred by the fitness function, chosen on training fitness alone
@@ -176,9 +217,14 @@ pub fn goldbach_formula(s: &Settings) -> Vec<String> {
             let (over, secs) = goldbach::exceed(s.check_up_to, s.min_n, threads, &|n: f64| top.k * top.tree.eval(n));
             let evens = (s.check_up_to - s.min_n) / 2 + 1;
             out.push(format!("  against every even n from {} to {} ({:.1} s): {} numbers exceed it", s.min_n, s.check_up_to, secs, over.count));
-            if let Some((_, p, fv)) = over.worst.first() {
-                let k = *p as f64 / fv;
-                out.push(format!("  times {k:.3} it is an upper bound for every even n in that range ({evens} numbers checked)"));
+            if over.count > 0 {
+                let shape = round_tree(&top.tree);
+                let (c, ok) = verified_bound(s, threads, top.k, &|n: f64| shape.eval(n));
+                out.push(if ok {
+                    format!("  as an upper bound, exactly as printed: p(n) <= {c:.3} * {} for every even n from {} to {} ({evens} numbers; this printed formula rechecked against all of them)", shape.show(), s.min_n, s.check_up_to)
+                } else {
+                    "  no bound could be confirmed with the printed constants".to_string()
+                });
             }
         }
     }
