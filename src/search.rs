@@ -143,9 +143,16 @@ fn run(req: &Request, cfg: &Config, p: &Axes, width: usize) -> Run {
     // "using the quadratic formula": the group's other methods are off, except
     // the forced method's own follow-ups once it has been used
     let forced = req.method.as_ref().and_then(|m| cfg.group_of(&m.value).map(|g| (g, m.value.as_str())));
-    let allowed = |rule: &str, path: &Path| match forced {
+    let allowed_method = |rule: &str, path: &Path| match forced {
         Some((g, m)) if cfg.group_of(rule) == Some(g) && rule != m => path.uses(m) && cfg.follows(m, rule),
         _ => true,
+    };
+    let allowed = |rule: &str, path: &Path| {
+        // a sum still in the statement: set up the induction before anything else
+        if req.task.value == Task::Prove && rule != "induction" && path.state.slots().iter().any(|e| e.walk().iter().any(|(_, n)| matches!(n, Expr::Call(crate::calls::Named::Series, _)))) {
+            return false;
+        }
+        allowed_method(rule, path)
     };
     let cx = Cx { req, cfg, var: &req.var.value };
     let start = req.start();
