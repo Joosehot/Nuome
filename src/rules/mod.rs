@@ -65,6 +65,11 @@ pub mod ineq_verdict;
 pub mod sign_chart;
 pub mod abs_split;
 pub mod abs_check;
+pub mod eliminate;
+pub mod substitution;
+pub mod back_substitute;
+pub mod system_scale;
+pub mod system_verdict;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -208,6 +213,11 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &sign_chart::SignChart,
         &abs_split::AbsSplit,
         &abs_check::AbsCheck,
+        &eliminate::Eliminate,
+        &substitution::Substitution,
+        &back_substitute::BackSubstitute,
+        &system_scale::SystemScale,
+        &system_verdict::SystemVerdict,
     ]
 }
 

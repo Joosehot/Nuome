@@ -52,7 +52,7 @@ evaluate = ["substitute", "fold", "roots", "cancel", "identity", "neg_exponent",
 simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction", "log_eval", "log_laws"]
 expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "log_laws", "log_eval"]
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "factor_theorem"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
@@ -61,6 +61,8 @@ divide = ["poly_divide"]
 # pays the method_switch judge; "using the quadratic formula" forbids the others.
 [methods]
 quadratic = ["factor_solve", "quadratic_formula", "square_root", "complete_square"]
+# ---- Algebra: methods ----
+system = ["eliminate", "substitution"]
 
 [method_follow]
 complete_square = ["square_root"]
@@ -408,6 +410,41 @@ weight = 1.0
 [rules.abs_check]
 weight = 1.0
 [rules.abs_check.variants.rejected]
+
+# ---- Algebra: systems of linear equations ----
+
+[rules.eliminate]
+weight = 1.0
+[rules.eliminate.variants.add]             # x + y = 3, x - y = 1: add, y cancels
+elegance = 0.6
+[rules.eliminate.variants.subtract]
+elegance = 0.5
+[rules.eliminate.variants.scale]           # multiply first so a letter can cancel
+elegance = 0.3
+
+[rules.substitution]
+weight = 1.0
+[rules.substitution.variants.isolate]      # a letter with coefficient 1 or -1
+clarity = 0.3
+[rules.substitution.variants.isolate_fraction]
+clarity = -0.5
+[rules.substitution.variants.substitute]
+clarity = 0.3
+
+[rules.back_substitute]
+weight = 1.0
+[rules.back_substitute.variants.value]
+clarity = 0.2
+
+[rules.system_scale]
+weight = 1.0
+[rules.system_scale.variants.divide]
+clarity = 0.2
+
+[rules.system_verdict]
+weight = 1.0
+[rules.system_verdict.variants.never]
+[rules.system_verdict.variants.dependent]
 
 # ---- Algebra: checks ----
 

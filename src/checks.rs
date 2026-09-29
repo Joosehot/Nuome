@@ -74,7 +74,7 @@ pub fn check(req: &Request, cfg: &Config, path: &Path) -> Vec<Check> {
     }
     match req.task.value {
         Task::Solve if matches!(req.problem.value, Math::Ineq(..)) => ineq_checks(req, cfg, path, &mut out),
-        Task::Solve if matches!(req.problem.value, Math::System(_)) => system_checks(req, path, &mut out),
+        Task::Solve if matches!(req.problem.value, Math::System(_)) => system_checks(req, cfg, path, &mut out),
         Task::Solve => solve_checks(req, cfg, path, &mut out),
         _ => expr_checks(req, cfg, path, &mut out),
     }
@@ -837,7 +837,7 @@ fn det(m: &[Vec<Q>]) -> Option<Q> {
 /// Systems: the answer is put back into every original equation exactly;
 /// how many solutions there are comes from the coefficients alone (the
 /// determinant, and the ranks when it is 0).
-fn system_checks(req: &Request, path: &Path, out: &mut Vec<Check>) {
+fn system_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     let Math::System(eqs) = &req.problem.value else { return };
     let vars: Vec<String> = eqs.iter().flat_map(|(l, r)| l.vars().into_iter().chain(r.vars())).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
     let Some(forms) = eqs.iter().map(|(l, r)| poly::linear_form(l, r, &vars)).collect::<Option<Vec<_>>>() else {
@@ -874,6 +874,17 @@ fn system_checks(req: &Request, path: &Path, out: &mut Vec<Check>) {
             }
         }
     }
+    // 1b. "no solution": no sample point satisfies every equation
+    if matches!(path.state, Math::NoSolution) {
+        let tried = cfg.check.samples.len();
+        let held = (0..tried)
+            .filter(|&k| {
+                let e = env(req, cfg, k);
+                eqs.iter().all(|(l, r)| close(l.eval_f(&e), r.eval_f(&e), cfg.check.tolerance))
+            })
+            .count();
+        out.push(ck("samples", held == 0, format!("no sample point satisfies every equation ({tried} tried)")));
+    }
     if !solved.is_empty() {
         let at: Vec<String> = solved.iter().map(|(l, r)| format!("{} = {}", print::expr(l, Style::Ascii), print::expr(r, Style::Ascii))).collect();
         let detail = if free.is_empty() { format!("{}: every equation holds exactly", at.join(", ")) } else { format!("every equation holds exactly for {} = 0, 1 and 2, so for every value (the equations are linear)", free.join(", ")) };
@@ -890,7 +901,7 @@ fn system_checks(req: &Request, path: &Path, out: &mut Vec<Check>) {
             None => format!("the coefficients have rank {ra}, the number of letters"),
         })
     } else {
-        ("many", format!("{}the equations leave {} letter(s) free", if square { "the determinant of the coefficients is 0 and " } else { "" }, n - ra))
+        ("many", format!("{}the equations leave {} free", if square { "the determinant of the coefficients is 0 and " } else { "" }, if n - ra == 1 { "1 letter".to_string() } else { format!("{} letters", n - ra) }))
     };
     let got = match &path.state {
         Math::NoSolution => "none",

@@ -133,6 +133,9 @@ fn algebra_answer(req: &Request, out: &Outcome, s: Style) -> Option<String> {
         }
         (_, Math::Intervals(_, ivs)) if !ivs.is_empty() => Some(format!("{}, in interval notation {}", print::math(state, s), print::interval_notation(ivs, s))),
         (_, Math::System(eqs)) => {
+            // in the letters' order: x = 3, y = 2, z = 1
+            let mut eqs = eqs.clone();
+            eqs.sort_by(|a, b| print::expr(&a.0, Style::Ascii).cmp(&print::expr(&b.0, Style::Ascii)));
             let solved: Vec<String> = eqs.iter().map(|(l, r)| format!("{} = {}", print::expr(l, s), print::expr(r, s))).collect();
             let free: std::collections::BTreeSet<String> = eqs.iter().flat_map(|(_, r)| r.vars()).collect();
             if free.is_empty() {

@@ -1,0 +1,9 @@
+solve x + y = 3 and x - y = 1
+solve 2x + 3y = 12 and 3x - 2y = 5
+solve y = 2x + 1 and 3x + y = 11
+solve x + y = 3 and x - y = 1 by substitution
+solve 2x + y = 7 and x - y = 2 by elimination
+solve the system a + 2b = 4, 3a - b = 5
+solve x + y = 3 and 2x + 2y = 7
+solve x + y = 3 and 2x + 2y = 6
+solve x + y + z = 6, x - y + z = 2, 2x + y - z = 1
