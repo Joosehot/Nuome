@@ -47,6 +47,10 @@ pub fn math(m: &Math, s: Style) -> String {
         Math::Ineq(l, r, rr) => format!("{} {} {}", expr(l, s), rel(*r, s), expr(rr, s)),
         Math::Intervals(v, ivs) => inequalities(v, ivs, s),
         Math::System(eqs) => eqs.iter().map(|(l, r)| format!("{} = {}", expr(l, s), expr(r, s))).collect::<Vec<_>>().join(", "),
+        // logic and sets (agent L)
+        Math::Taut(e) => expr(e, s),
+        Math::Equiv(l, r) | Math::Entails(l, r) => format!("{} {} {}", statement_side(l, s), statement_sign(m, s), statement_side(r, s)),
+        Math::Subset(l, r) => format!("{} {} {}", expr(l, s), statement_sign(m, s), expr(r, s)),
     }
 }
 
@@ -407,6 +411,8 @@ fn write(e: &Expr, s: Style, out: &mut String) {
                 out.push(']');
             }
         }
+        // logic and sets (agent L)
+        Expr::Logic(..) | Expr::Truth(_) | Expr::Set(..) | Expr::SetConst(_) | Expr::Member(..) => logic(e, s, out),
     }
 }
 
@@ -542,6 +548,137 @@ pub fn split_sign(t: &Expr) -> (bool, Expr) {
             (true, crate::expr::mul(v))
         }
         _ => (false, t.clone()),
+    }
+}
+
+// ---- logic and sets (agent L) ----
+
+/// The sign between the two sides of a statement about statements or sets:
+/// <=> (equivalent), => (assuming the left, the right), subset of.
+pub fn statement_sign(m: &Math, s: Style) -> &'static str {
+    match (m, s) {
+        (Math::Equiv(..), Style::Ascii) => "<=>",
+        (Math::Equiv(..), Style::Unicode) => "≡",
+        (Math::Equiv(..), Style::Latex) => "\\equiv",
+        (Math::Entails(..), Style::Ascii) => "=>",
+        (Math::Entails(..), Style::Unicode) => "⟹",
+        (Math::Entails(..), Style::Latex) => "\\implies",
+        (Math::Subset(..), Style::Ascii) => "subset of",
+        (Math::Subset(..), Style::Unicode) => "⊆",
+        (Math::Subset(..), Style::Latex) => "\\subseteq",
+        _ => "=",
+    }
+}
+
+/// A side of <=> or =>: an implication or biconditional is bracketed, so
+/// (p -> q) <=> (~q -> ~p) reads at a glance.
+fn statement_side(e: &Expr, s: Style) -> String {
+    let mut out = String::new();
+    if matches!(e, Expr::Logic(crate::expr::Conn::Implies | crate::expr::Conn::Iff, _)) {
+        paren(e, s, &mut out);
+    } else {
+        write(e, s, &mut out);
+    }
+    out
+}
+
+/// A connective or set operation as it is printed.
+pub fn logic_sign(e: &Expr, s: Style) -> &'static str {
+    use crate::expr::{Conn, SetOp};
+    match (e, s) {
+        (Expr::Logic(Conn::Not, _), Style::Ascii) => "~",
+        (Expr::Logic(Conn::Not, _), Style::Unicode) => "¬",
+        (Expr::Logic(Conn::Not, _), Style::Latex) => "\\neg ",
+        (Expr::Logic(Conn::And, _), Style::Ascii) => " and ",
+        (Expr::Logic(Conn::And, _), Style::Unicode) => " ∧ ",
+        (Expr::Logic(Conn::And, _), Style::Latex) => " \\land ",
+        (Expr::Logic(Conn::Or, _), Style::Ascii) => " or ",
+        (Expr::Logic(Conn::Or, _), Style::Unicode) => " ∨ ",
+        (Expr::Logic(Conn::Or, _), Style::Latex) => " \\lor ",
+        (Expr::Logic(Conn::Implies, _), Style::Ascii) => " -> ",
+        (Expr::Logic(Conn::Implies, _), Style::Unicode) => " → ",
+        (Expr::Logic(Conn::Implies, _), Style::Latex) => " \\to ",
+        (Expr::Logic(Conn::Iff, _), Style::Ascii) => " <-> ",
+        (Expr::Logic(Conn::Iff, _), Style::Unicode) => " ↔ ",
+        (Expr::Logic(Conn::Iff, _), Style::Latex) => " \\leftrightarrow ",
+        (Expr::Set(SetOp::Complement, _), Style::Latex) => "^{c}",
+        (Expr::Set(SetOp::Complement, _), _) => "'",
+        (Expr::Set(SetOp::Union, _), Style::Ascii) => " union ",
+        (Expr::Set(SetOp::Union, _), Style::Unicode) => " ∪ ",
+        (Expr::Set(SetOp::Union, _), Style::Latex) => " \\cup ",
+        (Expr::Set(SetOp::Inter, _), Style::Ascii) => " intersect ",
+        (Expr::Set(SetOp::Inter, _), Style::Unicode) => " ∩ ",
+        (Expr::Set(SetOp::Inter, _), Style::Latex) => " \\cap ",
+        (Expr::Set(SetOp::Diff, _), Style::Ascii) => " \\ ",
+        (Expr::Set(SetOp::Diff, _), Style::Unicode) => " ∖ ",
+        (Expr::Set(SetOp::Diff, _), Style::Latex) => " \\setminus ",
+        (Expr::Truth(true), Style::Latex) => "\\mathrm{T}",
+        (Expr::Truth(false), Style::Latex) => "\\mathrm{F}",
+        (Expr::Truth(true), _) => "T",
+        (Expr::Truth(false), _) => "F",
+        (Expr::SetConst(true), _) => "U",
+        (Expr::SetConst(false), Style::Ascii) => "{}",
+        (Expr::SetConst(false), Style::Unicode) => "∅",
+        (Expr::SetConst(false), Style::Latex) => "\\emptyset",
+        _ => "",
+    }
+}
+
+/// Statements and sets. A part that is itself built with a two-sided
+/// connective or operation is always bracketed, the way textbooks write
+/// (p and q) or r and (A intersect B) union C.
+fn logic(e: &Expr, s: Style, out: &mut String) {
+    use crate::expr::{Conn, SetOp};
+    let binary = |e: &Expr| matches!(e, Expr::Logic(c, _) if *c != Conn::Not) || matches!(e, Expr::Set(o, _) if *o != SetOp::Complement);
+    let part = |e: &Expr, out: &mut String| if binary(e) { paren(e, s, out) } else { write(e, s, out) };
+    match e {
+        Expr::Logic(Conn::Not, v) => match &v[0] {
+            // x not in A
+            Expr::Member(x, a) => {
+                out.push_str(x);
+                out.push_str(match s {
+                    Style::Ascii => " not in ",
+                    Style::Unicode => " ∉ ",
+                    Style::Latex => " \\notin ",
+                });
+                write(a, s, out);
+            }
+            a => {
+                out.push_str(logic_sign(e, s));
+                if matches!(a, Expr::Member(..)) {
+                    paren(a, s, out);
+                } else {
+                    part(a, out);
+                }
+            }
+        },
+        Expr::Set(SetOp::Complement, v) => {
+            let a = &v[0];
+            if matches!(a, Expr::Var(_) | Expr::SetConst(_)) {
+                write(a, s, out);
+            } else {
+                paren(a, s, out);
+            }
+            out.push_str(logic_sign(e, s));
+        }
+        Expr::Logic(_, v) | Expr::Set(_, v) => {
+            for (i, a) in v.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(logic_sign(e, s));
+                }
+                part(a, out);
+            }
+        }
+        Expr::Member(x, a) => {
+            out.push_str(x);
+            out.push_str(match s {
+                Style::Ascii => " in ",
+                Style::Unicode => " ∈ ",
+                Style::Latex => " \\in ",
+            });
+            write(a, s, out);
+        }
+        _ => out.push_str(logic_sign(e, s)),
     }
 }
 

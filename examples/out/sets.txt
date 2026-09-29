@@ -1,0 +1,269 @@
+### prove A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)
+
+Prove A intersect (B union C) = (A intersect B) union (A intersect C)
+
+      A intersect (B union C) = (A intersect B) union (A intersect C)
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in A intersect (B union C) means x in A and (x in B or x in C)
+        x in (A intersect B) union (A intersect C) means (x in A and x in B) or (x in A and x in C)
+      x in A and (x in B or x in C) <=> (x in A and x in B) or (x in A and x in C)
+  2.  Distributive law, taking out the common part: (P and Q) or (P and R) <=> P and (Q or R).   [distributive]
+      x in A and (x in B or x in C) <=> x in A and (x in B or x in C)
+  3.  Both sides are the same: x in A and (x in B or x in C). So any x is in A intersect (B union C) exactly when it is in (A intersect B) union (A intersect C): the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 8 regions of the Venn diagram of A, B and C (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 8 regions
+
+### prove (A ∪ B)' = A' ∩ B'
+
+Prove (A union B)' = A' intersect B'
+
+      (A union B)' = A' intersect B'
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in (A union B)' means ~(x in A or x in B)
+        x in A' intersect B' means x not in A and x not in B
+      ~(x in A or x in B) <=> x not in A and x not in B
+  2.  De Morgan's law: ~(P or Q) <=> ~P and ~Q.   [de_morgan]
+      x not in A and x not in B <=> x not in A and x not in B
+  3.  Both sides are the same: x not in A and x not in B. So any x is in (A union B)' exactly when it is in A' intersect B': the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 4 regions
+
+### prove A \ B = A ∩ B'
+
+Prove A \ B = A intersect B'
+
+      A \ B = A intersect B'
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in A \ B means x in A and x not in B
+        x in A intersect B' means x in A and x not in B
+      x in A and x not in B <=> x in A and x not in B
+  2.  Both sides are the same: x in A and x not in B. So any x is in A \ B exactly when it is in A intersect B': the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 4 regions
+
+### prove A ∩ B ⊆ A
+
+Prove A intersect B subset of A
+
+      A intersect B subset of A
+  1.  Chase an element: take any x in A intersect B and show it is in A.   [element_chase]
+        x in A intersect B means x in A and x in B
+      x in A and x in B => x in A
+  2.  In particular x in A: it is part of what was assumed. So every x in A intersect B is in A.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: in all 4 regions of the Venn diagram of A and B, a region inside the left side is inside the right: every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 4 regions
+
+### prove A ⊆ A ∪ B
+
+Prove A subset of A union B
+
+      A subset of A union B
+  1.  Chase an element: take any x in A and show it is in A union B.   [element_chase]
+        x in A union B means x in A or x in B
+      x in A => x in A or x in B
+  2.  x in A is one of the alternatives in x in A or x in B, so x in A or x in B holds. So every x in A is in A union B.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: in all 4 regions of the Venn diagram of A and B, a region inside the left side is inside the right: every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 4 regions
+
+### prove A ∪ (A ∩ B) = A
+
+Prove A union (A intersect B) = A
+
+      A union (A intersect B) = A
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in A union (A intersect B) means x in A or (x in A and x in B)
+      x in A or (x in A and x in B) <=> x in A
+  2.  Absorption: P or (P and Q) <=> P.   [absorption]
+      x in A <=> x in A
+  3.  Both sides are the same: x in A. So any x is in A union (A intersect B) exactly when it is in A: the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 4 regions
+
+### prove (A ∩ B) ∪ (A ∩ B') = A
+
+Prove (A intersect B) union (A intersect B') = A
+
+      (A intersect B) union (A intersect B') = A
+  1.  Distributive law, taking out the common part: (X intersect Y) union (X intersect Z) = X intersect (Y union Z).   [distributive]
+      A intersect (B union B') = A
+  2.  Complement law: X union X' = U.   [excluded_middle]
+      A intersect U = A
+  3.  Identity law: X intersect U = X.   [logic_identity]
+      A = A
+  4.  Both sides are the same: A.   [sides_equal]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 4 regions
+
+### prove A \ (B ∪ C) = (A \ B) ∩ (A \ C)
+
+Prove A \ (B union C) = (A \ B) intersect (A \ C)
+
+      A \ (B union C) = (A \ B) intersect (A \ C)
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in A \ (B union C) means x in A and ~(x in B or x in C)
+        x in (A \ B) intersect (A \ C) means x in A and x not in B and x in A and x not in C
+      x in A and ~(x in B or x in C) <=> x in A and x not in B and x in A and x not in C
+  2.  De Morgan's law: ~(P or Q) <=> ~P and ~Q.   [de_morgan]
+      x in A and x not in B and x not in C <=> x in A and x not in B and x in A and x not in C
+  3.  Idempotence: P and P <=> P.   [idempotence]
+      x in A and x not in B and x not in C <=> x in A and x not in B and x not in C
+  4.  Both sides are the same: x in A and x not in B and x not in C. So any x is in A \ (B union C) exactly when it is in (A \ B) intersect (A \ C): the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 8 regions of the Venn diagram of A, B and C (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 8 regions
+
+### prove (A \ B) ∪ B = A ∪ B
+
+Prove (A \ B) union B = A union B
+
+      (A \ B) union B = A union B
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in (A \ B) union B means (x in A and x not in B) or x in B
+        x in A union B means x in A or x in B
+      (x in A and x not in B) or x in B <=> x in A or x in B
+  2.  Distributive law: P or (Q and R) <=> (P or Q) and (P or R).   [distributive]
+      (x in B or x in A) and (x in B or x not in B) <=> x in A or x in B
+  3.  Excluded middle: P or ~P <=> T.   [excluded_middle]
+      (x in B or x in A) and T <=> x in A or x in B
+  4.  Identity law: P and T <=> P.   [logic_identity]
+      x in B or x in A <=> x in A or x in B
+  5.  Both sides are the same, up to the order of the parts: x in B or x in A. So any x is in (A \ B) union B exactly when it is in A union B: the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 5 steps keeps every truth value in all 4 regions
+
+### prove the complement of A intersect B equals A' union B'
+
+Prove (A intersect B)' = A' union B'
+
+      (A intersect B)' = A' union B'
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in (A intersect B)' means ~(x in A and x in B)
+        x in A' union B' means x not in A or x not in B
+      ~(x in A and x in B) <=> x not in A or x not in B
+  2.  De Morgan's law: ~(P and Q) <=> ~P or ~Q.   [de_morgan]
+      x not in A or x not in B <=> x not in A or x not in B
+  3.  Both sides are the same: x not in A or x not in B. So any x is in (A intersect B)' exactly when it is in A' union B': the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 4 regions
+
+### prove (A ∪ B)' = A' ∩ B' by a membership table
+
+Prove (A union B)' = A' intersect B'
+
+      (A union B)' = A' intersect B'
+  1.  Membership table, one row per region of the Venn diagram: L and R contain the same regions, in all 4 rows.   [truth_table]
+        L = (A union B)',  R = A' intersect B'
+        A  B  |  L  R
+        1  1  |  0  0
+        1  0  |  0  0
+        0  1  |  0  0
+        0  0  |  1  1
+      proved
+
+Answer: proved
+  ok method: uses truth_table as asked ("by a membership table")
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: the step's claim holds in all 4 regions
+
+### prove A ∩ (B \ A) = ∅
+
+Prove A intersect (B \ A) = {}
+
+      A intersect (B \ A) = {}
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in A intersect (B \ A) means x in A and x in B and x not in A
+        x in {} means F
+      x in A and x in B and x not in A <=> F
+  2.  Contradiction: P and ~P <=> F.   [excluded_middle]
+      F and x in B <=> F
+  3.  Domination law: P and F <=> F.   [domination]
+      F <=> F
+  4.  Both sides are the same: F. So any x is in A intersect (B \ A) exactly when it is in {}: the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 4 regions
+
+### prove A \ B ⊆ A
+
+Prove A \ B subset of A
+
+      A \ B subset of A
+  1.  Chase an element: take any x in A \ B and show it is in A.   [element_chase]
+        x in A \ B means x in A and x not in B
+      x in A and x not in B => x in A
+  2.  In particular x in A: it is part of what was assumed. So every x in A \ B is in A.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: in all 4 regions of the Venn diagram of A and B, a region inside the left side is inside the right: every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 4 regions
+
+### prove A U B = B U A
+
+Prove A union B = B union A
+
+      A union B = B union A
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in A union B means x in A or x in B
+        x in B union A means x in B or x in A
+      x in A or x in B <=> x in B or x in A
+  2.  Both sides are the same, up to the order of the parts: x in A or x in B. So any x is in A union B exactly when it is in B union A: the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 4 regions
+
+### prove (A ∩ B) ∪ (A ∩ B') = A by element chasing
+
+Prove (A intersect B) union (A intersect B') = A
+
+      (A intersect B) union (A intersect B') = A
+  1.  Chase an element: the sets are equal when any x is in one exactly when it is in the other. Write out what that means.   [element_chase]
+        x in (A intersect B) union (A intersect B') means (x in A and x in B) or (x in A and x not in B)
+      (x in A and x in B) or (x in A and x not in B) <=> x in A
+  2.  Distributive law, taking out the common part: (P and Q) or (P and R) <=> P and (Q or R).   [distributive]
+      x in A and (x in B or x not in B) <=> x in A
+  3.  Excluded middle: P or ~P <=> T.   [excluded_middle]
+      x in A and T <=> x in A
+  4.  Identity law: P and T <=> P.   [logic_identity]
+      x in A <=> x in A
+  5.  Both sides are the same: x in A. So any x is in (A intersect B) union (A intersect B') exactly when it is in A: the sets are equal.   [equiv_end]
+      proved
+
+Answer: proved
+  ok method: uses element_chase as asked ("by element chasing")
+  ok truth table: both sides contain the same regions, in all 4 regions of the Venn diagram of A and B (every element lies in exactly one): every case, checked exactly
+  ok steps: each of the 5 steps keeps every truth value in all 4 regions
+

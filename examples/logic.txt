@@ -1,0 +1,15 @@
+prove (p -> q) <-> (~q -> ~p)
+prove not (p and q) is equivalent to not p or not q
+show that p or not p is a tautology
+prove ((p -> q) and p) -> q
+prove ((p -> q) and ~q) -> ~p
+prove ((p -> q) and (q -> r)) -> (p -> r)
+prove (p and q) or (p and not q) is equivalent to p
+prove ~(p or (~p and q)) <-> ~p and ~q
+prove (p and q) -> (p or q)
+prove ~(p -> q) <-> p and ~q
+prove ((p -> r) and (q -> r)) <-> ((p or q) -> r)
+prove (p -> q) <-> (~q -> ~p) by truth table
+prove p ^ ~p = F
+prove (p <-> q) <-> (q <-> p)
+prove (p -> q) and (p -> r) is equivalent to p -> (q and r)

@@ -13,6 +13,8 @@ pub mod config;
 pub mod explain;
 pub mod expr;
 pub mod lexicon;
+// logic and sets (agent L)
+pub mod logic;
 pub mod model;
 pub mod parser;
 pub mod poly;

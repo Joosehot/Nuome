@@ -1,0 +1,15 @@
+prove A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C)
+prove (A ∪ B)' = A' ∩ B'
+prove A \ B = A ∩ B'
+prove A ∩ B ⊆ A
+prove A ⊆ A ∪ B
+prove A ∪ (A ∩ B) = A
+prove (A ∩ B) ∪ (A ∩ B') = A
+prove A \ (B ∪ C) = (A \ B) ∩ (A \ C)
+prove (A \ B) ∪ B = A ∪ B
+prove the complement of A intersect B equals A' union B'
+prove (A ∪ B)' = A' ∩ B' by a membership table
+prove A ∩ (B \ A) = ∅
+prove A \ B ⊆ A
+prove A U B = B U A
+prove (A ∩ B) ∪ (A ∩ B') = A by element chasing

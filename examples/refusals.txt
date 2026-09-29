@@ -24,3 +24,8 @@ prove the Hodge conjecture
 Let X be a non-singular complex projective variety. Prove that every Hodge class in H^(2p)(X, Q) intersected with H^(p,p)(X) is a rational linear combination of classes of algebraic cycles of X
 prove the riemann hypothesis
 prove the poincare conjecture
+prove (p -> q) -> p
+prove (p -> q) <-> (q -> p)
+prove p or q is equivalent to p and q
+prove A ∪ B = A
+prove A ⊆ A ∩ B

@@ -142,3 +142,28 @@ error: The Poincare conjecture is not something Nuome can prove: it was proved b
   known: dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)
   hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
 
+### prove (p -> q) -> p
+
+error: (p -> q) -> p isn't a tautology, so it can't be proved
+  hint: p = false, q = true makes it false
+
+### prove (p -> q) <-> (q -> p)
+
+error: (p -> q) <=> (q -> p) isn't an equivalence, so it can't be proved
+  hint: p = true, q = false makes the left side false and the right side true
+
+### prove p or q is equivalent to p and q
+
+error: p or q <=> p and q isn't an equivalence, so it can't be proved
+  hint: p = true, q = false makes the left side true and the right side false
+
+### prove A ∪ B = A
+
+error: A union B = A isn't true for every choice of sets, so it can't be proved
+  hint: an element in B but not in A is in the left side only
+
+### prove A ⊆ A ∩ B
+
+error: A subset of A intersect B isn't true for every choice of sets, so it can't be proved
+  hint: an element in A but not in B is in the left side but not the right
+

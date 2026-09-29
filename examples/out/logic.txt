@@ -1,0 +1,259 @@
+### prove (p -> q) <-> (~q -> ~p)
+
+Prove (p -> q) <=> (~q -> ~p)
+
+      (p -> q) <=> (~q -> ~p)
+  1.  Implication law: (P -> Q) <=> ~P or Q.   [impl_elim]
+      ~p or q <=> ~~q or ~p
+  2.  Double negation: ~~P <=> P.   [double_negation]
+      ~p or q <=> q or ~p
+  3.  Both sides are the same, up to the order of the parts: ~p or q.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 4 rows
+
+### prove not (p and q) is equivalent to not p or not q
+
+Prove ~(p and q) <=> ~p or ~q
+
+      ~(p and q) <=> ~p or ~q
+  1.  Truth table: L and R agree in all 4 rows.   [truth_table]
+        L = ~(p and q),  R = ~p or ~q
+        p  q  |  L  R
+        T  T  |  F  F
+        T  F  |  T  T
+        F  T  |  T  T
+        F  F  |  T  T
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: the step's claim holds in all 4 rows
+
+### show that p or not p is a tautology
+
+Prove p or ~p
+
+      p or ~p
+  1.  Truth table: S is T in all 2 rows.   [truth_table]
+        S = p or ~p
+        p  |  S
+        T  |  T
+        F  |  T
+      proved
+
+Answer: proved
+  ok truth table: true in all 2 rows of its truth table (p): every case, checked exactly
+  ok steps: the step's claim holds in all 2 rows
+
+### prove ((p -> q) and p) -> q
+
+Prove ((p -> q) and p) -> q
+
+      ((p -> q) and p) -> q
+  1.  Assume (p -> q) and p; it remains to show q.   [assume]
+      (p -> q) and p => q
+  2.  Modus ponens: (P -> Q) and P <=> Q and P.   [modus_ponens]
+      q and p => q
+  3.  In particular q: it is part of what was assumed.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: true in all 4 rows of its truth table (p and q): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 4 rows
+
+### prove ((p -> q) and ~q) -> ~p
+
+Prove ((p -> q) and ~q) -> ~p
+
+      ((p -> q) and ~q) -> ~p
+  1.  Assume (p -> q) and ~q; it remains to show ~p.   [assume]
+      (p -> q) and ~q => ~p
+  2.  Modus tollens: (P -> Q) and ~Q <=> ~P and ~Q.   [modus_ponens]
+      ~p and ~q => ~p
+  3.  In particular ~p: it is part of what was assumed.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: true in all 4 rows of its truth table (p and q): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 4 rows
+
+### prove ((p -> q) and (q -> r)) -> (p -> r)
+
+Prove ((p -> q) and (q -> r)) -> (p -> r)
+
+      ((p -> q) and (q -> r)) -> (p -> r)
+  1.  Assume (p -> q) and (q -> r); it remains to show p -> r.   [assume]
+      (p -> q) and (q -> r) => (p -> r)
+  2.  Assume also p; it remains to show r.   [assume]
+      (p -> q) and (q -> r) and p => r
+  3.  Modus ponens: (P -> Q) and P <=> Q and P.   [modus_ponens]
+      q and (q -> r) and p => r
+  4.  Modus ponens: (P -> Q) and P <=> Q and P.   [modus_ponens]
+      q and r and p => r
+  5.  In particular r: it is part of what was assumed.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: true in all 8 rows of its truth table (p, q and r): every case, checked exactly
+  ok steps: each of the 5 steps keeps every truth value in all 8 rows
+
+### prove (p and q) or (p and not q) is equivalent to p
+
+Prove (p and q) or (p and ~q) <=> p
+
+      (p and q) or (p and ~q) <=> p
+  1.  Distributive law, taking out the common part: (P and Q) or (P and R) <=> P and (Q or R).   [distributive]
+      p and (q or ~q) <=> p
+  2.  Excluded middle: P or ~P <=> T.   [excluded_middle]
+      p and T <=> p
+  3.  Identity law: P and T <=> P.   [logic_identity]
+      p <=> p
+  4.  Both sides are the same: p.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 4 rows
+
+### prove ~(p or (~p and q)) <-> ~p and ~q
+
+Prove ~(p or (~p and q)) <=> ~p and ~q
+
+      ~(p or (~p and q)) <=> ~p and ~q
+  1.  Distributive law: P or (Q and R) <=> (P or Q) and (P or R).   [distributive]
+      ~((p or ~p) and (p or q)) <=> ~p and ~q
+  2.  Excluded middle: P or ~P <=> T.   [excluded_middle]
+      ~(T and (p or q)) <=> ~p and ~q
+  3.  Identity law: P and T <=> P.   [logic_identity]
+      ~(p or q) <=> ~p and ~q
+  4.  De Morgan's law: ~(P or Q) <=> ~P and ~Q.   [de_morgan]
+      ~p and ~q <=> ~p and ~q
+  5.  Both sides are the same: ~p and ~q.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: each of the 5 steps keeps every truth value in all 4 rows
+
+### prove (p and q) -> (p or q)
+
+Prove (p and q) -> (p or q)
+
+      (p and q) -> (p or q)
+  1.  Assume p and q; it remains to show p or q.   [assume]
+      p and q => p or q
+  2.  In particular p, one of the alternatives in p or q, so p or q holds.   [entails_end]
+      proved
+
+Answer: proved
+  ok truth table: true in all 4 rows of its truth table (p and q): every case, checked exactly
+  ok steps: each of the 2 steps keeps every truth value in all 4 rows
+
+### prove ~(p -> q) <-> p and ~q
+
+Prove ~(p -> q) <=> p and ~q
+
+      ~(p -> q) <=> p and ~q
+  1.  Implication law: (P -> Q) <=> ~P or Q.   [impl_elim]
+      ~(~p or q) <=> p and ~q
+  2.  De Morgan's law: ~(P or Q) <=> ~P and ~Q.   [de_morgan]
+      ~~p and ~q <=> p and ~q
+  3.  Double negation: ~~P <=> P.   [double_negation]
+      p and ~q <=> p and ~q
+  4.  Both sides are the same: p and ~q.   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 4 rows
+
+### prove ((p -> r) and (q -> r)) <-> ((p or q) -> r)
+
+Prove (p -> r) and (q -> r) <=> ((p or q) -> r)
+
+      (p -> r) and (q -> r) <=> ((p or q) -> r)
+  1.  Implication law: (P -> Q) <=> ~P or Q.   [impl_elim]
+      (~p or r) and (~q or r) <=> ~(p or q) or r
+  2.  Distributive law, taking out the common part: (P or Q) and (P or R) <=> P or (Q and R).   [distributive]
+      r or (~p and ~q) <=> ~(p or q) or r
+  3.  De Morgan's law: ~(P or Q) <=> ~P and ~Q.   [de_morgan]
+      r or (~p and ~q) <=> (~p and ~q) or r
+  4.  Both sides are the same, up to the order of the parts: r or (~p and ~q).   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 8 rows of the truth table (p, q and r): every case, checked exactly
+  ok steps: each of the 4 steps keeps every truth value in all 8 rows
+
+### prove (p -> q) <-> (~q -> ~p) by truth table
+
+Prove (p -> q) <=> (~q -> ~p)
+
+      (p -> q) <=> (~q -> ~p)
+  1.  Truth table: L and R agree in all 4 rows.   [truth_table]
+        L = p -> q,  R = ~q -> ~p
+        p  q  |  L  R
+        T  T  |  T  T
+        T  F  |  F  F
+        F  T  |  T  T
+        F  F  |  T  T
+      proved
+
+Answer: proved
+  ok method: uses truth_table as asked ("by truth table")
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: the step's claim holds in all 4 rows
+
+### prove p ^ ~p = F
+
+Prove p and ~p <=> F
+
+      p and ~p <=> F
+  1.  Truth table: L and R agree in all 2 rows.   [truth_table]
+        L = p and ~p,  R = F
+        p  |  L  R
+        T  |  F  F
+        F  |  F  F
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 2 rows of the truth table (p): every case, checked exactly
+  ok steps: the step's claim holds in all 2 rows
+
+### prove (p <-> q) <-> (q <-> p)
+
+Prove (p <-> q) <=> (q <-> p)
+
+      (p <-> q) <=> (q <-> p)
+  1.  Truth table: L and R agree in all 4 rows.   [truth_table]
+        L = p <-> q,  R = q <-> p
+        p  q  |  L  R
+        T  T  |  T  T
+        T  F  |  F  F
+        F  T  |  F  F
+        F  F  |  T  T
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 4 rows of the truth table (p and q): every case, checked exactly
+  ok steps: the step's claim holds in all 4 rows
+
+### prove (p -> q) and (p -> r) is equivalent to p -> (q and r)
+
+Prove (p -> q) and (p -> r) <=> (p -> (q and r))
+
+      (p -> q) and (p -> r) <=> (p -> (q and r))
+  1.  Implication law: (P -> Q) <=> ~P or Q.   [impl_elim]
+      (~p or q) and (~p or r) <=> ~p or (q and r)
+  2.  Distributive law, taking out the common part: (P or Q) and (P or R) <=> P or (Q and R).   [distributive]
+      ~p or (q and r) <=> ~p or (q and r)
+  3.  Both sides are the same: ~p or (q and r).   [equiv_end]
+      proved
+
+Answer: proved
+  ok truth table: both sides agree in all 8 rows of the truth table (p, q and r): every case, checked exactly
+  ok steps: each of the 3 steps keeps every truth value in all 8 rows
+

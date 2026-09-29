@@ -30,6 +30,8 @@ pub fn checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
         return;
     }
     match &req.problem.value {
+        // logic and sets (agent L)
+        m if crate::logic::is_statement(m) => logic_checks(req, cfg, path, out),
         Math::Eq(l, r) => {
             out.push(identity(l, r, cfg));
             out.push(steps_keep_sides(req, cfg, path));
@@ -128,4 +130,69 @@ fn steps_keep_sides(req: &Request, cfg: &Config, path: &Path) -> Check {
     }
     let _ = req;
     ck("steps", true, if path.steps.len() == 1 { "the step keeps both sides' values".to_string() } else { format!("each of the {} steps keeps both sides' values", path.steps.len()) })
+}
+
+// ---- logic and sets (agent L) ----
+
+/// "p, q and r".
+fn listed(names: &[String]) -> String {
+    match names.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+        _ => names.join(""),
+    }
+}
+
+/// A statement of logic or about sets: it holds in every row of its truth
+/// table (every region of its Venn diagram), all 2^n of them, which for n
+/// letters is an exact, exhaustive proof; and every step keeps the truth
+/// value of what it rewrites in every row.
+fn logic_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
+    use crate::logic;
+    let m = &req.problem.value;
+    let names = logic::letters(m);
+    let n = names.len();
+    if n > cfg.logic.check_letters {
+        out.push(ck("truth table", false, format!("{n} letters is more than the {} whose truth tables Nuome checks", cfg.logic.check_letters)));
+        return;
+    }
+    let rows = 1usize << n;
+    let sets = matches!(m, Math::Eq(..) | Math::Subset(..));
+    let bad = (0..rows).map(|k| logic::row(n, k)).find(|v| logic::at(m, &names, v) != Some(true));
+    out.push(match bad {
+        Some(v) => ck("truth table", false, format!("fails when {}", logic::describe_row(&names, &v, sets))),
+        None => {
+            let what = match m {
+                Math::Taut(_) => format!("true in all {rows} rows of its truth table ({})", listed(&names)),
+                Math::Equiv(..) => format!("both sides agree in all {rows} rows of the truth table ({})", listed(&names)),
+                Math::Eq(..) => format!("both sides contain the same regions, in all {rows} regions of the Venn diagram of {} (every element lies in exactly one)", listed(&names)),
+                _ => format!("in all {rows} regions of the Venn diagram of {}, a region inside the left side is inside the right", listed(&names)),
+            };
+            ck("truth table", true, format!("{what}: every case, checked exactly"))
+        }
+    });
+    // every step: a rewrite keeps each side's value in every row; a step that
+    // changes the form of the statement (assume, chase an element) keeps the
+    // statement's value in every row; the last step's claim holds in every row
+    for (k, st) in path.steps.iter().enumerate() {
+        let (a, b) = (&st.before, &st.mv.result);
+        let fail = |why: String| ck("steps", false, format!("step {} ({}) {why}", k + 1, st.mv.rule));
+        let every = |f: &dyn Fn(&[bool]) -> bool| (0..rows).map(|r| logic::row(n, r)).all(|v| f(&v));
+        if *b == Math::Proved {
+            if !every(&|v| logic::at(a, &names, v) == Some(true)) {
+                out.push(fail("claims a statement that fails in some row".into()));
+                return;
+            }
+            continue;
+        }
+        let same_shape = std::mem::discriminant(a) == std::mem::discriminant(b) && a.slots().len() == b.slots().len();
+        let kept = same_shape && a.slots().iter().zip(b.slots()).all(|(x, y)| every(&|v| logic::value_at(x, &names, v).is_some() && logic::value_at(x, &names, v) == logic::value_at(y, &names, v)));
+        let meaning = every(&|v| logic::at(a, &names, v).is_some() && logic::at(a, &names, v) == logic::at(b, &names, v));
+        if !(kept || meaning) {
+            out.push(fail("changes a truth value in some row".into()));
+            return;
+        }
+    }
+    let steps = path.steps.len();
+    let cases = if sets { format!("{rows} regions") } else { format!("{rows} rows") };
+    out.push(ck("steps", true, if steps == 1 { format!("the step's claim holds in all {cases}") } else { format!("each of the {steps} steps keeps every truth value in all {cases}") }));
 }

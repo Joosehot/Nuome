@@ -144,6 +144,8 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
             .sum()
     };
     match m {
+        // logic and sets (agent L): two sets to prove equal
+        Math::Eq(l, _) if crate::logic::is_set(l) => crate::logic::distance(m),
         // a proof: shorter sides are closer to reading the same
         Math::Eq(l, r) if req.task.value == Task::Prove => (l.size() + r.size()) as f64 * 0.5 + unfinished(l) + unfinished(r),
         Math::Expr(e) => e.size() as f64 * 0.5 + unfinished(e),
@@ -154,6 +156,8 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
         Math::Ineq(l, _, r) => eq_distance(l, r, v),
         Math::Intervals(_, ivs) => ivs.iter().flat_map(|i| i.lo.iter().chain(i.hi.iter())).map(|b| (b.at.size() - 1) as f64 * 0.5).sum(),
         Math::System(eqs) => eqs.iter().map(|(l, r)| system_distance(l, r)).sum(),
+        // logic and sets (agent L)
+        Math::Taut(_) | Math::Equiv(..) | Math::Entails(..) | Math::Subset(..) => crate::logic::distance(m),
     }
 }
 

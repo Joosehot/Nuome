@@ -111,6 +111,25 @@ pub mod line_form;
 pub mod trig_exact;
 pub mod trig_identity;
 pub mod trig_solve;
+// logic and sets (agent L)
+pub mod impl_elim;
+pub mod iff_elim;
+pub mod de_morgan;
+pub mod double_negation;
+pub mod distributive;
+pub mod absorption;
+pub mod idempotence;
+pub mod excluded_middle;
+pub mod logic_identity;
+pub mod domination;
+pub mod negate_constant;
+pub mod modus_ponens;
+pub mod set_difference;
+pub mod assume;
+pub mod element_chase;
+pub mod equiv_end;
+pub mod entails_end;
+pub mod truth_table;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -300,6 +319,25 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &line_form::LineForm,
         &trig_identity::TrigIdentity,
         &trig_solve::TrigSolve,
+        // logic and sets (agent L)
+        &impl_elim::ImplElim,
+        &iff_elim::IffElim,
+        &de_morgan::DeMorgan,
+        &double_negation::DoubleNegation,
+        &distributive::Distributive,
+        &absorption::Absorption,
+        &idempotence::Idempotence,
+        &excluded_middle::ExcludedMiddle,
+        &logic_identity::LogicIdentity,
+        &domination::Domination,
+        &negate_constant::NegateConstant,
+        &modus_ponens::ModusPonens,
+        &set_difference::SetDifference,
+        &assume::Assume,
+        &element_chase::ElementChase,
+        &equiv_end::EquivEnd,
+        &entails_end::EntailsEnd,
+        &truth_table::TruthTable,
     ]
 }
 
