@@ -10,3 +10,5 @@ divide x^3 - 1 by x - 1
 divide 2x^3 + 3x^2 - 4 by x + 2
 divide x^4 - 16 by x^2 + 4
 divide x^3 + 2x - 5 by x - 2 quickly
+solve x^3 = 8
+factor 6x^3 + 11x^2 - 3x - 2

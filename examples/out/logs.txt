@@ -357,3 +357,69 @@ Answer: x = 2
   ok complete: where every log is defined, the logs undo into a polynomial equation, whose roots there were counted: exactly one real solution
   ok working: every line of the working holds at every answer (9 steps)
 
+### solve 2^(x^2) = 16
+
+Solve 2^(x^2) = 16 for x
+
+      2^(x^2) = 16
+  1.  Write 16 as a power of 2: 16 = 2^4.   [power_base]
+      2^(x^2) = 2^4
+  2.  Same base on both sides, so the exponents are equal.   [equate_exponents]
+      x^2 = 4
+  3.  Take the square root of both sides, with +/-: both signs square to 4.   [square_root]
+      x = sqrt(4) or x = -sqrt(4)
+  4.  sqrt(4) = 2, because 2 squared is 4.   [roots]
+      x = 2 or x = -2
+
+Answer: x = 2 or x = -2
+  ok satisfies: x = 2: both sides are 16; x = -2: both sides are 16
+  ok complete: both sides are powers of one base, so the exponents are equal; that polynomial equation has exactly 2 real solutions
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve 2^(x + 3) = 1/4
+
+Solve 2^(x + 3) = 1/4 for x
+
+      2^(x + 3) = 1/4
+  1.  Write 1/4 as a power of 2: 1/4 = 2^(-2).   [power_base]
+      2^(x + 3) = 2^(-2)
+  2.  Same base on both sides, so the exponents are equal.   [equate_exponents]
+      x + 3 = -2
+  3.  Subtract 3 from both sides.   [move_term]
+      x = -2 - 3
+  4.  Work out -2 - 3 = -5.   [fold]
+      x = -5
+
+Answer: x = -5
+  ok satisfies: x = -5: both sides are 1/4
+  ok complete: both sides are powers of one base, so the exponents are equal; that polynomial equation has exactly one real solution
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve ln(x) + ln(x + 1) = ln(6)
+
+Solve ln(x) + ln(x + 1) = ln(6) for x
+
+      ln(x) + ln(x + 1) = ln(6)
+  1.  The sum of logs is the log of the product: ln(x) + ln(x + 1) = ln(x(x + 1)).   [log_laws]
+      ln(x(x + 1)) = ln(6)
+  2.  Equal logs to the same base have equal arguments.   [log_to_exp]
+      x(x + 1) = 6
+  3.  Subtract 6 from both sides.   [move_term]
+      x(x + 1) - 6 = 0
+  4.  Factor the left side.   [factor_solve]
+        3 and -2 multiply to -6 and add to 1.
+      (x + 3)(x - 2) = 0
+  5.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x + 3 = 0 or x - 2 = 0
+  6.  In x + 3 = 0: subtract 3 from both sides.   [move_term]
+      x = -3 or x - 2 = 0
+  7.  In x - 2 = 0: add 2 to both sides.   [move_term]
+      x = -3 or x = 2
+  8.  x = -3 is not a solution: ln(x) needs x > 0.   [log_domain]
+      x = 2
+
+Answer: x = 2
+  ok satisfies: x = 2: both sides ≈ 1.79176
+  ok complete: ln(x) + ln(x + 1) only increases where it is defined, so there is at most one solution
+  ok working: every line of the working holds at every answer (8 steps)
+

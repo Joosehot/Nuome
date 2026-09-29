@@ -7,3 +7,4 @@ simplify x/(x - 1) - 1/(x + 1)
 simplify x/(x^2 - 1) - 1/(x^2 - 1)
 combine 2/(x + 3) + 1/(x - 3)
 simplify (1/x + 1)/x
+simplify (x - 1)/(1 - x)

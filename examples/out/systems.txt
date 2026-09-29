@@ -12,7 +12,7 @@ Solve x + y = 3, x - y = 1 for x and y
       y = 1, x = 2
 
 Answer: x = 2, y = 1
-  ok satisfies: y = 1, x = 2: every equation holds exactly
+  ok satisfies: x = 2, y = 1: every equation holds exactly
   ok complete: the determinant of the coefficients is -2, not 0: exactly one solution
   ok working: every line of the working holds at the solution (3 steps)
 
@@ -53,7 +53,7 @@ Solve y = 2x + 1, 3x + y = 11 for x and y
       y = 5, x = 2
 
 Answer: x = 2, y = 5
-  ok satisfies: y = 5, x = 2: every equation holds exactly
+  ok satisfies: x = 2, y = 5: every equation holds exactly
   ok complete: the determinant of the coefficients is -5, not 0: exactly one solution
   ok working: every line of the working holds at the solution (3 steps)
 
@@ -75,7 +75,7 @@ Solve x + y = 3, x - y = 1 for x and y
 
 Answer: x = 2, y = 1
   ok method: uses substitution as asked ("by substitution")
-  ok satisfies: y = 1, x = 2: every equation holds exactly
+  ok satisfies: x = 2, y = 1: every equation holds exactly
   ok complete: the determinant of the coefficients is -2, not 0: exactly one solution
   ok working: every line of the working holds at the solution (4 steps)
 
@@ -94,7 +94,7 @@ Solve 2x + y = 7, x - y = 2 for x and y
 
 Answer: x = 3, y = 1
   ok method: uses eliminate as asked ("by elimination")
-  ok satisfies: y = 1, x = 3: every equation holds exactly
+  ok satisfies: x = 3, y = 1: every equation holds exactly
   ok complete: the determinant of the coefficients is -3, not 0: exactly one solution
   ok working: every line of the working holds at the solution (3 steps)
 
@@ -170,7 +170,41 @@ Solve x + y + z = 6, x - y + z = 2, 2x + y - z = 1 for x, y and z
       z = 3, y = 2, x = 1
 
 Answer: x = 1, y = 2, z = 3
-  ok satisfies: z = 3, y = 2, x = 1: every equation holds exactly
+  ok satisfies: x = 1, y = 2, z = 3: every equation holds exactly
   ok complete: the determinant of the coefficients is 6, not 0: exactly one solution
   ok working: every line of the working holds at the solution (6 steps)
+
+### solve 3x + 2y = 7 and 6x + 4y = 14
+
+Solve 3x + 2y = 7, 6x + 4y = 14 for x and y
+
+      3x + 2y = 7, 6x + 4y = 14
+  1.  Solve the first equation for x: x = (7 - 2y)/3.   [substitution]
+      x = (7 - 2y)/3, 6x + 4y = 14
+  2.  Substitute x = (7 - 2y)/3 into the second equation.   [substitution]
+        6x + 4y = 14 becomes 6 * ((7 - 2y)/3) + 4y = 14.
+      x = (7 - 2y)/3, 0 = 0
+  3.  0 = 0 always holds: that equation follows from the others, so drop it.   [system_verdict]
+      x = (7 - 2y)/3
+
+Answer: x = (7 - 2y)/3, for any y (infinitely many solutions)
+  ok satisfies: every equation holds exactly for y = 0, 1 and 2, so for every value (the equations are linear)
+  ok complete: the determinant of the coefficients is 0 and the equations leave 1 letter free: infinitely many solutions
+
+### solve x + y = 3 and x - y = 1 quickly
+
+Solve x + y = 3, x - y = 1 for x and y
+
+      x + y = 3, x - y = 1
+  1.  Add the two equations to eliminate y.   [eliminate]
+      x + y = 3, 2x = 4
+  2.  Divide both sides by 2.   [system_scale]
+      x + y = 3, x = 2
+  3.  Put x = 2 into the first equation.   [back_substitute]
+      y = 1, x = 2
+
+Answer: x = 2, y = 1
+  ok satisfies: x = 2, y = 1: every equation holds exactly
+  ok complete: the determinant of the coefficients is -2, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (3 steps)
 

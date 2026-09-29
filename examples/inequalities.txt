@@ -14,3 +14,7 @@ solve x^3 - x > 0
 solve (x - 1)/(x + 2) >= 0
 solve (x + 3)/(x - 1) > 2
 solve 2x + 1 < 2x + 5
+solve 1/x > 2
+solve (x - 3)/(x + 1) <= 0
+solve 2x + 3 < 7 quickly
+solve x^2 - 5x + 6 < 0 for a beginner

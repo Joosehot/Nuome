@@ -935,7 +935,8 @@ fn system_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>)
         out.push(ck("samples", held == 0, format!("no sample point satisfies every equation ({tried} tried)")));
     }
     if !solved.is_empty() {
-        let at: Vec<String> = solved.iter().map(|(l, r)| format!("{} = {}", print::expr(l, Style::Ascii), print::expr(r, Style::Ascii))).collect();
+        let mut at: Vec<String> = solved.iter().map(|(l, r)| format!("{} = {}", print::expr(l, Style::Ascii), print::expr(r, Style::Ascii))).collect();
+        at.sort();
         let detail = if free.is_empty() { format!("{}: every equation holds exactly", at.join(", ")) } else { format!("every equation holds exactly for {} = 0, 1 and 2, so for every value (the equations are linear)", free.join(", ")) };
         out.push(ck("satisfies", ok, detail));
     }

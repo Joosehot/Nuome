@@ -7,3 +7,5 @@ solve the system a + 2b = 4, 3a - b = 5
 solve x + y = 3 and 2x + 2y = 7
 solve x + y = 3 and 2x + 2y = 6
 solve x + y + z = 6, x - y + z = 2, 2x + y - z = 1
+solve 3x + 2y = 7 and 6x + 4y = 14
+solve x + y = 3 and x - y = 1 quickly

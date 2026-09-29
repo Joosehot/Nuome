@@ -20,3 +20,6 @@ solve ln(x) = 2
 solve log(x) + log(x - 3) = 1
 solve log(2x) = log(x + 4)
 solve log_2(x + 6) - log_2(x) = 2
+solve 2^(x^2) = 16
+solve 2^(x + 3) = 1/4
+solve ln(x) + ln(x + 1) = ln(6)

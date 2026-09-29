@@ -143,3 +143,16 @@ Answer: (1 + x)/x^2
   ok steps: all 2 steps agree at 6 sample points
   ok same: equal to the original at 6 sample points
 
+### simplify (x - 1)/(1 - x)
+
+Simplify (x - 1)/(1 - x)
+
+      (x - 1)/(1 - x)
+  1.  Cancel the common factor x - 1; x = 1 stays excluded.   [rational_cancel]
+        1 - x = -(x - 1)
+      -1
+
+Answer: -1, for x != 1
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
