@@ -41,6 +41,22 @@ pub mod swap;
 pub mod trinomial;
 pub mod verdict;
 pub mod zero_product;
+// numbers, sequences, statistics, finance (main)
+pub mod gcd;
+pub mod lcm;
+pub mod modulo;
+pub mod prime_factors;
+pub mod factorial;
+pub mod choose;
+pub mod mean;
+pub mod median;
+pub mod mode;
+pub mod range;
+pub mod spread;
+pub mod sum_to;
+pub mod sequence;
+pub mod compound;
+pub mod percent;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -160,6 +176,22 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &diff_product::DiffProduct,
         &diff_quotient::DiffQuotient,
         &diff_chain::DiffChain,
+        // numbers, sequences, statistics, finance (main)
+        &gcd::Gcd,
+        &lcm::Lcm,
+        &modulo::Modulo,
+        &prime_factors::PrimeFactors,
+        &factorial::Factorial,
+        &choose::Choose,
+        &mean::Mean,
+        &median::Median,
+        &mode::Mode,
+        &range::Range,
+        &spread::Spread,
+        &sum_to::SumTo,
+        &sequence::Sequence,
+        &compound::Compound,
+        &percent::Percent,
     ]
 }
 

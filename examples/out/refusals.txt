@@ -48,3 +48,28 @@ error: more than one problem: "x = 1", "y = 2"
 error: no way to factor x^4 + 4 passes the checks
   hint: factored: can't prove x^4 + 4 doesn't split into quadratics
 
+### mode of 1, 2, 3
+
+error: mode(1, 2, 3) has no answer
+  hint: no value appears more often than all the others, so there is no single mode
+
+### sum to infinity of 1, 2, 4
+
+error: sum to infinity(1, 2, 4) has no answer
+  hint: the common ratio is 2; a sum to infinity only exists when it is between -1 and 1
+
+### the 5th term of 1, 2
+
+error: term(5, 1, 2) has no answer
+  hint: give at least three terms: two terms never decide whether a sequence is arithmetic or geometric
+
+### what is 5 mod 0
+
+error: 5 mod 0 has no answer
+  hint: mod 0 is undefined
+
+### 1000 at 5% per year
+
+error: a growth problem needs a duration
+  hint: e.g. "for 10 years", "for a month"
+

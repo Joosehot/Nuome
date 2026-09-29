@@ -1,0 +1,9 @@
+sum of the numbers from 1 to 100
+sum of 50 to 150
+sum of 3, 5 and 7
+the 20th term of 3, 7, 11
+the 8th term of 2, 6, 18
+sum of the first 20 terms of 3, 7, 11
+sum of the first 10 terms of 2, 6, 18
+sum to infinity of 1, 1/2, 1/4
+sum to infinity of 9, -3, 1

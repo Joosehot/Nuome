@@ -1,0 +1,17 @@
+gcd of 48 and 18
+highest common factor of 84 and 36
+gcd of 12, 18 and 8
+lcm of 4 and 6
+lcm of 4, 6 and 10
+what is 17 mod 5
+what is -7 mod 5
+the remainder when 100 is divided by 7
+prime factors of 360
+factor 97
+factor 1001
+what is 6!
+what is 15!
+what is 10 choose 3
+what is 10 choose 8
+combinations of 2 from 5
+permutations of 3 from 10

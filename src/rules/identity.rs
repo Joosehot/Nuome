@@ -58,7 +58,7 @@ impl Rule for Identity {
                 Expr::Mul(v) if v.iter().any(|t| t.is_num(1)) => {
                     out.push(rw(expr::mul(v.iter().filter(|t| !t.is_num(1)).cloned().collect()), Line::new().t("Multiplying by 1 changes nothing.")));
                 }
-                Expr::Mul(v) if !v.iter().any(|t| matches!(t, Expr::Neg(_))) && ordered(v) != *v => {
+                Expr::Mul(v) if !e.vars().is_empty() && !v.iter().any(|t| matches!(t, Expr::Neg(_))) && ordered(v) != *v => {
                     let o = ordered(v);
                     let says = if v.iter().skip(1).any(|t| t.as_num().is_some()) { "Write the number first." } else { "Write the factors in the usual order." };
                     out.push(rw(Expr::Mul(o), Line::new().t(says)));

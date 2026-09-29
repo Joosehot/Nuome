@@ -1,0 +1,10 @@
+calculate the compounding at 10% per day for a full month
+1000 invested at 5% per year for 10 years
+1000 invested at 5% per year for 10 years compounded monthly
+compound growth of 200 at 2% per month for 2 years
+what percent of 80 is 12
+12 is what percent of 80
+percentage change from 80 to 100
+percentage change from 50 to 35
+increase 80 by 15%
+decrease 250 by 20%

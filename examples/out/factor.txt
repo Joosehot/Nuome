@@ -104,7 +104,7 @@ Factor x^2 + x + 1
   (already in its simplest form: no rule applies)
 
 Answer: x^2 + x + 1
-  ok steps: all 0 steps agree at 6 sample points
+  ok steps: no steps to check
   ok same: equal to the original at 6 sample points
   ok factored: every factor is linear or has no rational root
 

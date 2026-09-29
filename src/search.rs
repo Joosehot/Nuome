@@ -97,8 +97,8 @@ pub fn is_answer(m: &Math, req: &Request) -> bool {
         (Task::Solve, Math::Eq(l, r)) => solved(l, r),
         (Task::Solve, Math::Or(eqs)) => eqs.iter().all(|(l, r)| solved(l, r)),
         (Task::Solve, _) => false,
-        (Task::Evaluate, Math::Expr(e)) => e.vars().is_empty() && !e.has_deriv(),
-        (_, Math::Expr(e)) => !e.has_deriv(),
+        (Task::Evaluate, Math::Expr(e)) => e.vars().is_empty() && !e.has_deriv() && !e.has_call(),
+        (_, Math::Expr(e)) => !e.has_deriv() && !e.has_call(),
         _ => false,
     }
 }
@@ -216,6 +216,21 @@ pub fn search(req: &Request, cfg: &Config) -> Result<Outcome, Vec<Diag>> {
             d.hint = Some(format!("{}: {}", c.name, c.detail));
         }
         return Err(vec![d]);
+    }
+    // a named operation whose numbers don't allow an answer says why
+    let calls: Vec<String> = req
+        .problem
+        .value
+        .slots()
+        .iter()
+        .flat_map(|e| e.walk())
+        .filter_map(|(_, n)| match n {
+            Expr::Call(f, args) => crate::calls::why_not(*f, &crate::calls::nums(args)?),
+            _ => None,
+        })
+        .collect();
+    if let Some(why) = calls.first() {
+        return Err(vec![Diag::new(format!("{problem} has no answer")).hint(why.clone())]);
     }
     let furthest = dead.iter().min_by(|a, b| scoring::distance(&a.state, req).partial_cmp(&scoring::distance(&b.state, req)).unwrap_or(std::cmp::Ordering::Equal));
     let mut d = Diag::new(format!("none of my rules can {} {problem}", req.task.value.key()));

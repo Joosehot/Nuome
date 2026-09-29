@@ -7,6 +7,7 @@
 //! naming its rule). No model in the loop: the same sentence and the same
 //! rules.toml always give a byte-identical solution.
 
+pub mod calls;
 pub mod checks;
 pub mod config;
 pub mod explain;
@@ -21,6 +22,7 @@ pub mod render;
 pub mod rules;
 pub mod scoring;
 pub mod search;
+pub mod words;
 
 use config::Config;
 use model::Request;
@@ -45,7 +47,7 @@ pub fn solve(sentence: &str, cfg: &Config, opts: &Options) -> Result<Solved, Vec
     if sentence.trim().is_empty() {
         return Err(vec![Diag::new("nothing to solve").hint("try: nuome \"solve 2x + 3 = 7\"")]);
     }
-    let request = parser::parse(sentence, &ParseOptions { lenient: opts.lenient })?;
+    let request = parser::parse_with(sentence, &ParseOptions { lenient: opts.lenient }, cfg)?;
     let outcome = search::search(&request, cfg)?;
     let text = render::render(&request, &outcome, cfg, opts.style);
     Ok(Solved { request, outcome, text })

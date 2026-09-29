@@ -1,0 +1,142 @@
+### mean of 3, 5, 7 and 9
+
+Mean of 3, 5, 7 and 9
+
+      mean(3, 5, 7, 9)
+  1.  Add the 4 values and divide by 4.   [mean]
+      (3 + 5 + 7 + 9)/4
+  2.  Work out 3 + 5 + 7 + 9 = 24.   [fold]
+      24/4
+  3.  Work out 24/4 = 6.   [fold]
+      6
+
+Answer: 6
+  ok steps: each of the 3 steps keeps the value
+  ok value: computed directly, mean(3, 5, 7, 9) is exactly 6
+
+### average of 2.5, 3.5 and 6
+
+Average of 2.5, 3.5 and 6
+
+      mean(5/2, 7/2, 6)
+  1.  Add the 3 values and divide by 3.   [mean]
+      (5/2 + 7/2 + 6)/3
+  2.  Work out 5/2 + 7/2 + 6 = 12.   [fold]
+        5/2 + 7/2 + 6 = 5/2 + 7/2 + 12/2   (common denominator 2)
+      12/3
+  3.  Work out 12/3 = 4.   [fold]
+      4
+
+Answer: 4
+  ok steps: each of the 3 steps keeps the value
+  ok value: computed directly, mean(5/2, 7/2, 6) is exactly 4
+
+### median of 9, 1, 5
+
+Median of 9, 1, 5
+
+      median(9, 1, 5)
+  1.  Sort the 3 values; the middle one (2 of 3) is the median.   [median]
+        Sorted: 1, 5, 9.
+      5
+
+Answer: 5
+  ok steps: the step keeps the value
+  ok value: computed directly, median(9, 1, 5) is exactly 5
+
+### median of 9, 1, 5, 3
+
+Median of 9, 1, 5, 3
+
+      median(9, 1, 5, 3)
+  1.  Sort the 4 values; with an even count the median is halfway between the two middle ones.   [median]
+        Sorted: 1, 3, 5, 9.
+      (3 + 5)/2
+  2.  Work out 3 + 5 = 8.   [fold]
+      8/2
+  3.  Work out 8/2 = 4.   [fold]
+      4
+
+Answer: 4
+  ok steps: each of the 3 steps keeps the value
+  ok value: computed directly, median(9, 1, 5, 3) is exactly 4
+
+### mode of 2, 3, 3, 5
+
+Mode of 2, 3, 3, 5
+
+      mode(2, 3, 3, 5)
+  1.  3 appears most often (2 times).   [mode]
+        Counts: 2: 1, 3: 2, 5: 1.
+      3
+
+Answer: 3
+  ok steps: the step keeps the value
+  ok value: computed directly, mode(2, 3, 3, 5) is exactly 3
+
+### range of 4, 9, 1, 12
+
+Range of 4, 9, 1, 12
+
+      range(4, 9, 1, 12)
+  1.  Largest minus smallest: 12 and 1.   [range]
+        Sorted: 1, 4, 9, 12.
+      12 - 1
+  2.  Work out 12 - 1 = 11.   [fold]
+      11
+
+Answer: 11
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, range(4, 9, 1, 12) is exactly 11
+
+### variance of 1, 3, 5
+
+Variance of 1, 3, 5
+
+      variance(1, 3, 5)
+  1.  Square each distance from the mean 3, add them, and divide by n = 3.   [spread]
+        mean = (1 + 3 + 5)/3 = 3
+      ((1 - 3)^2 + (3 - 3)^2 + (5 - 3)^2)/3
+  2.  Work out ((1 - 3)^2 + (3 - 3)^2 + (5 - 3)^2)/3 = 8/3.   [fold]
+      8/3
+
+Answer: 8/3
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, variance(1, 3, 5) is exactly 8/3
+
+### standard deviation of 2, 4, 4, 4, 5, 5, 7, 9
+
+Standard deviation of 2, 4, 4, 4, 5, 5, 7, 9
+
+      sd(2, 4, 4, 4, 5, 5, 7, 9)
+  1.  The standard deviation is the square root of the variance.   [spread]
+      sqrt(variance(2, 4, 4, 4, 5, 5, 7, 9))
+  2.  Square each distance from the mean 5, add them, and divide by n = 8.   [spread]
+        mean = (2 + 4 + 4 + 4 + 5 + 5 + 7 + 9)/8 = 5
+      sqrt(((2 - 5)^2 + (4 - 5)^2 + (4 - 5)^2 + (4 - 5)^2 + (5 - 5)^2 + (5 - 5)^2 + (7 - 5)^2 + (9 - 5)^2)/8)
+  3.  Work out ((2 - 5)^2 + (4 - 5)^2 + (4 - 5)^2 + (4 - 5)^2 + (5 - 5)^2 + (5 - 5)^2 + (7 - 5)^2 + (9 - 5)^2)/8 = 4.   [fold]
+      sqrt(4)
+  4.  sqrt(4) = 2, because 2 squared is 4.   [roots]
+      2
+
+Answer: 2
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, sd(2, 4, 4, 4, 5, 5, 7, 9) is exactly 2
+
+### sample standard deviation of 1, 2, 3, 4
+
+Sample standard deviation of 1, 2, 3, 4
+
+      sample sd(1, 2, 3, 4)
+  1.  The standard deviation is the square root of the variance.   [spread]
+      sqrt(sample variance(1, 2, 3, 4))
+  2.  Square each distance from the mean 5/2, add them, and divide by n - 1 = 3 (a sample).   [spread]
+        mean = (1 + 2 + 3 + 4)/4 = 5/2
+      sqrt(((1 - 5/2)^2 + (2 - 5/2)^2 + (3 - 5/2)^2 + (4 - 5/2)^2)/3)
+  3.  Work out ((1 - 5/2)^2 + (2 - 5/2)^2 + (3 - 5/2)^2 + (4 - 5/2)^2)/3 = 5/3.   [fold]
+      sqrt(5/3)
+
+Answer: sqrt(5/3) ~ 1.291
+  ok steps: each of the 3 steps keeps the value
+  ok value: equals sample sd(1, 2, 3, 4) to 9 decimal places
+

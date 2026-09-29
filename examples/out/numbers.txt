@@ -1,0 +1,266 @@
+### gcd of 48 and 18
+
+Gcd of 48 and 18
+
+      gcd(48, 18)
+  1.  Euclid's algorithm: gcd(48, 18) = 6.   [gcd]
+        48 = 2 * 18 + 12
+        18 = 1 * 12 + 6
+        12 = 2 * 6 + 0
+        The last nonzero remainder is 6.
+      6
+
+Answer: 6
+  ok steps: the step keeps the value
+  ok value: computed directly, gcd(48, 18) is exactly 6
+
+### highest common factor of 84 and 36
+
+Highest common factor of 84 and 36
+
+      gcd(84, 36)
+  1.  Euclid's algorithm: gcd(84, 36) = 12.   [gcd]
+        84 = 2 * 36 + 12
+        36 = 3 * 12 + 0
+        The last nonzero remainder is 12.
+      12
+
+Answer: 12
+  ok steps: the step keeps the value
+  ok value: computed directly, gcd(84, 36) is exactly 12
+
+### gcd of 12, 18 and 8
+
+Gcd of 12, 18 and 8
+
+      gcd(12, 18, 8)
+  1.  Euclid's algorithm: gcd(12, 18) = 6.   [gcd]
+        18 = 1 * 12 + 6
+        12 = 2 * 6 + 0
+        The last nonzero remainder is 6.
+      gcd(6, 8)
+  2.  Euclid's algorithm: gcd(6, 8) = 2.   [gcd]
+        8 = 1 * 6 + 2
+        6 = 3 * 2 + 0
+        The last nonzero remainder is 2.
+      2
+
+Answer: 2
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, gcd(12, 18, 8) is exactly 2
+
+### lcm of 4 and 6
+
+Lcm of 4 and 6
+
+      lcm(4, 6)
+  1.  Compare the prime factors: lcm(4, 6) = 12.   [lcm]
+        4 = 2^2
+        6 = 2 * 3
+        Take each prime to its higher power: 12.
+      12
+
+Answer: 12
+  ok steps: the step keeps the value
+  ok value: computed directly, lcm(4, 6) is exactly 12
+
+### lcm of 4, 6 and 10
+
+Lcm of 4, 6 and 10
+
+      lcm(4, 6, 10)
+  1.  Compare the prime factors: lcm(4, 6) = 12.   [lcm]
+        4 = 2^2
+        6 = 2 * 3
+        Take each prime to its higher power: 12.
+      lcm(12, 10)
+  2.  Compare the prime factors: lcm(12, 10) = 60.   [lcm]
+        12 = 2^2 * 3
+        10 = 2 * 5
+        Take each prime to its higher power: 60.
+      60
+
+Answer: 60
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, lcm(4, 6, 10) is exactly 60
+
+### what is 17 mod 5
+
+What is 17 mod 5
+
+      17 mod 5
+  1.  Divide 17 by 5: the remainder is 2.   [modulo]
+        17 = 3 * 5 + 2
+      2
+
+Answer: 2
+  ok steps: the step keeps the value
+  ok value: computed directly, 17 mod 5 is exactly 2
+
+### what is -7 mod 5
+
+What is -7 mod 5
+
+      (-7) mod 5
+  1.  Divide -7 by 5: the remainder is 3.   [modulo]
+        -7 = -2 * 5 + 3
+      3
+
+Answer: 3
+  ok steps: the step keeps the value
+  ok value: computed directly, (-7) mod 5 is exactly 3
+
+### the remainder when 100 is divided by 7
+
+The remainder when 100 is divided by 7
+
+      100 mod 7
+  1.  Divide 100 by 7: the remainder is 2.   [modulo]
+        100 = 14 * 7 + 2
+      2
+
+Answer: 2
+  ok steps: the step keeps the value
+  ok value: computed directly, 100 mod 7 is exactly 2
+
+### prime factors of 360
+
+Factor 360
+
+      360
+  1.  Divide by the smallest prime that goes in, again and again.   [prime_factors]
+        360 / 2 = 180
+        180 / 2 = 90
+        90 / 2 = 45
+        45 / 3 = 15
+        15 / 3 = 5
+      2^3 * 3^2 * 5
+
+Answer: 2^3 * 3^2 * 5
+  ok steps: the step keeps the value
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is prime (2, 3, 5)
+
+### factor 97
+
+Factor 97
+
+      97
+  (already in its simplest form: no rule applies)
+
+Answer: 97
+  ok steps: no steps to check
+  ok same: equal to the original at 6 sample points
+  ok factored: 97 is prime: no number from 2 to its square root divides it
+
+### factor 1001
+
+Factor 1001
+
+      1001
+  1.  Divide by the smallest prime that goes in, again and again.   [prime_factors]
+        1001 / 7 = 143
+        143 / 11 = 13
+      7 * 11 * 13
+
+Answer: 7 * 11 * 13
+  ok steps: the step keeps the value
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is prime (7, 11, 13)
+
+### what is 6!
+
+What is 6!
+
+      6!
+  1.  6! is the product of 1 to 6.   [factorial]
+      6 * 5 * 4 * 3 * 2 * 1
+  2.  Work out 6 * 5 * 4 * 3 * 2 * 1 = 720.   [fold]
+      720
+
+Answer: 720
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, 6! is exactly 720
+
+### what is 15!
+
+What is 15!
+
+      15!
+  1.  15! is the product of 1 to 15: 1307674368000.   [factorial]
+      1307674368000
+
+Answer: 1307674368000
+  ok steps: the step keeps the value
+  ok value: computed directly, 15! is exactly 1307674368000
+
+### what is 10 choose 3
+
+What is 10 choose 3
+
+      C(10, 3)
+  1.  Count ordered picks, then divide by 3!, the orders of each group.   [choose]
+      (10 * 9 * 8)/3!
+  2.  Work out 10 * 9 * 8 = 720.   [fold]
+      720/3!
+  3.  3! is the product of 1 to 3.   [factorial]
+      720/(3 * 2 * 1)
+  4.  Work out 720/(3 * 2 * 1) = 120.   [fold]
+      120
+
+Answer: 120
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, C(10, 3) is exactly 120
+
+### what is 10 choose 8
+
+What is 10 choose 8
+
+      C(10, 8)
+  1.  Choosing 8 of 10 is the same as choosing the 2 to leave out.   [choose]
+      C(10, 2)
+  2.  Count ordered picks, then divide by 2!, the orders of each group.   [choose]
+      (10 * 9)/2!
+  3.  Work out 10 * 9 = 90.   [fold]
+      90/2!
+  4.  2! is the product of 1 to 2.   [factorial]
+      90/(2 * 1)
+  5.  Work out 90/(2 * 1) = 45.   [fold]
+      45
+
+Answer: 45
+  ok steps: each of the 5 steps keeps the value
+  ok value: computed directly, C(10, 8) is exactly 45
+
+### combinations of 2 from 5
+
+Combinations of 2 from 5
+
+      C(5, 2)
+  1.  Count ordered picks, then divide by 2!, the orders of each group.   [choose]
+      (5 * 4)/2!
+  2.  Work out 5 * 4 = 20.   [fold]
+      20/2!
+  3.  2! is the product of 1 to 2.   [factorial]
+      20/(2 * 1)
+  4.  Work out 20/(2 * 1) = 10.   [fold]
+      10
+
+Answer: 10
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, C(5, 2) is exactly 10
+
+### permutations of 3 from 10
+
+Permutations of 3 from 10
+
+      P(10, 3)
+  1.  10 choices for the first, 9 for the second, ...: 3 factors.   [choose]
+      10 * 9 * 8
+  2.  Work out 10 * 9 * 8 = 720.   [fold]
+      720
+
+Answer: 720
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, P(10, 3) is exactly 720
+

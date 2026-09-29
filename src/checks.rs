@@ -97,6 +97,8 @@ fn expr_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     }
     out.push(match bad {
         Some(b) => ck("steps", false, b),
+        None if path.steps.is_empty() => ck("steps", true, "no steps to check"),
+        None if original.vars().is_empty() => ck("steps", true, if path.steps.len() == 1 { "the step keeps the value".to_string() } else { format!("each of the {} steps keeps the value", path.steps.len()) }),
         None => ck("steps", true, format!("all {} steps agree at {} sample points", path.steps.len(), cfg.check.samples.len())),
     });
     match req.task.value {
@@ -144,9 +146,37 @@ fn expr_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
     }
 }
 
+/// A whole number is factored when every factor is prime.
+fn prime_factored(e: &Expr) -> Check {
+    let mut bases = Vec::new();
+    for f in match e {
+        Expr::Mul(v) => v.clone(),
+        x => vec![x.clone()],
+    } {
+        let b = match &f {
+            Expr::Pow(b, _) => (**b).clone(),
+            x => x.clone(),
+        };
+        match b.as_num().filter(|q| q.is_int()) {
+            Some(q) if q.num() == -1 => {}
+            Some(q) => bases.push(q.num()),
+            None => return ck("factored", false, format!("{} isn't a whole number", print::expr(&b, Style::Ascii))),
+        }
+    }
+    let composite = bases.iter().find(|&&p| p < 2 || (2..).take_while(|d| d * d <= p).any(|d| p % d == 0));
+    match composite {
+        Some(p) => ck("factored", false, format!("{p} is not prime")),
+        None if bases.len() == 1 => ck("factored", true, format!("{} is prime: no number from 2 to its square root divides it", bases[0])),
+        None => ck("factored", true, format!("every factor is prime ({})", bases.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", "))),
+    }
+}
+
 /// Every factor is prime over the integers (one letter), or no rule applies further.
 fn fully_factored(e: &Expr) -> Check {
     let vars = e.vars();
+    if vars.is_empty() {
+        return prime_factored(e);
+    }
     if vars.len() != 1 {
         return ck("factored", true, "several letters: equality checked; no factoring rule applies further");
     }

@@ -5,6 +5,7 @@
 //! prints the way it would on paper. `tidy` only flattens structure; turning
 //! 3 + 4 into 7 is a rule's job, because it is a step worth showing.
 
+use crate::calls::{self, Named};
 use crate::q::Q;
 use std::collections::BTreeSet;
 
@@ -50,6 +51,8 @@ pub enum Expr {
     Func(Func, Box<Expr>),
     /// d/d(var) of the inner expression, not yet worked out.
     Deriv(Box<Expr>, String),
+    /// A named operation on numbers: gcd(48, 18), 10 choose 3, mean(...).
+    Call(Named, Vec<Expr>),
 }
 
 use Expr::*;
@@ -97,7 +100,7 @@ impl Expr {
     }
     pub fn children(&self) -> Vec<&Expr> {
         match self {
-            Add(v) | Mul(v) => v.iter().collect(),
+            Add(v) | Mul(v) | Call(_, v) => v.iter().collect(),
             Neg(a) | Func(_, a) | Deriv(a, _) => vec![a],
             Div(a, b) | Pow(a, b) => vec![a, b],
             Num(_) | Var(_) | Const(_) => vec![],
@@ -105,7 +108,7 @@ impl Expr {
     }
     fn child_mut(&mut self, i: usize) -> &mut Expr {
         match self {
-            Add(v) | Mul(v) => &mut v[i],
+            Add(v) | Mul(v) | Call(_, v) => &mut v[i],
             Neg(a) | Func(_, a) | Deriv(a, _) => a,
             Div(a, b) | Pow(a, b) => {
                 if i == 0 {
@@ -170,6 +173,10 @@ impl Expr {
         }
         out
     }
+    /// A named operation still to be worked out (gcd, mean, ...).
+    pub fn has_call(&self) -> bool {
+        self.walk().iter().any(|(_, e)| matches!(e, Call(..)))
+    }
     pub fn has_deriv(&self) -> bool {
         self.walk().iter().any(|(_, e)| matches!(e, Deriv(..)))
     }
@@ -212,6 +219,7 @@ impl Expr {
             }
             Func(crate::expr::Func::Sqrt, a) => a.eval_q(env)?.sqrt(),
             Func(..) => None,
+            Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
         }
     }
     pub fn eval_f(&self, env: &dyn Fn(&str) -> f64) -> f64 {
@@ -248,6 +256,7 @@ impl Expr {
                     crate::expr::Func::Sqrt => x.sqrt(),
                 }
             }
+            Call(f, args) => calls::eval_f(*f, &args.iter().map(|a| a.eval_f(env)).collect::<Vec<_>>()),
             Deriv(a, v) => {
                 // numeric derivative, for checks only
                 let h = 1e-5;
@@ -317,6 +326,7 @@ pub fn tidy(e: Expr) -> Expr {
         Pow(a, b) => Pow(Box::new(tidy(*a)), Box::new(tidy(*b))),
         Func(f, a) => Func(f, Box::new(tidy(*a))),
         Deriv(a, v) => Deriv(Box::new(tidy(*a)), v),
+        Call(f, args) => Call(f, args.into_iter().map(tidy).collect()),
         x => x,
     }
 }

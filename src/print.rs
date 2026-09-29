@@ -1,6 +1,7 @@
 //! Printing: plain ASCII (the default, safe in any terminal), Unicode
 //! (√, ·, ², ±) or LaTeX. Parentheses only where precedence needs them.
 
+use crate::calls::Named;
 use crate::expr::{Expr, Func, Konst, Math};
 use crate::q::Q;
 
@@ -207,7 +208,13 @@ fn write(e: &Expr, s: Style, out: &mut String) {
                 write(b, s, out);
                 out.push('}');
             } else {
-                at_least(a, MUL, s, out);
+                // (10 * 9 * 8)/6, not 10 * 9 * 8/6
+                let starred = matches!(&**a, Expr::Mul(v) if v.windows(2).any(|w| !joins(&w[0], &w[1])));
+                if starred {
+                    paren(a, s, out);
+                } else {
+                    at_least(a, MUL, s, out);
+                }
                 out.push('/');
                 at_least(b, MUL + 1, s, out);
             }
@@ -267,6 +274,7 @@ fn write(e: &Expr, s: Style, out: &mut String) {
             out.push_str(f.name());
             paren(a, s, out);
         }
+        Expr::Call(f, args) => call(*f, args, s, out),
         Expr::Deriv(a, v) => {
             if s == Style::Latex {
                 out.push_str(&format!("\\frac{{d}}{{d{v}}}\\left["));
@@ -277,6 +285,46 @@ fn write(e: &Expr, s: Style, out: &mut String) {
                 write(a, s, out);
                 out.push(']');
             }
+        }
+    }
+}
+
+fn call(f: Named, args: &[Expr], s: Style, out: &mut String) {
+    let list = |out: &mut String| {
+        for (i, a) in args.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            write(a, s, out);
+        }
+    };
+    match (f, args) {
+        (Named::Mod, [a, b]) => {
+            at_least(a, MUL + 1, s, out);
+            out.push_str(if s == Style::Latex { " \\bmod " } else { " mod " });
+            at_least(b, MUL + 1, s, out);
+        }
+        (Named::Factorial, [a]) => {
+            at_least(a, ATOM, s, out);
+            out.push('!');
+        }
+        (Named::Choose, [n, k]) if s == Style::Latex => {
+            out.push_str("\\binom{");
+            write(n, s, out);
+            out.push_str("}{");
+            write(k, s, out);
+            out.push('}');
+        }
+        _ => {
+            let name = f.name();
+            if s == Style::Latex {
+                out.push_str(&format!("\\operatorname{{{name}}}"));
+            } else {
+                out.push_str(name);
+            }
+            out.push('(');
+            list(out);
+            out.push(')');
         }
     }
 }

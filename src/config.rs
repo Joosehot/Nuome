@@ -86,6 +86,24 @@ pub struct CheckCfg {
 pub struct Display {
     /// Decimal places for "approximately" with no number given.
     pub decimals: u32,
+    /// An exact answer longer than this many characters leads with its decimal.
+    pub answer_digits: usize,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Numbers {
+    pub write_out_factorial: u64,
+}
+
+/// Calendar conventions for growth over time ("a month is 30 days").
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Finance {
+    pub days_per_week: u32,
+    pub days_per_month: u32,
+    pub days_per_year: u32,
+    pub months_per_year: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -104,6 +122,8 @@ pub struct Config {
     pub judges: BTreeMap<String, JudgeCfg>,
     pub check: CheckCfg,
     pub display: Display,
+    pub finance: Finance,
+    pub numbers: Numbers,
 }
 
 pub const JUDGES: &[&str] = &["fractions", "negative_lead", "method_switch", "growth", "branch_order", "brackets_first", "arithmetic_first"];

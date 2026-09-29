@@ -10,7 +10,7 @@ use crate::q::{lcm, Q};
 pub struct Fold;
 
 fn plain(e: &Expr) -> bool {
-    e.vars().is_empty() && !e.walk().iter().any(|(_, n)| matches!(n, Expr::Const(_) | Expr::Deriv(..) | Expr::Func(..)))
+    e.vars().is_empty() && !e.walk().iter().any(|(_, n)| matches!(n, Expr::Const(_) | Expr::Deriv(..) | Expr::Func(..) | Expr::Call(..)))
 }
 
 /// Side working for adding fractions: 3/4 + 1/6 = 9/12 + 2/12.
@@ -47,7 +47,11 @@ impl Rule for Fold {
     fn variants(&self) -> &'static [&'static str] {
         &["one", "all"]
     }
-    fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
+    fn moves(&self, m: &Math, cx: &Cx) -> Vec<Move> {
+        // a prime factorisation is a product of numbers on purpose
+        if cx.task() == crate::model::Task::Factor && m.slots().iter().all(|e| e.vars().is_empty()) {
+            return vec![];
+        }
         local("fold", m, |e, at| {
             let mut out = Vec::new();
             let result = |r: Q| Expr::Num(r);

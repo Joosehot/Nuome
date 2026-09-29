@@ -16,6 +16,11 @@ use crate::search::Outcome;
 use std::fmt::Write as _;
 
 pub fn header(req: &Request, s: Style) -> String {
+    // a phrased problem ("gcd of 48 and 18") reads best as it was asked
+    if req.problem.value.slots().iter().any(|e| e.has_call()) {
+        let mut c = req.sentence.chars();
+        return c.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + c.as_str());
+    }
     let problem = print::math(&req.problem.value, s);
     let mut h = format!("{} {problem}", req.task.value.title());
     match req.task.value {
@@ -52,11 +57,20 @@ fn approx(e: &Expr, places: u32, s: Style) -> Option<String> {
 
 pub fn answer(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
     let places = req.decimals.as_ref().map_or(cfg.display.decimals, |d| d.value);
-    let asked_decimal = req.decimals.is_some();
+    // an amount of money reads as a decimal too
+    let money = matches!(&req.problem.value, Math::Expr(Expr::Call(crate::calls::Named::Compound | crate::calls::Named::Raise, _)));
+    let asked_decimal = req.decimals.is_some() || money;
+    // "what percent of 80 is 12" answers in percent
+    let pct = match &req.problem.value {
+        Math::Expr(Expr::Call(f, _)) if f.is_percent() => "%",
+        _ => "",
+    };
     let one = |e: &Expr| {
-        let exact = print::expr(e, s);
+        let exact = format!("{}{pct}", print::expr(e, s));
         match approx(e, places, s) {
-            Some(a) if asked_decimal || e.eval_q(&|_| None).is_none() => format!("{exact} {a}"),
+            // an exact fraction too long to read leads with its decimal
+            Some(a) if exact.len() > cfg.display.answer_digits => format!("{a}{pct} (exactly {exact})"),
+            Some(a) if asked_decimal || e.eval_q(&|_| None).is_none() => format!("{exact} {a}{pct}"),
             _ => exact,
         }
     };
@@ -67,6 +81,19 @@ pub fn answer(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
         Math::Or(eqs) => eqs.iter().map(|(l, r)| format!("{} = {}", print::expr(l, s), one(r))).collect::<Vec<_>>().join(" or "),
         m => print::math(m, s),
     }
+}
+
+/// For compound growth: the factor and the gain in percent, in words.
+fn growth_line(req: &Request, out: &Outcome) -> Option<String> {
+    let Math::Expr(Expr::Call(crate::calls::Named::Compound, args)) = &req.problem.value else { return None };
+    let Math::Expr(fin) = &out.path().state else { return None };
+    let start = args.first()?.eval_f(&|_| f64::NAN);
+    let end = fin.eval_f(&|_| f64::NAN);
+    if !(start > 0.0 && end.is_finite()) {
+        return None;
+    }
+    let factor = end / start;
+    Some(format!("That is {} times the start: a {} of {}%.", q::decimal(factor, 2), if factor >= 1.0 { "gain" } else { "loss" }, q::decimal((factor - 1.0).abs() * 100.0, 2)))
 }
 
 pub fn render(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
@@ -87,6 +114,9 @@ pub fn render(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
     }
     let mut o = String::new();
     let _ = writeln!(o, "{}", header(req, s));
+    for n in &req.notes {
+        let _ = writeln!(o, "  Note: {}", n.value);
+    }
     let _ = writeln!(o);
     let _ = writeln!(o, "      {}", print::math(&req.start(), s));
     for (i, sh) in shown.iter().enumerate() {
@@ -103,6 +133,9 @@ pub fn render(req: &Request, out: &Outcome, cfg: &Config, s: Style) -> String {
     }
     let _ = writeln!(o);
     let _ = writeln!(o, "Answer: {}", answer(req, out, cfg, s));
+    if let Some(line) = growth_line(req, out) {
+        let _ = writeln!(o, "{line}");
+    }
     let mark = if s == Style::Ascii { "ok" } else { "✓" };
     for c in out.checks() {
         let _ = writeln!(o, "  {mark} {}: {}", c.name, c.detail);

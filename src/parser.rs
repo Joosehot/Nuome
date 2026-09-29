@@ -39,7 +39,7 @@ pub struct ParseOptions {
 }
 
 fn is_math(t: &Tok) -> bool {
-    matches!(t, Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op(_) | Tok::Squared | Tok::Cubed | Tok::Percent)
+    matches!(t, Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op(_) | Tok::Squared | Tok::Cubed | Tok::Percent | Tok::Infix(_) | Tok::Bang | Tok::Built(_))
 }
 
 fn words(ts: &[Token]) -> String {
@@ -47,7 +47,12 @@ fn words(ts: &[Token]) -> String {
 }
 
 pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> {
+    parse_with(sentence, opts, &crate::config::Config::builtin())
+}
+
+pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Config) -> Result<Request, Vec<Diag>> {
     let toks = lexicon::lex(sentence).map_err(|e| vec![Diag::new(e)])?;
+    let (toks, notes) = crate::words::rewrite(toks, cfg).map_err(|d| vec![d])?;
     let mut diags = Vec::new();
     let mut task: Option<Said<Task>> = None;
     let mut var: Option<Said<String>> = None;
@@ -155,6 +160,10 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
                     });
                     diags.push(d);
                 }
+            }
+            // word-grammar tokens left over: they didn't fit a construction
+            Tok::List(_) | Tok::Ordinal(_) | Tok::SumOf | Tok::First | Tok::TermsOf | Tok::TermOf | Tok::InfSum | Tok::From | Tok::Pick(_) | Tok::Remainder | Tok::Grow | Tok::Per | Tok::Period(_) | Tok::Every(_) | Tok::Change(_) | Tok::By | Tok::WhatPct | Tok::IsWhatPct | Tok::PctChange => {
+                diags.push(Diag::new(format!("\"{}\" doesn't fit here", t.words)).hint("--vocabulary lists every word; see the README for the phrasings Nuome understands"));
             }
             _ => unreachable!("math tokens handled above"),
         }
@@ -269,7 +278,7 @@ pub fn parse(sentence: &str, opts: &ParseOptions) -> Result<Request, Vec<Diag>> 
             return Err(vec![Diag::new(format!("\"{}\": a {} has no single value to round", d.words, task.value.key()))]);
         }
     }
-    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals })
+    Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals, notes })
 }
 
 /// Parse one math span: an expression, or an equation with one "=".
@@ -314,7 +323,7 @@ impl P<'_> {
         }
     }
     fn starts_primary(&self) -> bool {
-        matches!(self.peek(), Some(Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op('(')))
+        matches!(self.peek(), Some(Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op('(') | Tok::Built(_)))
     }
     fn sum(&mut self) -> Result<Expr, Diag> {
         let mut terms = vec![self.product()?];
@@ -347,6 +356,13 @@ impl P<'_> {
                     self.i += 1;
                     let r = self.unary()?;
                     acc = expr::div(acc, r);
+                }
+                // 17 mod 5, 10 choose 3
+                Some(Tok::Infix(f)) => {
+                    let f = *f;
+                    self.i += 1;
+                    let r = self.unary()?;
+                    acc = Expr::Call(f, vec![acc, r]);
                 }
                 _ if self.starts_primary() => {
                     if matches!(self.peek(), Some(Tok::Num(_))) {
@@ -402,6 +418,7 @@ impl P<'_> {
                 Some(Tok::Squared) => e = expr::pow(e, expr::num(2)),
                 Some(Tok::Cubed) => e = expr::pow(e, expr::num(3)),
                 Some(Tok::Percent) => e = expr::div(e, expr::num(100)),
+                Some(Tok::Bang) => e = Expr::Call(crate::calls::Named::Factorial, vec![e]),
                 _ => break,
             }
             self.i += 1;
@@ -415,6 +432,7 @@ impl P<'_> {
             Tok::Num(q) => Ok(Expr::Num(*q)),
             Tok::Var(v) => Ok(Expr::Var(v.clone())),
             Tok::Const(k) => Ok(Expr::Const(*k)),
+            Tok::Built(e) => Ok(e.clone()),
             Tok::Op('(') => {
                 let e = self.sum()?;
                 if self.peek() != Some(&Tok::Op(')')) {

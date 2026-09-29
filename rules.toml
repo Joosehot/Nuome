@@ -48,10 +48,10 @@ minor_share = 0.3
 # Factoring never sees distribute (it would undo it), expanding never sees
 # the factoring rules.
 [tasks]
-evaluate = ["substitute", "fold", "roots", "cancel", "identity"]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity", "gcd", "lcm", "modulo", "factorial", "choose", "mean", "median", "mode", "range", "spread", "sum_to", "sequence", "compound", "percent"]
 simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
 expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
-factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial"]
+factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors"]
 solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
 
@@ -293,3 +293,95 @@ tolerance = 1e-6
 
 [display]
 decimals = 3
+answer_digits = 16         # an exact answer longer than this is shown as a decimal first
+
+# ---- Numbers, sequences, statistics, finance ------------------------------------
+
+[numbers]
+write_out_factorial = 10   # n! up to this is written out as a product; above it, just the value
+
+# rules for numbers, sequences, statistics and finance
+
+[rules.gcd]
+weight = 1.0
+[rules.gcd.variants.euclid]
+clarity = 0.3
+[rules.gcd.variants.prime_factors]
+elegance = 0.2
+
+[rules.lcm]
+weight = 1.0
+[rules.lcm.variants.via_gcd]
+clarity = 0.2
+[rules.lcm.variants.prime_factors]
+brevity = 0.3
+elegance = 0.2
+
+[rules.modulo]
+weight = 1.0
+[rules.modulo.variants.divide]
+
+[rules.prime_factors]
+weight = 1.0
+[rules.prime_factors.variants.repeated_division]
+
+[rules.factorial]
+weight = 1.0
+[rules.factorial.variants.write_out]
+clarity = 0.3
+[rules.factorial.variants.direct]
+brevity = 0.3
+
+[rules.choose]
+weight = 1.0
+[rules.choose.variants.falling_product]
+[rules.choose.variants.symmetry]
+elegance = 0.5
+brevity = 0.3
+
+[rules.mean]
+weight = 1.0
+[rules.mean.variants.sum_over_count]
+
+[rules.median]
+weight = 1.0
+[rules.median.variants.middle]
+[rules.median.variants.two_middles]
+
+[rules.mode]
+weight = 1.0
+[rules.mode.variants.count]
+
+[rules.range]
+weight = 1.0
+[rules.range.variants.max_minus_min]
+
+[rules.spread]
+weight = 1.0
+[rules.spread.variants.squared_deviations]
+[rules.spread.variants.root_of_variance]
+
+[rules.sum_to]
+weight = 1.0
+[rules.sum_to.variants.pairs]
+
+[rules.sequence]
+weight = 1.0
+[rules.sequence.variants.arithmetic]
+[rules.sequence.variants.geometric]
+
+[rules.compound]
+weight = 1.0
+[rules.compound.variants.growth_factor]
+
+[rules.percent]
+weight = 1.0
+[rules.percent.variants.part_of_whole]
+[rules.percent.variants.change]
+[rules.percent.variants.multiplier]
+
+[finance]                  # conventions a growth question relies on; printed when used
+days_per_week = 7
+days_per_month = 30
+days_per_year = 365
+months_per_year = 12

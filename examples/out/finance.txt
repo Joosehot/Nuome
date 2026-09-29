@@ -1,0 +1,184 @@
+### calculate the compounding at 10% per day for a full month
+
+Calculate the compounding at 10% per day for a full month
+  Note: No starting amount is given, so this is the growth of 1.
+  Note: A month is taken as 30 days ([finance] in rules.toml).
+
+      compound(1, 1/10, 30)
+  1.  Each period multiplies the amount by 1 + 10%; 30 periods multiply it 30 times.   [compound]
+        amount = start * (1 + rate)^periods
+      (1 + 1/10)^30
+  2.  Work out 1 + 1/10 = 11/10.   [fold]
+        1 + 1/10 = 10/10 + 1/10   (common denominator 10)
+      (11/10)^30
+  3.  Work out (11/10)^30 = 17449402268886407318558803753801/1000000000000000000000000000000.   [fold]
+      17449402268886407318558803753801/1000000000000000000000000000000
+
+Answer: ~ 17.449 (exactly 17449402268886407318558803753801/1000000000000000000000000000000)
+That is 17.45 times the start: a gain of 1644.94%.
+  ok steps: each of the 3 steps keeps the value
+  ok value: computed directly, compound(1, 1/10, 30) is exactly 17449402268886407318558803753801/1000000000000000000000000000000
+
+### 1000 invested at 5% per year for 10 years
+
+1000 invested at 5% per year for 10 years
+
+      compound(1000, 1/20, 10)
+  1.  Each period multiplies the amount by 1 + 5%; 10 periods multiply it 10 times.   [compound]
+        amount = start * (1 + rate)^periods
+      1000(1 + 1/20)^10
+  2.  Work out 1 + 1/20 = 21/20.   [fold]
+        1 + 1/20 = 20/20 + 1/20   (common denominator 20)
+      1000 * (21/20)^10
+  3.  Work out (21/20)^10 = 16679880978201/10240000000000.   [fold]
+      1000 * (16679880978201/10240000000000)
+  4.  Work out 1000 * (16679880978201/10240000000000) = 16679880978201/10240000000.   [fold]
+      16679880978201/10240000000
+
+Answer: ~ 1628.895 (exactly 16679880978201/10240000000)
+That is 1.63 times the start: a gain of 62.89%.
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, compound(1000, 1/20, 10) is exactly 16679880978201/10240000000
+
+### 1000 invested at 5% per year for 10 years compounded monthly
+
+1000 invested at 5% per year for 10 years compounded monthly
+  Note: A year is 12 months.
+
+      compound(1000, 1/240, 120)
+  1.  Each period multiplies the amount by 1 + 0.4167%; 120 periods multiply it 120 times.   [compound]
+        amount = start * (1 + rate)^periods
+      1000(1 + 1/240)^120
+  2.  Work out 1 + 1/240 = 241/240.   [fold]
+        1 + 1/240 = 240/240 + 1/240   (common denominator 240)
+      1000 * (241/240)^120
+
+Answer: ~ 1647.009 (exactly 1000 * (241/240)^120)
+That is 1.65 times the start: a gain of 64.70%.
+  ok steps: each of the 2 steps keeps the value
+  ok value: equals compound(1000, 1/240, 120) to 9 decimal places
+
+### compound growth of 200 at 2% per month for 2 years
+
+Compound growth of 200 at 2% per month for 2 years
+  Note: A year is 12 months.
+
+      compound(200, 1/50, 24)
+  1.  Each period multiplies the amount by 1 + 2%; 24 periods multiply it 24 times.   [compound]
+        amount = start * (1 + rate)^periods
+      200(1 + 1/50)^24
+  2.  Work out 1 + 1/50 = 51/50.   [fold]
+        1 + 1/50 = 50/50 + 1/50   (common denominator 50)
+      200 * (51/50)^24
+
+Answer: 200 * (51/50)^24 ~ 321.687
+That is 1.61 times the start: a gain of 60.84%.
+  ok steps: each of the 2 steps keeps the value
+  ok value: equals compound(200, 1/50, 24) to 9 decimal places
+
+### what percent of 80 is 12
+
+What percent of 80 is 12
+
+      percent(12, 80)
+  1.  Divide the part by the whole, then multiply by 100.   [percent]
+      (12/80) * 100
+  2.  Reduce 12/80 to 3/20.   [fold]
+      (3/20) * 100
+  3.  Work out (3/20) * 100 = 15.   [fold]
+      15
+
+Answer: 15%
+  ok steps: each of the 3 steps keeps the value
+  ok value: computed directly, percent(12, 80) is exactly 15
+
+### 12 is what percent of 80
+
+12 is what percent of 80
+
+      percent(12, 80)
+  1.  Divide the part by the whole, then multiply by 100.   [percent]
+      (12/80) * 100
+  2.  Reduce 12/80 to 3/20.   [fold]
+      (3/20) * 100
+  3.  Work out (3/20) * 100 = 15.   [fold]
+      15
+
+Answer: 15%
+  ok steps: each of the 3 steps keeps the value
+  ok value: computed directly, percent(12, 80) is exactly 15
+
+### percentage change from 80 to 100
+
+Percentage change from 80 to 100
+
+      percent change(80, 100)
+  1.  The change divided by the starting value, times 100.   [percent]
+      ((100 - 80)/80) * 100
+  2.  Work out 100 - 80 = 20.   [fold]
+      (20/80) * 100
+  3.  Reduce 20/80 to 1/4.   [fold]
+      (1/4) * 100
+  4.  Work out (1/4) * 100 = 25.   [fold]
+      25
+
+Answer: 25%
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, percent change(80, 100) is exactly 25
+
+### percentage change from 50 to 35
+
+Percentage change from 50 to 35
+
+      percent change(50, 35)
+  1.  The change divided by the starting value, times 100.   [percent]
+      ((35 - 50)/50) * 100
+  2.  Work out 35 - 50 = -15.   [fold]
+      (-15/50) * 100
+  3.  Reduce -15/50 to -3/10.   [fold]
+      (-3/10) * 100
+  4.  Work out (-3/10) * 100 = -30.   [fold]
+      -30
+
+Answer: -30%
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, percent change(50, 35) is exactly -30
+
+### increase 80 by 15%
+
+Increase 80 by 15%
+
+      raise(80, 15)
+  1.  Adding 15% means multiplying by 1 + 15/100.   [percent]
+      80(1 + 15/100)
+  2.  Reduce 15/100 to 3/20.   [fold]
+      80(1 + 3/20)
+  3.  Work out 1 + 3/20 = 23/20.   [fold]
+        1 + 3/20 = 20/20 + 3/20   (common denominator 20)
+      80 * (23/20)
+  4.  Work out 80 * (23/20) = 92.   [fold]
+      92
+
+Answer: 92
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, raise(80, 15) is exactly 92
+
+### decrease 250 by 20%
+
+Decrease 250 by 20%
+
+      raise(250, -20)
+  1.  Taking off 20% means multiplying by 1 - 20/100.   [percent]
+      250(1 + -20/100)
+  2.  Reduce -20/100 to -1/5.   [fold]
+      250(1 - 1/5)
+  3.  Work out 1 - 1/5 = 4/5.   [fold]
+        1 - 1/5 = 5/5 - 1/5   (common denominator 5)
+      250 * (4/5)
+  4.  Work out 250 * (4/5) = 200.   [fold]
+      200
+
+Answer: 200
+  ok steps: each of the 4 steps keeps the value
+  ok value: computed directly, raise(250, -20) is exactly 200
+

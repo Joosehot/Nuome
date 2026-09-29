@@ -8,3 +8,8 @@ solve x + 1 = 0 using the quadratic formula
 what is 1/0
 solve x = 1 and y = 2
 factor x^4 + 4
+mode of 1, 2, 3
+sum to infinity of 1, 2, 4
+the 5th term of 1, 2
+what is 5 mod 0
+1000 at 5% per year

@@ -3,6 +3,7 @@
 
 use crate::expr::{Func, Konst};
 use crate::model::{Modifier, Task};
+use crate::calls::Named;
 use crate::q::Q;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +41,67 @@ pub enum Tok {
     /// Something recognisably mathematical that v0 doesn't do.
     Unsupported(&'static str),
     Unknown,
+    // numbers, sequences, statistics, finance (main)
+    /// "gcd of", "mean of": a list of numbers follows.
+    List(Named),
+    /// "mod", "choose": between two numbers.
+    Infix(Named),
+    /// "!": factorial.
+    Bang,
+    /// "20th", "3rd".
+    Ordinal(i128),
+    /// "sum of".
+    SumOf,
+    /// "the first" (terms).
+    First,
+    /// "terms of".
+    TermsOf,
+    /// "term of".
+    TermOf,
+    /// "sum to infinity of".
+    InfSum,
+    From,
+    /// "combinations of", "permutations of": k from n.
+    Pick(Named),
+    /// "remainder when".
+    Remainder,
+    /// "compound", "invest", "grows": a growth problem.
+    Grow,
+    Per,
+    /// A length of time: days, weeks, months, years.
+    Period(Period),
+    /// "daily", "monthly": compounding frequency.
+    Every(Period),
+    /// "increase" (+1), "decrease" (-1).
+    Change(i8),
+    By,
+    /// "what percent of".
+    WhatPct,
+    /// "is what percent of".
+    IsWhatPct,
+    /// "percentage change from".
+    PctChange,
+    /// Built by the word grammar (words.rs): a finished expression.
+    Built(crate::expr::Expr),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Period {
+    Day,
+    Week,
+    Month,
+    Year,
+}
+
+impl Period {
+    pub fn key(self) -> &'static str {
+        match self {
+            Period::Day => "day",
+            Period::Week => "week",
+            Period::Month => "month",
+            Period::Year => "year",
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -86,6 +148,7 @@ const PHRASES: &[(&str, Tok)] = &[
     ("where", When),
     ("given", When),
     ("given that", When),
+    ("after", For),
     // methods
     ("by factoring", Method("factor_solve")),
     ("by factorising", Method("factor_solve")),
@@ -251,6 +314,98 @@ const PHRASES: &[(&str, Tok)] = &[
     ("using", Filler),
     ("result", Filler),
     ("get", Filler),
+    // numbers, sequences, statistics, finance (main)
+    ("gcd of", List(Named::Gcd)),
+    ("gcd", List(Named::Gcd)),
+    ("greatest common divisor of", List(Named::Gcd)),
+    ("greatest common factor of", List(Named::Gcd)),
+    ("highest common factor of", List(Named::Gcd)),
+    ("hcf of", List(Named::Gcd)),
+    ("lcm of", List(Named::Lcm)),
+    ("lcm", List(Named::Lcm)),
+    ("least common multiple of", List(Named::Lcm)),
+    ("lowest common multiple of", List(Named::Lcm)),
+    ("mean of", List(Named::Mean)),
+    ("average of", List(Named::Mean)),
+    ("median of", List(Named::Median)),
+    ("mode of", List(Named::Mode)),
+    ("range of", List(Named::Range)),
+    ("variance of", List(Named::Variance)),
+    ("population variance of", List(Named::Variance)),
+    ("sample variance of", List(Named::SampleVariance)),
+    ("standard deviation of", List(Named::StdDev)),
+    ("population standard deviation of", List(Named::StdDev)),
+    ("sample standard deviation of", List(Named::SampleStdDev)),
+    ("factorial of", List(Named::Factorial)),
+    ("prime factors of", Task(Task::Factor)),
+    ("prime factorization of", Task(Task::Factor)),
+    ("prime factorisation of", Task(Task::Factor)),
+    ("mod", Infix(Named::Mod)),
+    ("modulo", Infix(Named::Mod)),
+    ("choose", Infix(Named::Choose)),
+    ("remainder when", Remainder),
+    ("remainder of", Remainder),
+    ("combinations of", Pick(Named::Choose)),
+    ("permutations of", Pick(Named::Perm)),
+    ("arrangements of", Pick(Named::Perm)),
+    ("sum of", SumOf),
+    ("add up", SumOf),
+    ("first", First),
+    ("terms of", TermsOf),
+    ("terms in", TermsOf),
+    ("term of", TermOf),
+    ("term in", TermOf),
+    ("sum to infinity of", InfSum),
+    ("infinite sum of", InfSum),
+    ("from", From),
+    ("out of", From),
+    ("numbers", Filler),
+    ("integers", Filler),
+    ("all", Filler),
+    ("whole", Filler),
+    ("full", Filler),
+    ("compound", Grow),
+    ("compounding", Grow),
+    ("compound interest", Grow),
+    ("compound growth", Grow),
+    ("interest", Grow),
+    ("invest", Grow),
+    ("invested", Grow),
+    ("grows", Grow),
+    ("growth", Grow),
+    ("compounded", Grow),
+    ("per", Per),
+    ("each", Per),
+    ("every", Per),
+    ("day", Period(Period::Day)),
+    ("days", Period(Period::Day)),
+    ("week", Period(Period::Week)),
+    ("weeks", Period(Period::Week)),
+    ("month", Period(Period::Month)),
+    ("months", Period(Period::Month)),
+    ("year", Period(Period::Year)),
+    ("years", Period(Period::Year)),
+    ("daily", Every(Period::Day)),
+    ("weekly", Every(Period::Week)),
+    ("monthly", Every(Period::Month)),
+    ("yearly", Every(Period::Year)),
+    ("annually", Every(Period::Year)),
+    ("increase", Change(1)),
+    ("raise", Change(1)),
+    ("decrease", Change(-1)),
+    ("reduce", Change(-1)),
+    ("by", By),
+    ("what percent of", WhatPct),
+    ("what percentage of", WhatPct),
+    ("is what percent of", IsWhatPct),
+    ("is what percentage of", IsWhatPct),
+    ("as a percentage of", IsWhatPct),
+    ("as a percent of", IsWhatPct),
+    ("percent change from", PctChange),
+    ("percentage change from", PctChange),
+    ("percent increase from", PctChange),
+    ("percentage increase from", PctChange),
+    ("change from", PctChange),
     // recognisably math, not in v0
     ("integrate", Unsupported("integration")),
     ("integral", Unsupported("integration")),
@@ -270,9 +425,6 @@ const PHRASES: &[(&str, Tok)] = &[
     ("plot", Unsupported("plotting")),
     ("prove", Unsupported("writing proofs")),
     ("probability", Unsupported("probability")),
-    ("mean", Unsupported("statistics")),
-    ("median", Unsupported("statistics")),
-    ("average", Unsupported("statistics")),
 ];
 
 enum Raw {
@@ -295,6 +447,15 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
                 i += 1;
             }
             out.push(Raw::Number(chars[st..i].iter().collect()));
+            // "20th", "1st", "2nd", "3rd": the suffix goes with the number
+            let rest: String = chars[i..].iter().take(3).collect::<String>().to_lowercase();
+            for suf in ["th", "st", "nd", "rd"] {
+                if rest.starts_with(suf) && !rest.chars().nth(2).is_some_and(|c| c.is_alphabetic()) {
+                    out.push(Raw::Word(format!("#{suf}")));
+                    i += 2;
+                    break;
+                }
+            }
         } else if c.is_alphabetic() {
             // "d/dx" is one symbol
             if c == 'd' && chars.get(i + 1) == Some(&'/') && chars.get(i + 2) == Some(&'d') && chars.get(i + 3).is_some_and(|x| x.is_ascii_alphabetic()) && !chars.get(i + 4).is_some_and(|x| x.is_alphabetic()) {
@@ -311,7 +472,7 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
             out.push(Raw::Word(chars[st..i].iter().collect::<String>().to_lowercase()));
         } else {
             let sym = match c {
-                '+' | '-' | '*' | '/' | '^' | '(' | ')' | '=' | '%' | ',' | ';' | ':' | '?' | '!' | '.' => c,
+                '+' | '-' | '*' | '/' | '^' | '(' | ')' | '=' | '%' | ',' | ';' | ':' | '?' | '!' | '.' | '$' | '€' | '£' => c,
                 '[' | '{' => '(',
                 ']' | '}' => ')',
                 '×' | '·' | '⋅' => '*',
@@ -348,10 +509,22 @@ pub fn lex(s: &str) -> Result<Vec<Token>, String> {
                     '√' => Func(Func::Sqrt),
                     'π' => Const(Konst::Pi),
                     '<' => Unsupported("solving inequalities"),
-                    ',' | ';' | ':' | '?' | '!' | '.' => Sep,
+                    '!' => Bang,
+                    '$' | '€' | '£' => Filler,
+                    ',' | ';' | ':' | '?' | '.' => Sep,
                     c => Op(*c),
                 };
                 out.push(Token { tok, words: c.to_string() });
+                i += 1;
+            }
+            Raw::Word(w) if w.starts_with('#') => {
+                // the suffix of "20th": the number before it becomes an ordinal
+                if let Some(Token { tok: Num(q), words }) = out.last().cloned() {
+                    if q.is_int() {
+                        out.pop();
+                        out.push(Token { tok: Ordinal(q.num()), words: format!("{words}{}", &w[1..]) });
+                    }
+                }
                 i += 1;
             }
             Raw::Word(_) => {

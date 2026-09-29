@@ -85,6 +85,8 @@ pub struct Request {
     pub modifiers: Vec<Said<Modifier>>,
     /// "to 3 decimal places", "as a decimal": also give a decimal answer.
     pub decimals: Option<Said<u32>>,
+    /// Conventions the answer relies on ("a month is taken as 30 days").
+    pub notes: Vec<Said<String>>,
 }
 
 impl Request {

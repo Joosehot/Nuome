@@ -9,7 +9,7 @@ Evaluate 2 + 3 * 4
       14
 
 Answer: 14
-  ok steps: all 2 steps agree at 6 sample points
+  ok steps: each of the 2 steps keeps the value
   ok value: computed directly, 2 + 3 * 4 is exactly 14
 
 ### what is 3/4 + 1/6
@@ -22,7 +22,7 @@ Evaluate 3/4 + 1/6
       11/12
 
 Answer: 11/12
-  ok steps: all 1 steps agree at 6 sample points
+  ok steps: the step keeps the value
   ok value: computed directly, 3/4 + 1/6 is exactly 11/12
 
 ### what is 15% of 80
@@ -36,7 +36,7 @@ Evaluate (15/100) * 80
       12
 
 Answer: 12
-  ok steps: all 2 steps agree at 6 sample points
+  ok steps: each of the 2 steps keeps the value
   ok value: computed directly, (15/100) * 80 is exactly 12
 
 ### what is sqrt 72
@@ -49,7 +49,7 @@ Evaluate sqrt(72)
       6sqrt(2)
 
 Answer: 6sqrt(2) ~ 8.485
-  ok steps: all 1 steps agree at 6 sample points
+  ok steps: the step keeps the value
   ok value: equals sqrt(72) to 9 decimal places
 
 ### calculate 2^10 - 3 * 4
@@ -65,7 +65,7 @@ Evaluate 2^10 - 3 * 4
       1012
 
 Answer: 1012
-  ok steps: all 3 steps agree at 6 sample points
+  ok steps: each of the 3 steps keeps the value
   ok value: computed directly, 2^10 - 3 * 4 is exactly 1012
 
 ### what is (2/3) * (9/4)
@@ -77,7 +77,7 @@ Evaluate (2/3) * (9/4)
       3/2
 
 Answer: 3/2
-  ok steps: all 1 steps agree at 6 sample points
+  ok steps: the step keeps the value
   ok value: computed directly, (2/3) * (9/4) is exactly 3/2
 
 ### evaluate x^2 + 3x when x = -2
@@ -106,7 +106,7 @@ Evaluate sqrt(2)
   (already in its simplest form: no rule applies)
 
 Answer: sqrt(2) ~ 1.4142
-  ok steps: all 0 steps agree at 6 sample points
+  ok steps: no steps to check
   ok value: equals sqrt(2) to 9 decimal places
 
 ### what is 7 divided by 8 as a decimal
@@ -117,6 +117,6 @@ Evaluate 7/8
   (already in its simplest form: no rule applies)
 
 Answer: 7/8 ~ 0.875
-  ok steps: all 0 steps agree at 6 sample points
+  ok steps: no steps to check
   ok value: computed directly, 7/8 is exactly 7/8
 
