@@ -536,6 +536,11 @@ impl P<'_> {
                     self.postfix()?
                 } else {
                     let mut a = self.power()?;
+                    // log_3 1/9: a written fraction is the argument
+                    if let (Expr::Num(_), Some(Tok::Op('/')), Some(Tok::Num(d))) = (&a, self.peek(), self.ts.get(self.i + 1).map(|t| &t.tok)) {
+                        a = expr::div(a.clone(), Expr::Num(*d));
+                        self.i += 2;
+                    }
                     while self.starts_primary() && !matches!(self.peek(), Some(Tok::Func(_) | Tok::Num(_) | Tok::Log | Tok::LogBase)) {
                         let r = self.power()?;
                         a = join_mul(a, r);

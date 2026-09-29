@@ -51,6 +51,13 @@ pub mod neg_exponent;
 pub mod frac_exponent;
 pub mod rationalise;
 pub mod compound_fraction;
+pub mod log_eval;
+pub mod log_laws;
+pub mod log_to_exp;
+pub mod power_base;
+pub mod equate_exponents;
+pub mod take_log;
+pub mod log_domain;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -180,6 +187,13 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &frac_exponent::FracExponent,
         &rationalise::Rationalise,
         &compound_fraction::CompoundFraction,
+        &log_eval::LogEval,
+        &log_laws::LogLaws,
+        &log_to_exp::LogToExp,
+        &power_base::PowerBase,
+        &equate_exponents::EquateExponents,
+        &take_log::TakeLog,
+        &log_domain::LogDomain,
     ]
 }
 

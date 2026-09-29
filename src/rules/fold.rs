@@ -10,7 +10,7 @@ use crate::q::{lcm, Q};
 pub struct Fold;
 
 fn plain(e: &Expr) -> bool {
-    e.vars().is_empty() && !e.walk().iter().any(|(_, n)| matches!(n, Expr::Const(_) | Expr::Deriv(..) | Expr::Func(..)))
+    e.vars().is_empty() && !e.walk().iter().any(|(_, n)| matches!(n, Expr::Const(_) | Expr::Deriv(..) | Expr::Func(..) | Expr::Log(..)))
 }
 
 /// Side working for adding fractions: 3/4 + 1/6 = 9/12 + 2/12.

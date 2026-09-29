@@ -48,11 +48,11 @@ minor_share = 0.3
 # Factoring never sees distribute (it would undo it), expanding never sees
 # the factoring rules.
 [tasks]
-evaluate = ["substitute", "fold", "roots", "cancel", "identity", "neg_exponent", "frac_exponent", "rationalise"]
-simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction"]
-expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity", "neg_exponent", "frac_exponent", "rationalise", "log_eval", "log_laws"]
+simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction", "log_eval", "log_laws"]
+expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "log_laws", "log_eval"]
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "factor_theorem"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
@@ -309,6 +309,53 @@ weight = 1.0
 weight = 1.0
 [rules.compound_fraction.variants.over]
 [rules.compound_fraction.variants.under]
+
+# ---- Algebra: logarithms and exponential equations ----
+
+[rules.log_eval]
+weight = 1.0
+[rules.log_eval.variants.exact]
+clarity = 0.2
+[rules.log_eval.variants.inverse]
+clarity = 0.2
+
+[rules.log_laws]
+weight = 1.0
+[rules.log_laws.variants.product]
+[rules.log_laws.variants.quotient]
+[rules.log_laws.variants.power]
+[rules.log_laws.variants.split_product]
+[rules.log_laws.variants.split_quotient]
+[rules.log_laws.variants.power_down]
+[rules.log_laws.variants.change_of_base]   # only when a decimal answer is asked for
+
+[rules.log_to_exp]
+weight = 1.0
+[rules.log_to_exp.variants.exponential_form]
+clarity = 0.2
+[rules.log_to_exp.variants.one_to_one]
+elegance = 0.3
+
+[rules.power_base]
+weight = 1.0
+[rules.power_base.variants.same_base]      # 2^x = 8 -> 2^x = 2^3
+elegance = 0.5
+[rules.power_base.variants.common_base]    # 4^x = 8 -> 2^(2x) = 2^3
+elegance = 0.5
+
+[rules.equate_exponents]
+weight = 1.0
+[rules.equate_exponents.variants.same_base]
+
+[rules.take_log]
+weight = 1.0
+[rules.take_log.variants.log_base]         # 2^x = 5 -> x = log_2(5)
+[rules.take_log.variants.natural]          # e^x = 5 -> x = ln(5)
+[rules.take_log.variants.never]            # 2^x = -4: a power is never negative
+
+[rules.log_domain]
+weight = 1.0
+[rules.log_domain.variants.outside_domain]
 
 # ---- Judges: preferences about the path as a whole ------------------------------
 # A judge adds  weight * (axes . profile) * amount  to a step.
