@@ -195,7 +195,7 @@ mod tests {
         let d = records();
         assert_eq!(d.len(), 67);
         assert_eq!(d[39], (35_884_080_836, 2803));
-        let lines = goldbach_formula(&Settings { min_n: 1000, split: 100_000_000_000, price_per_parameter: 0.02, check_up_to: 1_000_000 });
+        let lines = goldbach_formula(&Settings { evolve: None, min_n: 1000, split: 100_000_000_000, price_per_parameter: 0.02, check_up_to: 1_000_000 });
         assert!(lines[0].contains("agree"), "{}", lines[0]);
     }
 }
