@@ -901,6 +901,7 @@ known = [
     "false with integer instead of rational coefficients (Atiyah and Hirzebruch, 1962)",
     "false for general compact Kahler manifolds, which need not be projective (Voisin, 2002)",
 ]
+formal = "prove that on a non-singular complex projective variety every Hodge class is a rational linear combination of classes of algebraic cycles"
 
 [open.riemann]
 name = "The Riemann hypothesis"
@@ -910,6 +911,8 @@ known = [
     "the first 10^13 nontrivial zeros lie on the critical line (computer verification)",
     "more than 40% of all nontrivial zeros lie on it (Conrey, 1989, and later work)",
 ]
+formal = "prove that if zeta(s) = 0 and 0 < re(s) < 1 then re(s) = 1/2"
+check_up_to = 100
 
 [open.p_vs_np]
 name = "P versus NP"
@@ -918,6 +921,7 @@ status = "it has been open since 1971 and is a Millennium Prize Problem"
 known = [
     "relativization (1975), natural proofs (1994) and algebrization (2008) rule out whole families of proof techniques",
 ]
+formal = "prove that every problem checkable in polynomial time is solvable in polynomial time"
 
 [open.navier_stokes]
 name = "Navier-Stokes existence and smoothness"
@@ -928,11 +932,13 @@ known = [
     "weak solutions exist in three dimensions (Leray, 1934)",
     "true for small enough initial data",
 ]
+formal = "prove that du/dt + (u . grad) u = laplacian u - grad p with div u = 0 has a smooth solution for all t"
 
 [open.yang_mills]
 name = "Yang-Mills existence and mass gap"
 statement = "quantum Yang-Mills theory exists on four-dimensional space-time for every compact simple gauge group, with a positive mass gap"
 status = "it is open and is a Millennium Prize Problem"
+formal = "prove that quantum gauge theory with a compact simple group on four dimensional spacetime has a positive lowest energy"
 
 [open.bsd]
 name = "The Birch and Swinnerton-Dyer conjecture"
@@ -941,6 +947,7 @@ status = "it has been open since the 1960s and is a Millennium Prize Problem"
 known = [
     "true when the analytic rank is 0 or 1 (Gross and Zagier, 1986; Kolyvagin, 1989)",
 ]
+formal = "prove that the rank of every elliptic curve equals the order of vanishing of its l-function at s = 1"
 
 [open.poincare]
 name = "The Poincare conjecture"
@@ -949,6 +956,7 @@ status = "it was proved by Grigori Perelman (2002-2003), the only Millennium Pro
 known = [
     "dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)",
 ]
+formal = "prove that every simply connected closed 3-manifold is homeomorphic to the 3-sphere"
 
 [open.goldbach]
 name = "The Goldbach conjecture"
@@ -958,6 +966,8 @@ known = [
     "checked by computer for every even number up to 4 * 10^18 (Oliveira e Silva and others, 2013)",
     "every odd number above 5 is a sum of three primes (Helfgott, 2013)",
 ]
+formal = "prove that every even number greater than 2 is a sum of two primes"
+check_up_to = 1000000
 
 [open.twin_primes]
 name = "The twin prime conjecture"
@@ -966,6 +976,7 @@ status = "it is open"
 known = [
     "infinitely many pairs of primes differ by at most 246 (Zhang, 2013; Maynard; Polymath)",
 ]
+formal = "prove that there are infinitely many primes p with p + 2 prime"
 
 [open.collatz]
 name = "The Collatz conjecture"
@@ -977,6 +988,8 @@ known = [
 ]
 
 # ---- Proofs ----------------------------------------------------------------------
+formal = "prove that repeating n/2 for even n and 3n + 1 for odd n reaches 1 from every n"
+check_up_to = 1000000
 
 [proof]
 max_grid = 20000           # exact grid points allowed when confirming a polynomial identity

@@ -36,6 +36,8 @@ impl fmt::Display for Diag {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ParseOptions {
     pub lenient: bool,
+    /// Don't stop at a famous problem's name: read the words (attempt.rs).
+    pub no_open: bool,
 }
 
 fn is_math(t: &Tok) -> bool {
@@ -93,17 +95,20 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
     }
     let toks = lexicon::lex(sentence).map_err(|e| vec![Diag::new(e)])?;
     // a famous problem: name it, say where it stands, and why Nuome stops
+    // an attempt reads the statement itself: names of problems are just words it has no rules for
+    let toks: Vec<Token> = if opts.no_open {
+        toks.into_iter().map(|t| if let Tok::Open(_) = t.tok { Token { tok: Tok::Topic("the problem itself"), words: t.words } } else { t }).collect()
+    } else {
+        toks
+    };
     // written out in full: Hodge classes and algebraic cycles together are the Hodge conjecture
     let said = |w: &str| toks.iter().any(|t| matches!(t.tok, Tok::Topic(_)) && t.words.starts_with(w));
     let spelled_out = (said("hodge") && said("algebraic cycle")).then_some("hodge");
+    let spelled_out = if opts.no_open { None } else { spelled_out };
     if let Some(key) = toks.iter().find_map(|t| if let Tok::Open(k) = t.tok { Some(k) } else { None }).or(spelled_out) {
         let p = &cfg.open[key];
-        let named = if toks.iter().any(|t| matches!(t.tok, Tok::Open(_))) { p.name.clone() } else { format!("{} (recognised from its statement)", p.name) };
-        let mut m = format!("{named} is not something Nuome can prove: {}\n  statement: {}", p.status, p.statement);
-        for k in &p.known {
-            m.push_str(&format!("\n  known: {k}"));
-        }
-        return Err(vec![Diag::new(m).hint("Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution")]);
+        let by_statement = !toks.iter().any(|t| matches!(t.tok, Tok::Open(_)));
+        return Err(vec![Diag::new(crate::attempt::report(key, p, cfg, by_statement))]);
     }
     let topics: Vec<&Token> = toks.iter().filter(|t| matches!(t.tok, Tok::Topic(_))).collect();
     if let Some(Token { tok: Tok::Topic(area), .. }) = topics.first() {

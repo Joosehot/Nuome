@@ -119,6 +119,12 @@ pub struct OpenProblem {
     pub status: String,
     #[serde(default)]
     pub known: Vec<String>,
+    /// The problem as a Nuome question: the engine really runs on it.
+    #[serde(default)]
+    pub formal: Option<String>,
+    /// For a problem that can be computed on: check every case up to this.
+    #[serde(default)]
+    pub check_up_to: Option<u64>,
 }
 
 /// Calendar conventions for growth over time ("a month is 30 days").

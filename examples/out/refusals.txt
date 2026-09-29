@@ -109,38 +109,72 @@ error: none of my rules can solve sin(x) = 3/10
 
 ### prove the Hodge conjecture
 
-error: The Hodge conjecture is not something Nuome can prove: it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)
+error: The Hodge conjecture: an attempt
   statement: on a non-singular complex projective variety X, every rational cohomology class in H^(2p)(X, Q) of Hodge type (p, p) is a rational linear combination of classes of algebraic cycles of codimension p
+  status: it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)
   known: p = 1: true, the Lefschetz (1,1) theorem (1924)
   known: p = dim X - 1: true, from p = 1 by the hard Lefschetz theorem; so every X of dimension at most 3 satisfies it
   known: false with integer instead of rational coefficients (Atiyah and Hirzebruch, 1962)
   known: false for general compact Kahler manifolds, which need not be projective (Voisin, 2002)
-  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+  attempt 1, run the engine on: "prove that on a non-singular complex projective variety every Hodge class is a rational linear combination of classes of algebraic cycles"
+    stopped while reading it (1 problem):
+      "non-singular", "projective variety", "hodge class", "rational linear combination", "classes", "algebraic cycles": algebraic geometry has no rules in Nuome
+    so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
+  attempt 2, compute:
+    nothing: no finite calculation bears on this statement
+  result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases
 
 ### Let X be a non-singular complex projective variety. Prove that every Hodge class in H^(2p)(X, Q) intersected with H^(p,p)(X) is a rational linear combination of classes of algebraic cycles of X
 
-error: The Hodge conjecture (recognised from its statement) is not something Nuome can prove: it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)
+error: The Hodge conjecture (recognised from its statement): an attempt
   statement: on a non-singular complex projective variety X, every rational cohomology class in H^(2p)(X, Q) of Hodge type (p, p) is a rational linear combination of classes of algebraic cycles of codimension p
+  status: it has been open since 1950 and is one of the seven Millennium Prize Problems (Clay Mathematics Institute, 2000)
   known: p = 1: true, the Lefschetz (1,1) theorem (1924)
   known: p = dim X - 1: true, from p = 1 by the hard Lefschetz theorem; so every X of dimension at most 3 satisfies it
   known: false with integer instead of rational coefficients (Atiyah and Hirzebruch, 1962)
   known: false for general compact Kahler manifolds, which need not be projective (Voisin, 2002)
-  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+  attempt 1, run the engine on: "prove that on a non-singular complex projective variety every Hodge class is a rational linear combination of classes of algebraic cycles"
+    stopped while reading it (1 problem):
+      "non-singular", "projective variety", "hodge class", "rational linear combination", "classes", "algebraic cycles": algebraic geometry has no rules in Nuome
+    so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
+  attempt 2, compute:
+    nothing: no finite calculation bears on this statement
+  result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases
 
 ### prove the riemann hypothesis
 
-error: The Riemann hypothesis is not something Nuome can prove: it has been open since 1859 and is a Millennium Prize Problem
+error: The Riemann hypothesis: an attempt
   statement: every nontrivial zero of the Riemann zeta function has real part 1/2
+  status: it has been open since 1859 and is a Millennium Prize Problem
   known: the first 10^13 nontrivial zeros lie on the critical line (computer verification)
   known: more than 40% of all nontrivial zeros lie on it (Conrey, 1989, and later work)
-  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+  attempt 1, run the engine on: "prove that if zeta(s) = 0 and 0 < re(s) < 1 then re(s) = 1/2"
+    stopped while reading it (4 problems):
+      unknown word "zeta"
+      unknown word "re"
+      unknown word "re"
+      "0 <": one side of < is empty
+    so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
+  attempt 2, compute:
+    computed Z(t) (the Riemann-Siegel formula) for 10 <= t <= 100 and found 29 sign changes: 29 zeros of zeta exactly on the line Re(s) = 1/2
+    first ones: t = 14.14, 21.02, 25.02, 30.43, 32.93 (to about 0.01; the formula keeps one correction term)
+    the Riemann-von Mangoldt formula puts about 29.0 zeros in the whole strip 0 < Re(s) < 1 up to that height, so none appear to be off the line there
+    making that last step rigorous needs Turing's method and careful error bounds, and it says nothing above that height: evidence, not a proof
+  result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases
 
 ### prove the poincare conjecture
 
-error: The Poincare conjecture is not something Nuome can prove: it was proved by Grigori Perelman (2002-2003), the only Millennium Problem solved so far; the proof uses Ricci flow with surgery, far beyond Nuome's rules
+error: The Poincare conjecture: an attempt
   statement: every simply connected, closed 3-manifold is homeomorphic to the 3-sphere
+  status: it was proved by Grigori Perelman (2002-2003), the only Millennium Problem solved so far; the proof uses Ricci flow with surgery, far beyond Nuome's rules
   known: dimensions 5 and up: Smale (1961); dimension 4: Freedman (1982)
-  hint: Nuome prints only what its rules derive and its checks confirm; no rule set derives this, and a proof could not be checked by sampling or substitution
+  attempt 1, run the engine on: "prove that every simply connected closed 3-manifold is homeomorphic to the 3-sphere"
+    stopped while reading it (1 problem):
+      "manifold": algebraic geometry has no rules in Nuome
+    so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
+  attempt 2, compute:
+    nothing: no finite calculation bears on this statement
+  result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases
 
 ### prove sin(x)^2 + cos(x)^2 = 1
 

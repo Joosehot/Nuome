@@ -8,8 +8,10 @@
 //! rules.toml always give a byte-identical solution.
 
 pub mod calls;
+pub mod attempt;
 pub mod checks;
 pub mod config;
+pub mod evidence;
 pub mod explain;
 pub mod expr;
 pub mod lexicon;
@@ -52,7 +54,7 @@ pub fn solve(sentence: &str, cfg: &Config, opts: &Options) -> Result<Solved, Vec
     if sentence.trim().is_empty() {
         return Err(vec![Diag::new("nothing to solve").hint("try: nuome \"solve 2x + 3 = 7\"")]);
     }
-    let request = parser::parse_with(sentence, &ParseOptions { lenient: opts.lenient }, cfg)?;
+    let request = parser::parse_with(sentence, &ParseOptions { lenient: opts.lenient, no_open: false }, cfg)?;
     let outcome = search::search(&request, cfg)?;
     let text = render::render(&request, &outcome, cfg, opts.style);
     Ok(Solved { request, outcome, text })
