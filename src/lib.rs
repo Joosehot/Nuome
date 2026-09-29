@@ -11,6 +11,7 @@ pub mod calls;
 pub mod attempt;
 pub mod checks;
 pub mod config;
+pub mod discover;
 pub mod evidence;
 pub mod explain;
 pub mod expr;

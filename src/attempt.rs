@@ -58,6 +58,12 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
     }
     // 2. compute what can be computed
     let computed = match (key, p.check_up_to) {
+        ("goldbach", Some(n)) if sentence.to_lowercase().contains("formula") => crate::discover::goldbach_formula(&crate::discover::Settings {
+            min_n: p.formula_min_n.unwrap_or(1000),
+            split: p.formula_split.unwrap_or(100_000_000_000),
+            price_per_parameter: p.formula_price.unwrap_or(0.02),
+            check_up_to: n,
+        }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
         ("riemann", Some(n)) => crate::evidence::riemann(n as f64),

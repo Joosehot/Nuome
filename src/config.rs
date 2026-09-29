@@ -135,6 +135,15 @@ pub struct OpenProblem {
     /// computing; stated here so the confidence score shows where it comes from).
     #[serde(default)]
     pub model_doubt: Option<f64>,
+    /// "find a formula": fit on records with n from `formula_min_n` up to
+    /// `formula_split`, test on the records above it.
+    #[serde(default)]
+    pub formula_min_n: Option<u64>,
+    #[serde(default)]
+    pub formula_split: Option<u64>,
+    /// Added to a family's training error per parameter: simpler formulas win ties.
+    #[serde(default)]
+    pub formula_price: Option<f64>,
 }
 
 /// A best guess at an open problem: what is expected, why, and how firmly.
