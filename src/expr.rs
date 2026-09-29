@@ -17,6 +17,8 @@ pub enum Func {
     Exp,
     Ln,
     Sqrt,
+    /// |x|
+    Abs,
 }
 
 impl Func {
@@ -28,6 +30,7 @@ impl Func {
             Func::Exp => "exp",
             Func::Ln => "ln",
             Func::Sqrt => "sqrt",
+            Func::Abs => "abs",
         }
     }
 }
@@ -53,6 +56,8 @@ pub enum Expr {
     Deriv(Box<Expr>, String),
     /// A named operation on numbers: gcd(48, 18), 10 choose 3, mean(...).
     Call(Named, Vec<Expr>),
+    /// log to a base: Log(base, argument). log(100) is Log(10, 100).
+    Log(Box<Expr>, Box<Expr>),
 }
 
 use Expr::*;
@@ -103,6 +108,7 @@ impl Expr {
             Add(v) | Mul(v) | Call(_, v) => v.iter().collect(),
             Neg(a) | Func(_, a) | Deriv(a, _) => vec![a],
             Div(a, b) | Pow(a, b) => vec![a, b],
+            Log(b, a) => vec![b, a],
             Num(_) | Var(_) | Const(_) => vec![],
         }
     }
@@ -110,7 +116,7 @@ impl Expr {
         match self {
             Add(v) | Mul(v) | Call(_, v) => &mut v[i],
             Neg(a) | Func(_, a) | Deriv(a, _) => a,
-            Div(a, b) | Pow(a, b) => {
+            Div(a, b) | Pow(a, b) | Log(a, b) => {
                 if i == 0 {
                     a
                 } else {
@@ -214,12 +220,14 @@ impl Expr {
                 } else if e.den() == 2 {
                     base.sqrt()?.pow(e.num() as i64)
                 } else {
-                    None
+                    base.root(e.den() as i64)?.pow(e.num() as i64)
                 }
             }
             Func(crate::expr::Func::Sqrt, a) => a.eval_q(env)?.sqrt(),
+            Func(crate::expr::Func::Abs, a) => Some(a.eval_q(env)?.abs()),
             Func(..) => None,
             Call(f, args) => calls::eval_q(*f, &args.iter().map(|a| a.eval_q(env)).collect::<Option<Vec<_>>>()?),
+            Log(b, a) => exact_log(&b.eval_q(env)?, &a.eval_q(env)?),
         }
     }
     pub fn eval_f(&self, env: &dyn Fn(&str) -> f64) -> f64 {
@@ -254,6 +262,15 @@ impl Expr {
                     crate::expr::Func::Exp => x.exp(),
                     crate::expr::Func::Ln => x.ln(),
                     crate::expr::Func::Sqrt => x.sqrt(),
+                    crate::expr::Func::Abs => x.abs(),
+                }
+            }
+            Log(b, a) => {
+                let (b, x) = (b.eval_f(env), a.eval_f(env));
+                if b <= 0.0 || b == 1.0 {
+                    f64::NAN
+                } else {
+                    x.ln() / b.ln()
                 }
             }
             Call(f, args) => calls::eval_f(*f, &args.iter().map(|a| a.eval_f(env)).collect::<Vec<_>>()),
@@ -327,6 +344,7 @@ pub fn tidy(e: Expr) -> Expr {
         Func(f, a) => Func(f, Box::new(tidy(*a))),
         Deriv(a, v) => Deriv(Box::new(tidy(*a)), v),
         Call(f, args) => Call(f, args.into_iter().map(tidy).collect()),
+        Log(b, a) => Log(Box::new(tidy(*b)), Box::new(tidy(*a))),
         x => x,
     }
 }
@@ -407,6 +425,12 @@ pub enum Math {
     Or(Vec<(Expr, Expr)>),
     NoSolution,
     AllReals,
+    /// An inequality: left, sign, right.
+    Ineq(Expr, Rel, Expr),
+    /// The answer to an inequality: the letter and a union of intervals, left to right.
+    Intervals(String, Vec<Interval>),
+    /// Simultaneous equations, all to hold at once.
+    System(Vec<(Expr, Expr)>),
 }
 
 impl Math {
@@ -418,6 +442,9 @@ impl Math {
             Math::Eq(l, r) => vec![l, r],
             Math::Or(v) => v.iter().flat_map(|(l, r)| [l, r]).collect(),
             Math::NoSolution | Math::AllReals => vec![],
+            Math::Ineq(l, _, r) => vec![l, r],
+            Math::Intervals(_, v) => v.iter().flat_map(|i| i.lo.iter().chain(i.hi.iter()).map(|b| &b.at)).collect(),
+            Math::System(v) => v.iter().flat_map(|(l, r)| [l, r]).collect(),
         }
     }
     pub fn with_slot(&self, i: usize, e: Expr) -> Math {
@@ -439,12 +466,164 @@ impl Math {
                 }
                 Math::Or(v)
             }
+            Math::Ineq(l, rel, r) => {
+                if i == 0 {
+                    Math::Ineq(e, *rel, r.clone())
+                } else {
+                    Math::Ineq(l.clone(), *rel, e)
+                }
+            }
+            Math::Intervals(x, v) => {
+                let mut v = v.clone();
+                let mut k = 0;
+                for iv in v.iter_mut() {
+                    for b in iv.lo.iter_mut().chain(iv.hi.iter_mut()) {
+                        if k == i {
+                            b.at = e.clone();
+                        }
+                        k += 1;
+                    }
+                }
+                Math::Intervals(x.clone(), v)
+            }
+            Math::System(v) => {
+                let mut v = v.clone();
+                if i % 2 == 0 {
+                    v[i / 2].0 = e;
+                } else {
+                    v[i / 2].1 = e;
+                }
+                Math::System(v)
+            }
             m => m.clone(),
         }
     }
     pub fn size(&self) -> usize {
         self.slots().iter().map(|e| e.size()).sum()
     }
+}
+
+// ---- algebra (agent A): inequalities, intervals, exact logarithms ----
+
+/// An inequality sign.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Rel {
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+impl Rel {
+    /// The sign after multiplying both sides by a negative number: < becomes >.
+    pub fn flip(self) -> Rel {
+        match self {
+            Rel::Lt => Rel::Gt,
+            Rel::Le => Rel::Ge,
+            Rel::Gt => Rel::Lt,
+            Rel::Ge => Rel::Le,
+        }
+    }
+    pub fn strict(self) -> bool {
+        matches!(self, Rel::Lt | Rel::Gt)
+    }
+    /// Does `a rel b` hold? Values within `tol` of each other count as equal.
+    pub fn holds(self, a: f64, b: f64, tol: f64) -> bool {
+        let eq = (a - b).abs() <= tol * 1f64.max(a.abs()).max(b.abs());
+        match self {
+            Rel::Lt => a < b && !eq,
+            Rel::Le => a < b || eq,
+            Rel::Gt => a > b && !eq,
+            Rel::Ge => a > b || eq,
+        }
+    }
+    pub fn holds_q(self, a: &Q, b: &Q) -> bool {
+        match self {
+            Rel::Lt => a < b,
+            Rel::Le => a <= b,
+            Rel::Gt => a > b,
+            Rel::Ge => a >= b,
+        }
+    }
+    pub fn words(self) -> &'static str {
+        match self {
+            Rel::Lt => "less than",
+            Rel::Le => "at most",
+            Rel::Gt => "greater than",
+            Rel::Ge => "at least",
+        }
+    }
+}
+
+/// One end of an interval: the value, and whether it belongs to the interval.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Bound {
+    pub at: Expr,
+    pub closed: bool,
+}
+
+/// An interval of the real line; a missing end is infinite.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Interval {
+    pub lo: Option<Bound>,
+    pub hi: Option<Bound>,
+}
+
+impl Interval {
+    /// Where "x rel a" holds: x < 2 is (-inf, 2), x >= 1 is [1, inf).
+    pub fn of(rel: Rel, a: &Expr) -> Interval {
+        let b = Bound { at: a.clone(), closed: !rel.strict() };
+        match rel {
+            Rel::Lt | Rel::Le => Interval { lo: None, hi: Some(b) },
+            Rel::Gt | Rel::Ge => Interval { lo: Some(b), hi: None },
+        }
+    }
+    pub fn contains(&self, x: f64, tol: f64) -> bool {
+        let near = |a: f64| (x - a).abs() <= tol * 1f64.max(a.abs());
+        let above = self.lo.as_ref().is_none_or(|b| {
+            let a = b.at.eval_f(&|_| f64::NAN);
+            if near(a) {
+                b.closed
+            } else {
+                x > a
+            }
+        });
+        let below = self.hi.as_ref().is_none_or(|b| {
+            let a = b.at.eval_f(&|_| f64::NAN);
+            if near(a) {
+                b.closed
+            } else {
+                x < a
+            }
+        });
+        above && below
+    }
+}
+
+/// log_b(a) when it is rational: log_2(8) = 3, log_4(2) = 1/2, log_10(1/100) = -2.
+pub fn exact_log(b: &Q, a: &Q) -> Option<Q> {
+    if b.is_neg() || b.is_zero() || b.is_one() || a.is_neg() || a.is_zero() {
+        return None;
+    }
+    if a.is_one() {
+        return Some(Q::ZERO);
+    }
+    // a^q = b^p for small q
+    for q in 1..=6i64 {
+        let Some(t) = a.pow(q) else { continue };
+        let (mut up, mut down) = (Q::ONE, Q::ONE);
+        for p in 1..=64i128 {
+            let (Some(u), Some(d)) = (up.mul(b), down.div(b)) else { break };
+            (up, down) = (u, d);
+            if up == t {
+                return Q::new(p, q as i128);
+            }
+            if down == t {
+                return Q::new(-p, q as i128);
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

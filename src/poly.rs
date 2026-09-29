@@ -284,10 +284,196 @@ pub fn rational_from_expr(e: &Expr, v: &str) -> Option<(Poly, Poly)> {
     }
 }
 
+// ---- algebra (agent A): division, gcd, factoring over the rationals, linear forms ----
+
+/// A polynomial split as c * (q1 x - p1)^m1 * ... * rest: one linear factor
+/// with integer coefficients per rational root, and the part with no
+/// rational root left (1 when there is none).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Factored {
+    pub c: Q,
+    /// (root, multiplicity): 0 first, then by size, positive before negative.
+    pub linear: Vec<(Q, usize)>,
+    pub rest: Poly,
+}
+
+impl Poly {
+    /// x^k * self.
+    pub fn shift(&self, k: usize) -> Poly {
+        if self.is_zero() {
+            return Poly::zero();
+        }
+        let mut v = vec![Q::ZERO; k];
+        v.extend(self.0.iter().copied());
+        Poly(v)
+    }
+    /// Long division: (quotient, remainder), the remainder of lower degree than `d`.
+    pub fn divmod(&self, d: &Poly) -> Option<(Poly, Poly)> {
+        let dd = d.deg()?;
+        let mut q = vec![Q::ZERO; self.0.len().saturating_sub(dd).max(1)];
+        let mut r = self.clone();
+        while let Some(rd) = r.deg() {
+            if rd < dd {
+                break;
+            }
+            let c = r.lead().div(&d.lead())?;
+            q[rd - dd] = c;
+            r = r.sub(&d.shift(rd - dd).scale(&c)?)?;
+        }
+        Some((Poly(q).trim(), r))
+    }
+    /// The greatest common divisor with leading coefficient 1 (None if both are zero).
+    pub fn gcd(&self, o: &Poly) -> Option<Poly> {
+        let (mut a, mut b) = (self.clone(), o.clone());
+        while !b.is_zero() {
+            let (_, r) = a.divmod(&b)?;
+            a = b;
+            b = r;
+        }
+        let l = a.lead();
+        if l.is_zero() {
+            return None;
+        }
+        a.scale(&l.recip()?)
+    }
+    /// The linear factor (qx - p) of a root p/q.
+    pub fn linear_factor(root: &Q) -> Poly {
+        Poly(vec![Q::int(-root.num()), Q::int(root.den())])
+    }
+    /// Split into linear factors over the integers and a rest without rational roots.
+    pub fn factor(&self) -> Option<Factored> {
+        self.deg()?;
+        let mut rest = Poly(self.primitive()?.iter().map(|&a| Q::int(a)).collect());
+        let mut linear = Vec::new();
+        // the order they are usually written in: x(x - 1)(x + 1)(x - 2)
+        let mut roots = self.rational_roots();
+        roots.sort_by_key(|r| (r.abs(), r.is_neg()));
+        for r in roots {
+            let f = Poly::linear_factor(&r);
+            let mut m = 0;
+            loop {
+                let (q, rem) = rest.divmod(&f)?;
+                if !rem.is_zero() {
+                    break;
+                }
+                rest = q;
+                m += 1;
+            }
+            if m > 0 {
+                linear.push((r, m));
+            }
+        }
+        if rest.lead().is_neg() {
+            rest = rest.scale(&Q::int(-1))?;
+        }
+        // c = lead / (product of the factors' leads)
+        let mut leads = rest.lead();
+        for (r, m) in &linear {
+            leads = leads.mul(&Q::int(r.den()).pow(*m as i64)?)?;
+        }
+        Some(Factored { c: self.lead().div(&leads)?, linear, rest })
+    }
+}
+
+impl Factored {
+    /// The factors as expressions, constant first: [2, x - 1, (x + 3)^2, x^2 + 1].
+    pub fn factors(&self, v: &str) -> Vec<Expr> {
+        let mut out = Vec::new();
+        if !self.c.is_one() {
+            out.push(Expr::Num(self.c));
+        }
+        for (r, m) in &self.linear {
+            let f = Poly::linear_factor(r).to_expr(v);
+            out.push(if *m == 1 { f } else { expr::pow(f, expr::num(*m as i128)) });
+        }
+        if self.rest.deg().is_some_and(|d| d > 0) {
+            out.push(self.rest.to_expr(v));
+        } else if out.is_empty() {
+            out.push(Expr::Num(self.c));
+        }
+        out
+    }
+    /// The whole product: 2(x - 1)(x + 3)^2, with -1 written as a sign.
+    pub fn to_expr(&self, v: &str) -> Expr {
+        let mut f = self.factors(v);
+        if self.c == Q::int(-1) && f.len() > 1 {
+            f.remove(0);
+            return expr::neg(expr::mul(f));
+        }
+        expr::mul(f)
+    }
+}
+
+/// Read l = r as a1 x1 + a2 x2 + ... = d in the given letters, when it is linear.
+pub fn linear_form(l: &Expr, r: &Expr, vars: &[String]) -> Option<(Vec<Q>, Q)> {
+    fn lin(e: &Expr, vars: &[String]) -> Option<(Vec<Q>, Q)> {
+        let zero = vec![Q::ZERO; vars.len()];
+        if !vars.iter().any(|v| e.has_var(v)) {
+            return Some((zero, e.eval_q(&|_| None)?));
+        }
+        match e {
+            Expr::Var(x) => {
+                let mut c = zero;
+                c[vars.iter().position(|v| v == x)?] = Q::ONE;
+                Some((c, Q::ZERO))
+            }
+            Expr::Add(ts) => ts.iter().try_fold((zero, Q::ZERO), |(c, k), t| {
+                let (c2, k2) = lin(t, vars)?;
+                Some((c.iter().zip(&c2).map(|(a, b)| a.add(b)).collect::<Option<Vec<_>>>()?, k.add(&k2)?))
+            }),
+            Expr::Neg(a) => {
+                let (c, k) = lin(a, vars)?;
+                Some((c.iter().map(|a| a.neg()).collect(), k.neg()))
+            }
+            Expr::Mul(fs) => {
+                // exactly one factor may hold letters; the rest are numbers
+                let mut scale = Q::ONE;
+                let mut inner = None;
+                for f in fs {
+                    if vars.iter().any(|v| f.has_var(v)) {
+                        if inner.is_some() {
+                            return None;
+                        }
+                        inner = Some(lin(f, vars)?);
+                    } else {
+                        scale = scale.mul(&f.eval_q(&|_| None)?)?;
+                    }
+                }
+                let (c, k) = inner?;
+                Some((c.iter().map(|a| a.mul(&scale)).collect::<Option<Vec<_>>>()?, k.mul(&scale)?))
+            }
+            Expr::Div(a, b) if !vars.iter().any(|v| b.has_var(v)) => {
+                let d = b.eval_q(&|_| None)?.recip()?;
+                let (c, k) = lin(a, vars)?;
+                Some((c.iter().map(|a| a.mul(&d)).collect::<Option<Vec<_>>>()?, k.mul(&d)?))
+            }
+            _ => None,
+        }
+    }
+    let (cl, kl) = lin(l, vars)?;
+    let (cr, kr) = lin(r, vars)?;
+    let c = cl.iter().zip(&cr).map(|(a, b)| a.sub(b)).collect::<Option<Vec<_>>>()?;
+    Some((c, kr.sub(&kl)?))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::expr::*;
+
+    #[test]
+    fn divides_and_factors() {
+        // x^3 - 1 = (x - 1)(x^2 + x + 1)
+        let p = Poly(vec![Q::int(-1), Q::ZERO, Q::ZERO, Q::ONE]);
+        let (q, r) = p.divmod(&Poly(vec![Q::int(-1), Q::ONE])).unwrap();
+        assert_eq!((q, r.is_zero()), (Poly(vec![Q::ONE, Q::ONE, Q::ONE]), true));
+        // 2x^3 - 2x = 2x(x - 1)(x + 1)
+        let p = Poly(vec![Q::ZERO, Q::int(-2), Q::ZERO, Q::int(2)]);
+        assert_eq!(crate::print::expr(&p.factor().unwrap().to_expr("x"), crate::print::Style::Ascii), "2x(x - 1)(x + 1)");
+        let l = add(vec![mul(vec![num(2), var("x")]), var("y")]);
+        assert_eq!(linear_form(&l, &num(5), &["x".into(), "y".into()]), Some((vec![Q::int(2), Q::ONE], Q::int(5))));
+        assert_eq!(linear_form(&mul(vec![var("x"), var("y")]), &num(5), &["x".into(), "y".into()]), None);
+    }
 
     #[test]
     fn roots_are_counted_independently() {

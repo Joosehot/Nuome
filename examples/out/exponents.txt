@@ -1,0 +1,172 @@
+### simplify x^5/x^2
+
+Simplify x^5/x^2
+
+      x^5/x^2
+  1.  Same base: subtract the exponents, x^5/x^2 = x^3.   [power_quotient]
+      x^3
+
+Answer: x^3, for x != 0
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify 6x^3 y/(4x y^2)
+
+Simplify 6x^3 y/(4xy^2)
+
+      6x^3 y/(4xy^2)
+  1.  Same base: subtract the exponents, 6x^3 y/(4xy^2) = 3x^2/(2y).   [power_quotient]
+      3x^2/(2y)
+
+Answer: 3x^2/(2y)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify 3x^-2
+
+Simplify 3x^(-2)
+
+      3x^(-2)
+  1.  A negative power is one over the positive power: 3x^(-2) = 3/x^2.   [neg_exponent]
+      3/x^2
+
+Answer: 3/x^2
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify x^-2 * x^5
+
+Simplify x^(-2) * x^5
+
+      x^(-2) * x^5
+  1.  Same base: add the exponents, x^(-2) * x^5 = x^3.   [powers]
+      x^3
+
+Answer: x^3, for x != 0
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify (2x^3)^2/(4x^2)
+
+Simplify (2x^3)^2/(4x^2)
+
+      (2x^3)^2/(4x^2)
+  1.  Raise each factor to the power: (2x^3)^2 = 2^2 * x^6.   [powers]
+      (2^2 * x^6)/(4x^2)
+  2.  Work out 2^2 = 4.   [fold]
+      4x^6/(4x^2)
+  3.  Same base: subtract the exponents, 4x^6/(4x^2) = x^4.   [power_quotient]
+      x^4
+
+Answer: x^4, for x != 0
+  ok steps: all 3 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### what is 8^(2/3)
+
+Evaluate 8^(2/3)
+
+      8^(2/3)
+  1.  8^(2/3) is the cube root of 8, to the power 2.   [frac_exponent]
+        The cube root of 8 is 2, because 2^3 = 8.
+      2^2
+  2.  Work out 2^2 = 4.   [fold]
+      4
+
+Answer: 4
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, 8^(2/3) is exactly 4
+
+### what is 27^(1/3)
+
+Evaluate 27^(1/3)
+
+      27^(1/3)
+  1.  27^(1/3) is the cube root of 27.   [frac_exponent]
+        The cube root of 27 is 3, because 3^3 = 27.
+      3
+
+Answer: 3
+  ok steps: the step keeps the value
+  ok value: computed directly, 27^(1/3) is exactly 3
+
+### what is 16^(-1/2)
+
+Evaluate 16^(-1/2)
+
+      16^(-1/2)
+  1.  A negative power is one over the positive power: 16^(-1/2) = 1/sqrt(16).   [neg_exponent]
+      1/sqrt(16)
+  2.  Take the square root: sqrt(16) = 4, because 4 squared is 16.   [frac_exponent]
+      1/4
+
+Answer: 1/4
+  ok steps: each of the 2 steps keeps the value
+  ok value: computed directly, 16^(-1/2) is exactly 1/4
+
+### what is 2^-3
+
+Evaluate 2^(-3)
+
+      2^(-3)
+  1.  Work out 2^(-3) = 1/8.   [fold]
+      1/8
+
+Answer: 1/8
+  ok steps: the step keeps the value
+  ok value: computed directly, 2^(-3) is exactly 1/8
+
+### what is 1/sqrt(2)
+
+Evaluate 1/sqrt(2)
+
+      1/sqrt(2)
+  1.  Multiply top and bottom by sqrt(2).   [rationalise]
+        sqrt(2) * sqrt(2) = 2
+      sqrt(2)/2
+
+Answer: sqrt(2)/2 ~ 0.707
+  ok steps: the step keeps the value
+  ok value: equals 1/sqrt(2) to 9 decimal places
+
+### what is 6/(2sqrt(3))
+
+Evaluate 6/(2sqrt(3))
+
+      6/(2sqrt(3))
+  1.  Multiply top and bottom by sqrt(3).   [rationalise]
+        2sqrt(3) * sqrt(3) = 6
+      6sqrt(3)/6
+  2.  Cancel the common factor 6.   [cancel]
+      sqrt(3)
+
+Answer: sqrt(3) ~ 1.732
+  ok steps: each of the 2 steps keeps the value
+  ok value: equals 6/(2sqrt(3)) to 9 decimal places
+
+### what is 1/(1 + sqrt(2))
+
+Evaluate 1/(1 + sqrt(2))
+
+      1/(1 + sqrt(2))
+  1.  Multiply top and bottom by the conjugate 1 - sqrt(2).   [rationalise]
+        (1 + sqrt(2))(1 - sqrt(2)) = 1^2 - 2 = -1
+      -1 + sqrt(2)
+
+Answer: -1 + sqrt(2) ~ 0.414
+  ok steps: the step keeps the value
+  ok value: equals 1/(1 + sqrt(2)) to 9 decimal places
+
+### rationalise the denominator of 3/(2 - sqrt(3))
+
+Simplify 3/(2 - sqrt(3))
+
+      3/(2 - sqrt(3))
+  1.  Multiply top and bottom by the conjugate 2 + sqrt(3).   [rationalise]
+        (2 - sqrt(3))(2 + sqrt(3)) = 2^2 - 3 = 1
+      6 + 3sqrt(3)
+
+Answer: 6 + 3sqrt(3)
+  ok steps: the step keeps the value
+  ok same: equal to the original at 6 sample points
+

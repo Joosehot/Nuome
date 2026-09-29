@@ -1,0 +1,194 @@
+### solve |2x - 3| = 5
+
+Solve |2x - 3| = 5 for x
+
+      |2x - 3| = 5
+  1.  |2x - 3| = 5 means 2x - 3 = 5 or 2x - 3 = -5.   [abs_split]
+      2x - 3 = 5 or 2x - 3 = -5
+  2.  In both: add 3 to both sides.   [move_term]
+      2x = 5 + 3 or 2x = -5 + 3
+  3.  Work out 5 + 3 = 8.   [fold]
+      2x = 8 or 2x = -5 + 3
+  4.  Work out -5 + 3 = -2.   [fold]
+      2x = 8 or 2x = -2
+  5.  In both: divide both sides by 2.   [scale]
+      x = 8/2 or x = -2/2
+  6.  Work out 8/2 = 4.   [fold]
+      x = 4 or x = -2/2
+  7.  Work out -2/2 = -1.   [fold]
+      x = 4 or x = -1
+
+Answer: x = 4 or x = -1
+  ok satisfies: x = 4: both sides are 5; x = -1: both sides are 5
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (7 steps)
+
+### solve |x + 4| - 2 = 5
+
+Solve |x + 4| - 2 = 5 for x
+
+      |x + 4| - 2 = 5
+  1.  Add 2 to both sides.   [move_term]
+      |x + 4| = 5 + 2
+  2.  Work out 5 + 2 = 7.   [fold]
+      |x + 4| = 7
+  3.  |x + 4| = 7 means x + 4 = 7 or x + 4 = -7.   [abs_split]
+      x + 4 = 7 or x + 4 = -7
+  4.  In both: subtract 4 from both sides.   [move_term]
+      x = 7 - 4 or x = -7 - 4
+  5.  Work out 7 - 4 = 3.   [fold]
+      x = 3 or x = -7 - 4
+  6.  Work out -7 - 4 = -11.   [fold]
+      x = 3 or x = -11
+
+Answer: x = 3 or x = -11
+  ok satisfies: x = 3: both sides are 5; x = -11: both sides are 5
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (6 steps)
+
+### solve 3|x - 1| = 12
+
+Solve 3|x - 1| = 12 for x
+
+      3|x - 1| = 12
+  1.  Divide both sides by 3.   [scale]
+      |x - 1| = 12/3
+  2.  Work out 12/3 = 4.   [fold]
+      |x - 1| = 4
+  3.  |x - 1| = 4 means x - 1 = 4 or x - 1 = -4.   [abs_split]
+      x - 1 = 4 or x - 1 = -4
+  4.  In both: add 1 to both sides.   [move_term]
+      x = 4 + 1 or x = -4 + 1
+  5.  Work out 4 + 1 = 5.   [fold]
+      x = 5 or x = -4 + 1
+  6.  Work out -4 + 1 = -3.   [fold]
+      x = 5 or x = -3
+
+Answer: x = 5 or x = -3
+  ok satisfies: x = 5: both sides are 12; x = -3: both sides are 12
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (6 steps)
+
+### solve |x + 1| = -2
+
+Solve |x + 1| = -2 for x
+
+      |x + 1| = -2
+  1.  An absolute value is never negative, so it can't equal -2.   [abs_split]
+      no real solution
+
+Answer: no real solution
+  ok samples: the equation fails at all 6 sample points tried
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: no real solution
+
+### solve |3x - 6| = 0
+
+Solve |3x - 6| = 0 for x
+
+      |3x - 6| = 0
+  1.  Only 0 has absolute value 0.   [abs_split]
+      3x - 6 = 0
+  2.  Add 6 to both sides.   [move_term]
+      3x = 6
+  3.  Divide both sides by 3.   [scale]
+      x = 6/3
+  4.  Work out 6/3 = 2.   [fold]
+      x = 2
+
+Answer: x = 2
+  ok satisfies: x = 2: both sides are 0
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: exactly one real solution
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve |x - 1| = |2x + 3|
+
+Solve |x - 1| = |2x + 3| for x
+
+      |x - 1| = |2x + 3|
+  1.  |x - 1| = |2x + 3| means the insides are equal or opposite.   [abs_split]
+      x - 1 = 2x + 3 or x - 1 = -2x - 3
+  2.  In both: subtract x from both sides.   [move_term]
+      -1 = 2x + 3 - x or -1 = -2x - 3 - x
+  3.  Collect the x terms.   [collect]
+        2x - x = (2 - 1)x = x
+      -1 = x + 3 or -1 = -2x - 3 - x
+  4.  In both: swap the sides.   [swap]
+      x + 3 = -1 or -2x - 3 - x = -1
+  5.  In x + 3 = -1: subtract 3 from both sides.   [move_term]
+      x = -1 - 3 or -2x - 3 - x = -1
+  6.  Work out -1 - 3 = -4.   [fold]
+      x = -4 or -2x - 3 - x = -1
+  7.  Collect the x terms.   [collect]
+        -2x - x = (-2 - 1)x = -3x
+      x = -4 or -3x - 3 = -1
+  8.  In -3x - 3 = -1: add 3 to both sides.   [move_term]
+      x = -4 or -3x = -1 + 3
+  9.  Work out -1 + 3 = 2.   [fold]
+      x = -4 or -3x = 2
+ 10.  In -3x = 2: divide both sides by -3.   [scale]
+      x = -4 or x = 2/(-3)
+ 11.  Reduce 2/(-3) to -2/3.   [fold]
+      x = -4 or x = -2/3
+
+Answer: x = -4 or x = -2/3
+  ok satisfies: x = -4: both sides are 5; x = -2/3: both sides are 5/3
+  ok complete: split into 3 pieces where the absolute values change sign, and counted on each: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (11 steps)
+
+### solve |x - 1| = 2x + 1
+
+Solve |x - 1| = 2x + 1 for x
+
+      |x - 1| = 2x + 1
+  1.  |x - 1| = 2x + 1 means x - 1 = 2x + 1 or x - 1 = -2x - 1, where 2x + 1 is not negative.   [abs_split]
+        Each answer is checked in the original equation.
+      x - 1 = 2x + 1 or x - 1 = -2x - 1
+  2.  In both: subtract x from both sides.   [move_term]
+      -1 = 2x + 1 - x or -1 = -2x - 1 - x
+  3.  Collect the x terms.   [collect]
+        2x - x = (2 - 1)x = x
+      -1 = x + 1 or -1 = -2x - 1 - x
+  4.  In both: swap the sides.   [swap]
+      x + 1 = -1 or -2x - 1 - x = -1
+  5.  In x + 1 = -1: subtract 1 from both sides.   [move_term]
+      x = -1 - 1 or -2x - 1 - x = -1
+  6.  Work out -1 - 1 = -2.   [fold]
+      x = -2 or -2x - 1 - x = -1
+  7.  Collect the x terms.   [collect]
+        -2x - x = (-2 - 1)x = -3x
+      x = -2 or -3x - 1 = -1
+  8.  In -3x - 1 = -1: add 1 to both sides.   [move_term]
+      x = -2 or -3x = -1 + 1
+  9.  Work out -1 + 1 = 0.   [fold]
+      x = -2 or -3x = 0
+ 10.  In -3x = 0: divide both sides by -3.   [scale]
+      x = -2 or x = 0/(-3)
+ 11.  Work out 0/(-3) = 0.   [fold]
+      x = -2 or x = 0
+ 12.  x = -2 doesn't fit the original equation: the sides of |x - 1| = 2x + 1 come out as 3 and -3, so it is rejected.   [abs_check]
+      x = 0
+
+Answer: x = 0
+  ok satisfies: x = 0: both sides are 1
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: exactly one real solution
+  ok working: every line of the working holds at every answer (12 steps)
+
+### solve the absolute value of (x - 4) equals 9
+
+Solve |x - 4| = 9 for x
+
+      |x - 4| = 9
+  1.  |x - 4| = 9 means x - 4 = 9 or x - 4 = -9.   [abs_split]
+      x - 4 = 9 or x - 4 = -9
+  2.  In both: add 4 to both sides.   [move_term]
+      x = 9 + 4 or x = -9 + 4
+  3.  Work out 9 + 4 = 13.   [fold]
+      x = 13 or x = -9 + 4
+  4.  Work out -9 + 4 = -5.   [fold]
+      x = 13 or x = -5
+
+Answer: x = 13 or x = -5
+  ok satisfies: x = 13: both sides are 9; x = -5: both sides are 9
+  ok complete: split into 2 pieces where the absolute values change sign, and counted on each: exactly 2 real solutions
+  ok working: every line of the working holds at every answer (4 steps)
+

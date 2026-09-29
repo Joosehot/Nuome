@@ -2,7 +2,7 @@
 //! (√, ·, ², ±) or LaTeX. Parentheses only where precedence needs them.
 
 use crate::calls::Named;
-use crate::expr::{Expr, Func, Konst, Math};
+use crate::expr::{Bound, Expr, Func, Interval, Konst, Math, Rel};
 use crate::q::Q;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -42,6 +42,9 @@ pub fn math(m: &Math, s: Style) -> String {
         Math::Or(v) => v.iter().map(|(l, r)| format!("{} = {}", expr(l, s), expr(r, s))).collect::<Vec<_>>().join(if s == Style::Latex { " \\text{ or } " } else { " or " }),
         Math::NoSolution => if s == Style::Latex { "\\text{no real solution}" } else { "no real solution" }.into(),
         Math::AllReals => if s == Style::Latex { "\\text{every real number}" } else { "every real number" }.into(),
+        Math::Ineq(l, r, rr) => format!("{} {} {}", expr(l, s), rel(*r, s), expr(rr, s)),
+        Math::Intervals(v, ivs) => inequalities(v, ivs, s),
+        Math::System(eqs) => eqs.iter().map(|(l, r)| format!("{} = {}", expr(l, s), expr(r, s))).collect::<Vec<_>>().join(", "),
     }
 }
 
@@ -98,7 +101,7 @@ fn superscript(n: &str) -> Option<String> {
 /// Does a factor print as something a number can sit right next to ("2x", "3(x + 1)")?
 fn joins(prev: &Expr, next: &Expr) -> bool {
     let letterish = |e: &Expr| match e {
-        Expr::Var(_) | Expr::Const(_) | Expr::Func(..) => true,
+        Expr::Var(_) | Expr::Const(_) | Expr::Func(..) | Expr::Log(..) => true,
         Expr::Pow(b, _) => matches!(**b, Expr::Var(_) | Expr::Const(_) | Expr::Add(_)),
         Expr::Add(_) => true,
         _ => false,
@@ -126,7 +129,7 @@ fn joins(prev: &Expr, next: &Expr) -> bool {
 
 /// Juxtaposed factors that read better with a space: x^3 sin(x), x sin(x).
 fn spaced(prev: &Expr, next: &Expr) -> bool {
-    matches!(next, Expr::Func(..)) && !matches!(prev, Expr::Num(_))
+    matches!(next, Expr::Func(..) | Expr::Log(..)) && !matches!(prev, Expr::Num(_))
         || matches!(prev, Expr::Pow(..)) && matches!(next, Expr::Var(_) | Expr::Const(_))
 }
 
@@ -267,6 +270,32 @@ fn write(e: &Expr, s: Style, out: &mut String) {
                 out.push(')');
             }
         },
+        Expr::Func(Func::Abs, a) => {
+            out.push_str(if s == Style::Latex { "\\left|" } else { "|" });
+            write(a, s, out);
+            out.push_str(if s == Style::Latex { "\\right|" } else { "|" });
+        }
+        Expr::Log(b, a) => {
+            out.push_str(if s == Style::Latex { "\\log" } else { "log" });
+            // log(x) is base 10
+            if !b.is_num(10) {
+                match s {
+                    Style::Latex => {
+                        out.push_str("_{");
+                        write(b, s, out);
+                        out.push('}');
+                    }
+                    Style::Unicode if b.as_num().is_some_and(|q| q.is_int() && !q.is_neg()) => {
+                        out.extend(expr(b, Style::Ascii).chars().map(|c| c.to_digit(10).and_then(|d| char::from_u32(0x2080 + d)).unwrap_or(c)));
+                    }
+                    _ => {
+                        out.push('_');
+                        at_least(b, ATOM, s, out);
+                    }
+                }
+            }
+            paren(a, s, out);
+        }
         Expr::Func(f, a) => {
             if s == Style::Latex {
                 out.push('\\');
@@ -327,6 +356,75 @@ fn call(f: Named, args: &[Expr], s: Style, out: &mut String) {
             out.push(')');
         }
     }
+}
+
+// ---- algebra (agent A): inequality signs, intervals ----
+
+pub fn rel(r: Rel, s: Style) -> &'static str {
+    match (r, s) {
+        (Rel::Lt, _) => "<",
+        (Rel::Gt, _) => ">",
+        (Rel::Le, Style::Ascii) => "<=",
+        (Rel::Ge, Style::Ascii) => ">=",
+        (Rel::Le, Style::Unicode) => "≤",
+        (Rel::Ge, Style::Unicode) => "≥",
+        (Rel::Le, Style::Latex) => "\\le",
+        (Rel::Ge, Style::Latex) => "\\ge",
+    }
+}
+
+/// The sign between a bound and the letter, read left to right: a < x or a <= x.
+fn sign(b: &Bound) -> Rel {
+    if b.closed {
+        Rel::Le
+    } else {
+        Rel::Lt
+    }
+}
+
+/// Intervals as inequalities in the letter: "x < 2 or x >= 3", "-1 <= x < 4".
+pub fn inequalities(v: &str, ivs: &[Interval], s: Style) -> String {
+    if ivs.is_empty() {
+        return math(&Math::NoSolution, s);
+    }
+    let or = if s == Style::Latex { " \\text{ or } " } else { " or " };
+    ivs.iter()
+        .map(|iv| match (&iv.lo, &iv.hi) {
+            (Some(a), Some(b)) if a.at == b.at => format!("{v} = {}", expr(&a.at, s)),
+            (Some(a), Some(b)) => format!("{} {} {v} {} {}", expr(&a.at, s), rel(sign(a), s), rel(sign(b), s), expr(&b.at, s)),
+            (Some(a), None) => format!("{v} {} {}", rel(sign(a).flip(), s), expr(&a.at, s)),
+            (None, Some(b)) => format!("{v} {} {}", rel(sign(b), s), expr(&b.at, s)),
+            (None, None) => math(&Math::AllReals, s),
+        })
+        .collect::<Vec<_>>()
+        .join(or)
+}
+
+/// Interval notation: (-inf, 2) U [3, inf).
+pub fn interval_notation(ivs: &[Interval], s: Style) -> String {
+    let inf = match s {
+        Style::Ascii => "inf",
+        Style::Unicode => "∞",
+        Style::Latex => "\\infty",
+    };
+    let union = match s {
+        Style::Ascii => " U ",
+        Style::Unicode => " ∪ ",
+        Style::Latex => " \\cup ",
+    };
+    ivs.iter()
+        .map(|iv| {
+            if let (Some(a), Some(b)) = (&iv.lo, &iv.hi) {
+                if a.at == b.at {
+                    return format!("{{{}}}", expr(&a.at, s));
+                }
+            }
+            let lo = iv.lo.as_ref().map_or(format!("(-{inf}"), |b| format!("{}{}", if b.closed { "[" } else { "(" }, expr(&b.at, s)));
+            let hi = iv.hi.as_ref().map_or(format!("{inf})"), |b| format!("{}{}", expr(&b.at, s), if b.closed { "]" } else { ")" }));
+            format!("{lo}, {hi}")
+        })
+        .collect::<Vec<_>>()
+        .join(union)
 }
 
 /// A term that prints with a leading minus, and what follows the minus.

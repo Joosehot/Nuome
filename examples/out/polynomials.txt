@@ -1,0 +1,346 @@
+### factor x^3 - 6x^2 + 11x - 6
+
+Factor x^3 - 6x^2 + 11x - 6
+
+      x^3 - 6x^2 + 11x - 6
+  1.  x = 1 makes it 0, so x - 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-3, +/-6 (the divisors of 6).
+        x = 1 gives 1 - 6 + 11 - 6 = 0.
+        Synthetic division by x - 1: 1  -6  11  -6  ->  1  -5  6, remainder 0.
+      (x - 1)(x^2 - 5x + 6)
+  2.  Find two numbers that multiply to the constant and add to the middle coefficient.   [trinomial]
+        -2 and -3 multiply to 6 and add to -5.
+      (x - 1)(x - 2)(x - 3)
+
+Answer: (x - 1)(x - 2)(x - 3)
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor 2x^3 + x^2 + x - 1
+
+Factor 2x^3 + x^2 + x - 1
+
+      2x^3 + x^2 + x - 1
+  1.  x = 1/2 makes it 0, so 2x - 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-1/2 (divisors of 1 over divisors of 2).
+        x = 1 gives 3, not 0.
+        x = -1 gives -3, not 0.
+        x = 1/2 gives 1/4 + 1/4 + 1/2 - 1 = 0.
+        Divide by 2x - 1: the quotient is x^2 + x + 1, remainder 0.
+      (2x - 1)(x^2 + x + 1)
+
+Answer: (2x - 1)(x^2 + x + 1)
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### factor x^4 - 5x^2 + 4
+
+Factor x^4 - 5x^2 + 4
+
+      x^4 - 5x^2 + 4
+  1.  x = 1 makes it 0, so x - 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-4 (the divisors of 4).
+        x = 1 gives 1 - 5 + 4 = 0.
+        Synthetic division by x - 1: 1  0  -5  0  4  ->  1  1  -4  -4, remainder 0.
+      (x - 1)(x^3 + x^2 - 4x - 4)
+  2.  x = -1 makes it 0, so x + 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-4 (the divisors of 4).
+        x = 1 gives -6, not 0.
+        x = -1 gives -1 + 1 + 4 - 4 = 0.
+        Synthetic division by x + 1: 1  1  -4  -4  ->  1  0  -4, remainder 0.
+      (x - 1)(x + 1)(x^2 - 4)
+  3.  Difference of two squares: x^2 - 2^2 = (a - b)(a + b).   [diff_squares]
+      (x - 1)(x + 1)(x - 2)(x + 2)
+
+Answer: (x - 1)(x + 1)(x - 2)(x + 2)
+  ok steps: all 3 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+
+### solve x^3 - 6x^2 + 11x - 6 = 0
+
+Solve x^3 - 6x^2 + 11x - 6 = 0 for x
+
+      x^3 - 6x^2 + 11x - 6 = 0
+  1.  x = 1 makes it 0, so x - 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-3, +/-6 (the divisors of 6).
+        x = 1 gives 1 - 6 + 11 - 6 = 0.
+        Synthetic division by x - 1: 1  -6  11  -6  ->  1  -5  6, remainder 0.
+      (x - 1)(x^2 - 5x + 6) = 0
+  2.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x - 1 = 0 or x^2 - 5x + 6 = 0
+  3.  In x - 1 = 0: add 1 to both sides.   [move_term]
+      x = 1 or x^2 - 5x + 6 = 0
+  4.  In x^2 - 5x + 6 = 0: factor the left side.   [factor_solve]
+        -2 and -3 multiply to 6 and add to -5.
+      x = 1 or (x - 2)(x - 3) = 0
+  5.  In (x - 2)(x - 3) = 0: a product is 0 only when one of its factors is 0.   [zero_product]
+      x = 1 or x - 2 = 0 or x - 3 = 0
+  6.  In x - 2 = 0: add 2 to both sides.   [move_term]
+      x = 1 or x = 2 or x - 3 = 0
+  7.  In x - 3 = 0: add 3 to both sides.   [move_term]
+      x = 1 or x = 2 or x = 3
+
+Answer: x = 1 or x = 2 or x = 3
+  ok satisfies: x = 1: both sides are 0; x = 2: both sides are 0; x = 3: both sides are 0
+  ok complete: counted from the degree 3 equation itself: exactly 3 real solutions
+  ok working: every line of the working holds at every answer (7 steps)
+
+### solve x^3 - 7x - 6 = 0
+
+Solve x^3 - 7x - 6 = 0 for x
+
+      x^3 - 7x - 6 = 0
+  1.  x = -1 makes it 0, so x + 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-3, +/-6 (the divisors of 6).
+        x = 1 gives -12, not 0.
+        x = -1 gives -1 + 7 - 6 = 0.
+        Synthetic division by x + 1: 1  0  -7  -6  ->  1  -1  -6, remainder 0.
+      (x + 1)(x^2 - x - 6) = 0
+  2.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x + 1 = 0 or x^2 - x - 6 = 0
+  3.  In x + 1 = 0: subtract 1 from both sides.   [move_term]
+      x = -1 or x^2 - x - 6 = 0
+  4.  In x^2 - x - 6 = 0: factor the left side.   [factor_solve]
+        2 and -3 multiply to -6 and add to -1.
+      x = -1 or (x + 2)(x - 3) = 0
+  5.  In (x + 2)(x - 3) = 0: a product is 0 only when one of its factors is 0.   [zero_product]
+      x = -1 or x + 2 = 0 or x - 3 = 0
+  6.  In x + 2 = 0: subtract 2 from both sides.   [move_term]
+      x = -1 or x = -2 or x - 3 = 0
+  7.  In x - 3 = 0: add 3 to both sides.   [move_term]
+      x = -1 or x = -2 or x = 3
+
+Answer: x = -1 or x = -2 or x = 3
+  ok satisfies: x = -1: both sides are 0; x = -2: both sides are 0; x = 3: both sides are 0
+  ok complete: counted from the degree 3 equation itself: exactly 3 real solutions
+  ok working: every line of the working holds at every answer (7 steps)
+
+### solve 2x^3 - 3x^2 - 3x + 2 = 0
+
+Solve 2x^3 - 3x^2 - 3x + 2 = 0 for x
+
+      2x^3 - 3x^2 - 3x + 2 = 0
+  1.  x = -1 makes it 0, so x + 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-1/2 (divisors of 2 over divisors of 2).
+        x = 1 gives -2, not 0.
+        x = -1 gives -2 - 3 + 3 + 2 = 0.
+        Synthetic division by x + 1: 2  -3  -3  2  ->  2  -5  2, remainder 0.
+      (x + 1)(2x^2 - 5x + 2) = 0
+  2.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x + 1 = 0 or 2x^2 - 5x + 2 = 0
+  3.  In x + 1 = 0: subtract 1 from both sides.   [move_term]
+      x = -1 or 2x^2 - 5x + 2 = 0
+  4.  In 2x^2 - 5x + 2 = 0: use the quadratic formula.   [quadratic_formula]
+        a = 2, b = -5, c = 2.
+        b^2 - 4ac = (-5)^2 - 4 * 2 * 2 = 9.
+        x = (5 +/- sqrt(9))/4
+      x = -1 or x = (5 - sqrt(9))/4 or x = (5 + sqrt(9))/4
+  5.  sqrt(9) = 3, because 3 squared is 9.   [roots]
+      x = -1 or x = (5 - 3)/4 or x = (5 + 3)/4
+  6.  Work out 5 - 3 = 2.   [fold]
+      x = -1 or x = 2/4 or x = (5 + 3)/4
+  7.  Reduce 2/4 to 1/2.   [fold]
+      x = -1 or x = 1/2 or x = (5 + 3)/4
+  8.  Work out 5 + 3 = 8.   [fold]
+      x = -1 or x = 1/2 or x = 8/4
+  9.  Work out 8/4 = 2.   [fold]
+      x = -1 or x = 1/2 or x = 2
+
+Answer: x = -1 or x = 1/2 or x = 2
+  ok satisfies: x = -1: both sides are 0; x = 1/2: both sides are 0; x = 2: both sides are 0
+  ok complete: counted from the degree 3 equation itself: exactly 3 real solutions
+  ok working: every line of the working holds at every answer (9 steps)
+
+### solve x^3 - 2x^2 - 2x + 4 = 0
+
+Solve x^3 - 2x^2 - 2x + 4 = 0 for x
+
+      x^3 - 2x^2 - 2x + 4 = 0
+  1.  x = 2 makes it 0, so x - 2 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-4 (the divisors of 4).
+        x = 1 gives 1, not 0.
+        x = -1 gives 3, not 0.
+        x = 2 gives 8 - 8 - 4 + 4 = 0.
+        Synthetic division by x - 2: 1  -2  -2  4  ->  1  0  -2, remainder 0.
+      (x - 2)(x^2 - 2) = 0
+  2.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x - 2 = 0 or x^2 - 2 = 0
+  3.  In both: add 2 to both sides.   [move_term]
+      x = 2 or x^2 = 2
+  4.  In x^2 = 2: take the square root of both sides, with +/-: both signs square to 2.   [square_root]
+      x = 2 or x = sqrt(2) or x = -sqrt(2)
+
+Answer: x = 2 or x = sqrt(2) ~ 1.414 or x = -sqrt(2) ~ -1.414
+  ok satisfies: x = 2: both sides are 0; x = sqrt(2) ≈ 1.41421: both sides ≈ 0.00000; x = -sqrt(2) ≈ -1.41421: both sides ≈ 0.00000
+  ok complete: counted from the degree 3 equation itself: exactly 3 real solutions
+  ok working: every line of the working holds at every answer (4 steps)
+
+### solve x^4 - 10x^2 + 9 = 0
+
+Solve x^4 - 10x^2 + 9 = 0 for x
+
+      x^4 - 10x^2 + 9 = 0
+  1.  x = 1 makes it 0, so x - 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-3, +/-9 (the divisors of 9).
+        x = 1 gives 1 - 10 + 9 = 0.
+        Synthetic division by x - 1: 1  0  -10  0  9  ->  1  1  -9  -9, remainder 0.
+      (x - 1)(x^3 + x^2 - 9x - 9) = 0
+  2.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x - 1 = 0 or x^3 + x^2 - 9x - 9 = 0
+  3.  In x - 1 = 0: add 1 to both sides.   [move_term]
+      x = 1 or x^3 + x^2 - 9x - 9 = 0
+  4.  x = -1 makes it 0, so x + 1 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-3, +/-9 (the divisors of 9).
+        x = 1 gives -16, not 0.
+        x = -1 gives -1 + 1 + 9 - 9 = 0.
+        Synthetic division by x + 1: 1  1  -9  -9  ->  1  0  -9, remainder 0.
+      x = 1 or (x + 1)(x^2 - 9) = 0
+  5.  In (x + 1)(x^2 - 9) = 0: a product is 0 only when one of its factors is 0.   [zero_product]
+      x = 1 or x + 1 = 0 or x^2 - 9 = 0
+  6.  In x + 1 = 0: subtract 1 from both sides.   [move_term]
+      x = 1 or x = -1 or x^2 - 9 = 0
+  7.  In x^2 - 9 = 0: add 9 to both sides.   [move_term]
+      x = 1 or x = -1 or x^2 = 9
+  8.  In x^2 = 9: take the square root of both sides, with +/-: both signs square to 9.   [square_root]
+      x = 1 or x = -1 or x = sqrt(9) or x = -sqrt(9)
+  9.  sqrt(9) = 3, because 3 squared is 9.   [roots]
+      x = 1 or x = -1 or x = 3 or x = -3
+
+Answer: x = 1 or x = -1 or x = 3 or x = -3
+  ok satisfies: x = 1: both sides are 0; x = -1: both sides are 0; x = 3: both sides are 0; x = -3: both sides are 0
+  ok complete: counted from the degree 4 equation itself: exactly 4 real solutions
+  ok working: every line of the working holds at every answer (9 steps)
+
+### divide x^3 - 1 by x - 1
+
+Divide x^3 - 1 by x - 1
+
+      (x^3 - 1)/(x - 1)
+  1.  Divide the leading terms: x^3 / x = x^2.   [poly_divide]
+        Multiply back: x^2 * (x - 1) = x^3 - x^2.
+        Subtract: (x^3 - 1) - (x^3 - x^2) = x^2 - 1.
+      x^2 + (x^2 - 1)/(x - 1)
+  2.  Divide the leading terms: x^2 / x = x.   [poly_divide]
+        Multiply back: x * (x - 1) = x^2 - x.
+        Subtract: (x^2 - 1) - (x^2 - x) = x - 1.
+      x^2 + x + (x - 1)/(x - 1)
+  3.  Divide the leading terms: x / x = 1.   [poly_divide]
+        Multiply back: 1 * (x - 1) = x - 1.
+        Subtract: (x - 1) - (x - 1) = 0.
+      x^2 + x + 1
+
+Answer: quotient x^2 + x + 1, remainder 0
+  ok steps: all 3 steps agree at 6 sample points
+  ok division: (x^2 + x + 1)(x - 1) + 0 = x^3 - 1 exactly
+  ok remainder: the remainder 0 has lower degree than x - 1
+
+### divide 2x^3 + 3x^2 - 4 by x + 2
+
+Divide 2x^3 + 3x^2 - 4 by x + 2
+
+      (2x^3 + 3x^2 - 4)/(x + 2)
+  1.  Divide the leading terms: 2x^3 / x = 2x^2.   [poly_divide]
+        Multiply back: 2x^2 * (x + 2) = 2x^3 + 4x^2.
+        Subtract: (2x^3 + 3x^2 - 4) - (2x^3 + 4x^2) = -x^2 - 4.
+      2x^2 - (x^2 + 4)/(x + 2)
+  2.  Divide the leading terms: -x^2 / x = -x.   [poly_divide]
+        Multiply back: -x * (x + 2) = -x^2 - 2x.
+        Subtract: (-x^2 - 4) - (-x^2 - 2x) = 2x - 4.
+      2x^2 - x + (2x - 4)/(x + 2)
+  3.  Divide the leading terms: 2x / x = 2.   [poly_divide]
+        Multiply back: 2 * (x + 2) = 2x + 4.
+        Subtract: (2x - 4) - (2x + 4) = -8.
+      2x^2 - x + 2 - 8/(x + 2)
+
+Answer: quotient 2x^2 - x + 2, remainder -8
+  ok steps: all 3 steps agree at 6 sample points
+  ok division: (2x^2 - x + 2)(x + 2) - 8 = 2x^3 + 3x^2 - 4 exactly
+  ok remainder: the remainder -8 has lower degree than x + 2
+
+### divide x^4 - 16 by x^2 + 4
+
+Divide x^4 - 16 by x^2 + 4
+
+      (x^4 - 16)/(x^2 + 4)
+  1.  Divide the leading terms: x^4 / x^2 = x^2.   [poly_divide]
+        Multiply back: x^2 * (x^2 + 4) = x^4 + 4x^2.
+        Subtract: (x^4 - 16) - (x^4 + 4x^2) = -4x^2 - 16.
+      x^2 - (4x^2 + 16)/(x^2 + 4)
+  2.  Divide the leading terms: -4x^2 / x^2 = -4.   [poly_divide]
+        Multiply back: -4 * (x^2 + 4) = -4x^2 - 16.
+        Subtract: (-4x^2 - 16) - (-4x^2 - 16) = 0.
+      x^2 - 4
+
+Answer: quotient x^2 - 4, remainder 0
+  ok steps: all 2 steps agree at 6 sample points
+  ok division: (x^2 - 4)(x^2 + 4) + 0 = x^4 - 16 exactly
+  ok remainder: the remainder 0 has lower degree than x^2 + 4
+
+### divide x^3 + 2x - 5 by x - 2 quickly
+
+Divide x^3 + 2x - 5 by x - 2
+
+      (x^3 + 2x - 5)/(x - 2)
+  1.  Divide by x - 2 with synthetic division, using 2.   [poly_divide]
+      x^2 + 2x + 6 + 7/(x - 2)
+
+Answer: quotient x^2 + 2x + 6, remainder 7
+  ok steps: all 1 steps agree at 6 sample points
+  ok division: (x^2 + 2x + 6)(x - 2) + 7 = x^3 + 2x - 5 exactly
+  ok remainder: the remainder 7 has lower degree than x - 2
+
+### solve x^3 = 8
+
+Solve x^3 = 8 for x
+
+      x^3 = 8
+  1.  Subtract 8 from both sides.   [move_term]
+      x^3 - 8 = 0
+  2.  x = 2 makes it 0, so x - 2 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-4, +/-8 (the divisors of 8).
+        x = 1 gives -7, not 0.
+        x = -1 gives -9, not 0.
+        x = 2 gives 8 - 8 = 0.
+        Synthetic division by x - 2: 1  0  0  -8  ->  1  2  4, remainder 0.
+      (x - 2)(x^2 + 2x + 4) = 0
+  3.  A product is 0 only when one of its factors is 0.   [zero_product]
+      x - 2 = 0 or x^2 + 2x + 4 = 0
+  4.  In x^2 + 2x + 4 = 0: use the quadratic formula.   [quadratic_formula]
+        a = 1, b = 2, c = 4.
+        b^2 - 4ac = 2^2 - 4 * 1 * 4 = -12.
+        -12 is negative, and no real number squares to a negative.
+      x - 2 = 0
+  5.  Add 2 to both sides.   [move_term]
+      x = 2
+
+Answer: x = 2
+  ok satisfies: x = 2: both sides are 8
+  ok complete: counted from the degree 3 equation itself: exactly one real solution
+  ok working: every line of the working holds at every answer (5 steps)
+
+### factor 6x^3 + 11x^2 - 3x - 2
+
+Factor 6x^3 + 11x^2 - 3x - 2
+
+      6x^3 + 11x^2 - 3x - 2
+  1.  x = -2 makes it 0, so x + 2 is a factor (the factor theorem).   [factor_theorem]
+        Candidates: +/-1, +/-2, +/-1/2, +/-1/3, +/-2/3, +/-1/6 (divisors of 2 over divisors of 6).
+        x = 1 gives 12, not 0.
+        x = -1 gives 6, not 0.
+        x = 2 gives 84, not 0.
+        x = -2 gives -48 + 44 + 6 - 2 = 0.
+        Synthetic division by x + 2: 6  11  -3  -2  ->  6  -1  -1, remainder 0.
+      (x + 2)(6x^2 - x - 1)
+  2.  Factor by the ac method.   [trinomial]
+        a * c = -6; -3 and 2 multiply to -6 and add to -1.
+        Split the middle term: 6x^2 - 3x + 2x - 1.
+      (x + 2)(3x + 1)(2x - 1)
+
+Answer: (x + 2)(3x + 1)(2x - 1)
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+  ok factored: every factor is linear or has no rational root
+

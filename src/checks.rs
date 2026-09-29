@@ -73,6 +73,8 @@ pub fn check(req: &Request, cfg: &Config, path: &Path) -> Vec<Check> {
         out.push(ck("method", used, if used { format!("uses {} as asked (\"{}\")", m.value, m.words) } else { format!("\"{}\" doesn't apply to this problem", m.words) }));
     }
     match req.task.value {
+        Task::Solve if matches!(req.problem.value, Math::Ineq(..)) => ineq_checks(req, cfg, path, &mut out),
+        Task::Solve if matches!(req.problem.value, Math::System(_)) => system_checks(req, cfg, path, &mut out),
         Task::Solve => solve_checks(req, cfg, path, &mut out),
         _ => expr_checks(req, cfg, path, &mut out),
     }
@@ -143,6 +145,7 @@ fn expr_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
             }
         }
         Task::Solve => unreachable!(),
+        Task::Divide => divide_checks(&original, fin, out),
     }
 }
 
@@ -239,8 +242,15 @@ fn solve_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) 
                         notes.push(format!("{shown}: {a} vs {b}"));
                     }
                     _ => {
-                        ok = false;
-                        notes.push(format!("{shown}: a side is undefined there"));
+                        // not exact (a log, a root): compare decimals
+                        let f = |e: &Expr| e.eval_f(&|n| if n == v { q.to_f64() } else { f64::NAN });
+                        let (a, b) = (f(l), f(r));
+                        if a.is_finite() && close(a, b, tol) {
+                            notes.push(format!("{shown}: both sides ≈ {}", q::decimal(a, 5)));
+                        } else {
+                            ok = false;
+                            notes.push(format!("{shown}: a side is undefined there"));
+                        }
                     }
                 }
             }
@@ -281,7 +291,8 @@ fn solve_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) 
     // 2. no solution missed: count real roots from the equation itself
     let diff = expr::add(vec![l.clone(), expr::neg(r.clone())]);
     let Some((n, d)) = poly::rational_from_expr(&diff, v) else {
-        out.push(ck("complete", false, "can't count the solutions of this kind of equation"));
+        out.push(complete_other(l, r, v, &sols, &path.state));
+        working(path, &sols, v, tol, out);
         return;
     };
     let complete = if n.is_zero() {
@@ -317,10 +328,14 @@ fn solve_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) 
         }
     };
     out.push(complete);
-    // 3. every line of the working holds at every answer
+    working(path, &sols, v, tol, out);
+}
+
+/// 3. every line of the working holds at every answer
+fn working(path: &Path, sols: &[Expr], v: &str, tol: f64, out: &mut Vec<Check>) {
     let mut bad = None;
     for (k, s) in path.steps.iter().enumerate() {
-        for sol in &sols {
+        for sol in sols {
             let x = sol.eval_f(&|_| f64::NAN);
             let holds = |m: &Math| -> Option<bool> {
                 let eqs: Vec<(&Expr, &Expr)> = match m {
@@ -353,6 +368,647 @@ fn solve_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) 
         out.push(match bad {
             Some(b) => ck("working", false, b),
             None => ck("working", true, format!("every line of the working holds at every answer ({} steps)", path.steps.len())),
+        });
+    }
+}
+
+// ---- algebra (agent A): division, inequalities, exponential, log and absolute value equations, systems ----
+
+/// A finished division q + r/d read back as (quotient, remainder).
+pub fn quotient_remainder(fin: &Expr, d: &Expr) -> (Expr, Expr) {
+    let mut q = Vec::new();
+    let mut r = expr::num(0);
+    for t in expr::terms(fin) {
+        match &t {
+            Expr::Div(n, dd) if **dd == *d => r = (**n).clone(),
+            Expr::Neg(inner) if matches!(&**inner, Expr::Div(_, dd) if **dd == *d) => {
+                if let Expr::Div(n, _) = &**inner {
+                    r = expr::neg((**n).clone());
+                }
+            }
+            _ => q.push(t.clone()),
+        }
+    }
+    (expr::add(q), r)
+}
+
+/// Divide: quotient * divisor + remainder is the dividend, exactly, and the
+/// remainder's degree is below the divisor's.
+fn divide_checks(original: &Expr, fin: &Expr, out: &mut Vec<Check>) {
+    let Expr::Div(a, d) = original else {
+        out.push(ck("division", false, "the problem isn't a division"));
+        return;
+    };
+    let v = original.vars().into_iter().next().unwrap_or_else(|| "x".into());
+    let (q, r) = quotient_remainder(fin, d);
+    let polys = (poly::from_expr(a, &v), poly::from_expr(d, &v), poly::from_expr(&q, &v), poly::from_expr(&r, &v));
+    let (Some(pa), Some(pd), Some(pq), Some(pr)) = polys else {
+        out.push(ck("division", false, "the quotient or remainder isn't a polynomial"));
+        return;
+    };
+    let back = pq.mul(&pd).and_then(|p| p.add(&pr));
+    let shown = |e: &Expr| print::expr(e, Style::Ascii);
+    let ok = back.as_ref() == Some(&pa);
+    let product = Expr::Add(vec![Expr::Mul(vec![q.clone(), (**d).clone()]), r.clone()]);
+    out.push(ck("division", ok, format!("{} = {} exactly", shown(&product), shown(a))));
+    let low = pr.deg().is_none_or(|k| Some(k) < pd.deg());
+    out.push(ck("remainder", low, if low { format!("the remainder {} has lower degree than {}", shown(&r), shown(d)) } else { format!("the remainder {} could still be divided", shown(&r)) }));
+}
+
+/// Which way an expression moves as the letter grows, where it is defined:
+/// 1 up, -1 down, 0 constant; None when it may turn.
+fn monotone(e: &Expr, v: &str) -> Option<i8> {
+    use crate::expr::Func;
+    if !e.has_var(v) {
+        return Some(0);
+    }
+    let sign = |x: &Expr| -> Option<i8> {
+        let f = x.eval_f(&|_| f64::NAN);
+        if f > 0.0 {
+            Some(1)
+        } else if f < 0.0 {
+            Some(-1)
+        } else {
+            None
+        }
+    };
+    match e {
+        Expr::Var(_) => Some(1),
+        Expr::Add(ts) => {
+            let mut d = 0;
+            for t in ts {
+                match monotone(t, v)? {
+                    0 => {}
+                    k if d == 0 || d == k => d = k,
+                    _ => return None,
+                }
+            }
+            Some(d)
+        }
+        Expr::Neg(a) => Some(-monotone(a, v)?),
+        Expr::Mul(fs) => {
+            let with: Vec<&Expr> = fs.iter().filter(|f| f.has_var(v)).collect();
+            if with.len() != 1 {
+                return None;
+            }
+            let k = fs.iter().filter(|f| !f.has_var(v)).try_fold(1i8, |acc, f| Some(acc * sign(f)?))?;
+            Some(k * monotone(with[0], v)?)
+        }
+        Expr::Div(a, b) if !b.has_var(v) => Some(sign(b)? * monotone(a, v)?),
+        Expr::Pow(b, a) if !b.has_var(v) => {
+            let base = b.eval_f(&|_| f64::NAN);
+            let k = if base > 1.0 {
+                1
+            } else if base > 0.0 && base < 1.0 {
+                -1
+            } else {
+                return None;
+            };
+            Some(k * monotone(a, v)?)
+        }
+        Expr::Pow(b, n) if n.as_num().is_some_and(|q| q.is_int() && q.num() > 0 && q.num() % 2 == 1) => monotone(b, v),
+        Expr::Func(Func::Exp | Func::Ln | Func::Sqrt, a) => monotone(a, v),
+        Expr::Log(b, a) if !b.has_var(v) => {
+            let base = b.eval_f(&|_| f64::NAN);
+            if base > 1.0 {
+                monotone(a, v)
+            } else if base > 0.0 && base < 1.0 {
+                Some(-monotone(a, v)?)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Is the expression positive for every value of the letter?
+fn always_positive(e: &Expr) -> bool {
+    use crate::expr::Func;
+    match e {
+        Expr::Num(q) => !q.is_neg() && !q.is_zero(),
+        Expr::Const(_) => true,
+        Expr::Func(Func::Exp, _) => true,
+        Expr::Pow(b, _) => b.eval_f(&|_| f64::NAN) > 0.0,
+        Expr::Mul(fs) | Expr::Add(fs) => fs.iter().all(always_positive),
+        _ => false,
+    }
+}
+
+/// b^A = c^B (a number counts as c^1) where c is a rational power of b:
+/// the real roots of A = (log_b c) B, which is the same equation.
+fn exp_complete(l: &Expr, r: &Expr, v: &str) -> Option<Vec<f64>> {
+    use crate::expr::Func;
+    let side = |e: &Expr| -> Option<(Option<Q>, Expr)> {
+        match e {
+            Expr::Func(Func::Exp, a) => Some((None, (**a).clone())),
+            Expr::Pow(b, a) if !b.has_var(v) => Some((Some(b.eval_q(&|_| None)?), (**a).clone())),
+            e if !e.has_var(v) => Some((Some(e.eval_q(&|_| None)?), expr::num(1))),
+            _ => None,
+        }
+    };
+    let ((b1, a), (b2, b)) = (side(l)?, side(r)?);
+    if !(l.has_var(v) || r.has_var(v)) {
+        return None;
+    }
+    let valid = |q: &Q| !q.is_neg() && !q.is_zero() && !q.is_one();
+    let eq = match (b1, b2) {
+        (None, None) => expr::add(vec![a, expr::neg(b)]),
+        (Some(p), Some(q)) => {
+            if let Some(k) = Some(p).filter(valid).and_then(|p| crate::expr::exact_log(&p, &q)) {
+                expr::add(vec![a, expr::neg(expr::mul(vec![Expr::Num(k), b]))])
+            } else if let Some(k) = Some(q).filter(valid).and_then(|q| crate::expr::exact_log(&q, &p)) {
+                expr::add(vec![expr::mul(vec![Expr::Num(k), a]), expr::neg(b)])
+            } else {
+                return None;
+            }
+        }
+        _ => return None,
+    };
+    let p = poly::from_expr(&eq, v)?;
+    if p.is_zero() {
+        return None;
+    }
+    real_root_values(&p)
+}
+
+/// b^A with A linear in the letter: (ln b, slope of A).
+fn exp_slope(e: &Expr, v: &str) -> Option<(f64, f64)> {
+    use crate::expr::{Func, Konst};
+    let (lnb, a) = match e {
+        Expr::Func(Func::Exp, a) => (1.0, &**a),
+        Expr::Pow(b, a) if !b.has_var(v) => {
+            let base = b.eval_f(&|_| f64::NAN);
+            if base <= 0.0 {
+                return None;
+            }
+            (if **b == Expr::Const(Konst::E) { 1.0 } else { base.ln() }, &**a)
+        }
+        e if !e.has_var(v) => return Some((0.0, 0.0)),
+        _ => return None,
+    };
+    let p = poly::from_expr(a, v)?;
+    (p.deg().unwrap_or(0) <= 1).then(|| (lnb, p.coef(1).to_f64()))
+}
+
+/// Count the solutions of an equation that isn't polynomial, from its own
+/// shape: a side that only rises against one that only falls meets it at
+/// most once; powers on both sides become a linear equation under logs;
+/// something always positive never equals a number that isn't.
+fn complete_other(l: &Expr, r: &Expr, v: &str, sols: &[Expr], state: &Math) -> Check {
+    if l.walk().iter().chain(r.walk().iter()).any(|(_, n)| matches!(n, Expr::Func(crate::expr::Func::Abs, _))) {
+        return abs_complete(l, r, v, sols, state);
+    }
+    let shown = |e: &Expr| print::expr(e, Style::Ascii);
+    let none = matches!(state, Math::NoSolution);
+    if let Some((expected, how)) = log_complete(l, r, v) {
+        let mut got: Vec<f64> = sols.iter().map(|s| s.eval_f(&|_| f64::NAN)).collect();
+        got.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let ok = got.len() == expected.len() && got.iter().zip(&expected).all(|(a, b)| close(*a, *b, 1e-9)) && (!expected.is_empty() || none);
+        let count = match expected.len() {
+            0 => "no real solution".to_string(),
+            1 => "exactly one real solution".to_string(),
+            k => format!("exactly {k} real solutions"),
+        };
+        return ck("complete", ok, format!("{how}: {count}{}", if ok { "" } else { ", but the answer differs" }));
+    }
+    // b^A = c^B with c a power of b: the exponents' polynomial equation
+    if let Some(expected) = exp_complete(l, r, v) {
+        let mut got: Vec<f64> = sols.iter().map(|s| s.eval_f(&|_| f64::NAN)).collect();
+        got.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let ok = got.len() == expected.len() && got.iter().zip(&expected).all(|(a, b)| close(*a, *b, 1e-9)) && (!expected.is_empty() || none);
+        let count = match expected.len() {
+            0 => "no real solution".to_string(),
+            1 => "exactly one real solution".to_string(),
+            k => format!("exactly {k} real solutions"),
+        };
+        return ck("complete", ok, format!("both sides are powers of one base, so the exponents are equal; that polynomial equation has {count}{}", if ok { "" } else { ", but the answer differs" }));
+    }
+    // b^A = c^B with A, B linear: under logs, A ln b = B ln c, a line
+    if let (Some((lb, la)), Some((rb, ra))) = (exp_slope(l, v), exp_slope(r, v)) {
+        let slope = lb * la - rb * ra;
+        let positive = always_positive(l) && always_positive(r);
+        if positive && slope.abs() > 1e-12 {
+            let ok = sols.len() == 1;
+            return ck("complete", ok, format!("both sides are positive powers; taking logs leaves a linear equation in {v}, so exactly one solution{}", if ok { "" } else { ", but the answer differs" }));
+        }
+    }
+    // a positive side and a side that is 0 or negative
+    for (p, c) in [(l, r), (r, l)] {
+        if always_positive(p) && !c.has_var(v) && c.eval_f(&|_| f64::NAN) <= 0.0 {
+            return ck("complete", none, format!("{} is positive for every {v} and {} is not, so there is no solution", shown(p), shown(c)));
+        }
+    }
+    match (monotone(l, v), monotone(r, v)) {
+        (Some(a), Some(b)) if a != 0 && (b == 0 || b == -a) || a == 0 && b != 0 => {
+            let (side, dir) = if a != 0 { (l, a) } else { (r, b) };
+            let words = if dir > 0 { "only increases" } else { "only decreases" };
+            let ok = sols.len() == 1;
+            let what = if a != 0 && b != 0 { format!("{} - ({})", shown(l), shown(r)) } else { shown(side) };
+            ck("complete", ok, format!("{what} {words} where it is defined, so there is at most one solution"))
+        }
+        _ => ck("complete", false, "can't count the solutions of this kind of equation"),
+    }
+}
+
+/// Every real root of a polynomial as a decimal: rational ones by the
+/// rational root theorem, what is left (degree 2 at most) by the formula.
+/// None when a factor of degree 3 or more without rational roots is left.
+fn real_root_values(p: &poly::Poly) -> Option<Vec<f64>> {
+    let rational = p.rational_roots();
+    let mut rest = p.clone();
+    for r in &rational {
+        while let Some(d) = rest.deflate(r) {
+            rest = d;
+        }
+    }
+    let mut out: Vec<f64> = rational.iter().map(|r| r.to_f64()).collect();
+    match rest.deg()? {
+        0 => {}
+        2 => {
+            let (a, b, c) = (rest.coef(2).to_f64(), rest.coef(1).to_f64(), rest.coef(0).to_f64());
+            let d = b * b - 4.0 * a * c;
+            if d > 0.0 {
+                out.push((-b - d.sqrt()) / (2.0 * a));
+                out.push((-b + d.sqrt()) / (2.0 * a));
+            }
+        }
+        _ => return None,
+    }
+    out.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    Some(out)
+}
+
+/// Replace every |A| by A or -A, as A's sign is at x = m.
+fn unabs(e: &Expr, v: &str, m: f64) -> Expr {
+    let mut out = e.clone();
+    for i in 0..e.children().len() {
+        out = out.replace_raw(&[i], unabs(e.children()[i], v, m));
+    }
+    match &out {
+        Expr::Func(crate::expr::Func::Abs, a) => {
+            if a.eval_f(&|n| if n == v { m } else { f64::NAN }) < 0.0 {
+                expr::neg((**a).clone())
+            } else {
+                (**a).clone()
+            }
+        }
+        _ => out,
+    }
+}
+
+/// Absolute value equations: split the line where each |A| changes sign;
+/// on each piece the equation is a polynomial one, whose roots in the piece
+/// are counted. The answer must list exactly those.
+fn abs_complete(l: &Expr, r: &Expr, v: &str, sols: &[Expr], state: &Math) -> Check {
+    let fail = |why: &str| ck("complete", false, why.to_string());
+    let mut cuts: Vec<f64> = Vec::new();
+    for e in [l, r] {
+        for (_, n) in e.walk() {
+            if let Expr::Func(crate::expr::Func::Abs, a) = n {
+                let Some(p) = poly::from_expr(a, v) else { return fail("can't split an absolute value of this kind") };
+                let Some(rs) = real_root_values(&p) else { return fail("can't find where the absolute value changes sign") };
+                cuts.extend(rs);
+            }
+        }
+    }
+    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    cuts.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    let at = |e: &Expr, x: f64| e.eval_f(&|n| if n == v { x } else { f64::NAN });
+    let mut expected: Vec<f64> = Vec::new();
+    // the cut points themselves
+    for &c in &cuts {
+        if close(at(l, c), at(r, c), 1e-9) {
+            expected.push(c);
+        }
+    }
+    // the open pieces between them
+    let mut edges = vec![f64::NEG_INFINITY];
+    edges.extend(cuts.iter().copied());
+    edges.push(f64::INFINITY);
+    for w in edges.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let m = match (a.is_finite(), b.is_finite()) {
+            (true, true) => (a + b) / 2.0,
+            (true, false) => a + 1.0,
+            (false, true) => b - 1.0,
+            (false, false) => 0.0,
+        };
+        let piece = expr::add(vec![unabs(l, v, m), expr::neg(unabs(r, v, m))]);
+        let Some((n, _)) = poly::rational_from_expr(&piece, v) else { return fail("can't count the solutions on each piece") };
+        if n.is_zero() {
+            return fail("the equation holds on a whole interval; Nuome can't list that as an answer");
+        }
+        let Some(rs) = real_root_values(&n) else { return fail("a piece is a polynomial of too high a degree") };
+        expected.extend(rs.into_iter().filter(|x| *x > a + 1e-9 && *x < b - 1e-9));
+    }
+    expected.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mut got: Vec<f64> = sols.iter().map(|s| s.eval_f(&|_| f64::NAN)).collect();
+    got.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    got.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    let ok = got.len() == expected.len() && got.iter().zip(&expected).all(|(a, b)| close(*a, *b, 1e-9)) && (!expected.is_empty() || matches!(state, Math::NoSolution));
+    let pieces = cuts.len() + 1;
+    let count = match expected.len() {
+        0 => "no real solution".to_string(),
+        1 => "exactly one real solution".to_string(),
+        k => format!("exactly {k} real solutions"),
+    };
+    ck("complete", ok, format!("split into {pieces} pieces where the absolute values change sign, and counted on each: {count}{}", if ok { "" } else { ", but the answer differs" }))
+}
+
+/// A sum of logs to one base with coefficients +/-1: (base, [(sign, argument)]).
+fn log_sum(e: &Expr) -> Option<(Expr, Vec<(bool, Expr)>)> {
+    use crate::expr::{Func, Konst};
+    let mut base: Option<Expr> = None;
+    let mut out = Vec::new();
+    for t in expr::terms(e) {
+        let (c, rest) = expr::coeff(&t);
+        let (b, a) = match rest {
+            Expr::Log(b, a) => (*b, *a),
+            Expr::Func(Func::Ln, a) => (Expr::Const(Konst::E), *a),
+            _ => return None,
+        };
+        if base.as_ref().is_some_and(|x| *x != b) || !(c.is_one() || c == Q::int(-1)) {
+            return None;
+        }
+        base = Some(b);
+        out.push((c.is_one(), a));
+    }
+    Some((base?, out))
+}
+
+/// Log equations, counted on their domain (every log argument positive):
+/// log(A) = log(B) is A = B there; a sum of logs = c is the product of the
+/// arguments = base^c, a polynomial equation. (expected roots, how).
+fn log_complete(l: &Expr, r: &Expr, v: &str) -> Option<(Vec<f64>, String)> {
+    let at = |e: &Expr, x: f64| e.eval_f(&|n| if n == v { x } else { f64::NAN });
+    let (poly_eq, args) = match (log_sum(l), log_sum(r)) {
+        (Some((b1, a1)), Some((b2, a2))) if b1 == b2 && a1.len() == 1 && a2.len() == 1 && a1[0].0 && a2[0].0 => {
+            (expr::add(vec![a1[0].1.clone(), expr::neg(a2[0].1.clone())]), vec![a1[0].1.clone(), a2[0].1.clone()])
+        }
+        (Some((b, ts)), None) | (None, Some((b, ts))) => {
+            let c = if log_sum(l).is_some() { r } else { l };
+            // base^c exactly
+            let k = c.eval_q(&|_| None).filter(|k| k.is_int())?;
+            let value = b.as_num()?.pow(k.num() as i64)?;
+            let top = expr::mul(ts.iter().filter(|(p, _)| *p).map(|(_, a)| a.clone()).collect());
+            let bottom = expr::mul(ts.iter().filter(|(p, _)| !*p).map(|(_, a)| a.clone()).collect());
+            (expr::add(vec![top, expr::neg(expr::mul(vec![Expr::Num(value), bottom]))]), ts.iter().map(|(_, a)| a.clone()).collect())
+        }
+        _ => return None,
+    };
+    let (n, _) = poly::rational_from_expr(&poly_eq, v)?;
+    if n.is_zero() {
+        return None;
+    }
+    let roots = real_root_values(&n)?;
+    let inside: Vec<f64> = roots.into_iter().filter(|x| args.iter().all(|a| at(a, *x) > 0.0)).collect();
+    Some((inside, "where every log is defined, the logs undo into a polynomial equation, whose roots there were counted".into()))
+}
+
+/// Where an inequality's sign can change, found from the inequality itself:
+/// the real roots of the numerator and denominator of l - r.
+fn boundaries(l: &Expr, r: &Expr, v: &str) -> Option<Vec<f64>> {
+    let (n, d) = poly::rational_from_expr(&expr::add(vec![l.clone(), expr::neg(r.clone())]), v)?;
+    let mut out = real_root_values(&n)?;
+    if d.deg().is_some_and(|k| k > 0) {
+        out.extend(real_root_values(&d)?);
+    }
+    out.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    out.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    Some(out)
+}
+
+/// Does a state say x belongs to the answer? None where it can't tell (undefined).
+fn member(m: &Math, v: &str, x: f64, tol: f64) -> Option<bool> {
+    match m {
+        Math::Ineq(l, rel, r) => {
+            let at = |e: &Expr| e.eval_f(&|n| if n == v { x } else { f64::NAN });
+            let (a, b) = (at(l), at(r));
+            (a.is_finite() && b.is_finite()).then(|| rel.holds(a, b, tol))
+        }
+        Math::Intervals(_, ivs) => Some(ivs.iter().any(|iv| iv.contains(x, tol))),
+        Math::AllReals => Some(true),
+        Math::NoSolution => Some(false),
+        _ => None,
+    }
+}
+
+/// Inequalities: the answer set is tested against the original inequality
+/// at points found independently of the steps: every boundary (root of the
+/// numerator or denominator), just either side of it, between boundaries,
+/// far out, and the usual samples.
+fn ineq_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
+    let v = &req.var.value;
+    let Math::Ineq(l, rel, r) = &req.problem.value else { return };
+    let tol = cfg.algebra.sign_tolerance;
+    let Some(cuts) = boundaries(l, r, v) else {
+        out.push(ck("intervals", false, "can't find where this kind of inequality changes sign"));
+        return;
+    };
+    let mut points: Vec<f64> = cfg.check.samples.clone();
+    for (i, &c) in cuts.iter().enumerate() {
+        let gap = [i.checked_sub(1).map(|j| c - cuts[j]), cuts.get(i + 1).map(|n| n - c)].into_iter().flatten().fold(f64::INFINITY, f64::min);
+        let d = (cfg.algebra.boundary_offset * 1f64.max(c.abs())).min(gap / 4.0);
+        points.extend([c, c - d, c + d]);
+        if let Some(n) = cuts.get(i + 1) {
+            points.push((c + n) / 2.0);
+        }
+    }
+    if let (Some(a), Some(b)) = (cuts.first(), cuts.last()) {
+        points.extend([a - 1.0 - a.abs(), b + 1.0 + b.abs()]);
+    }
+    let truth = |x: f64| member(&Math::Ineq(l.clone(), *rel, r.clone()), v, x, tol);
+    // 1. the answer holds exactly where the inequality does
+    let (mut inside, mut outside, mut bad) = (0, 0, None);
+    for &x in &points {
+        let want = truth(x).unwrap_or(false);
+        match member(&path.state, v, x, tol) {
+            Some(got) if got == want => {
+                if got {
+                    inside += 1;
+                } else {
+                    outside += 1;
+                }
+            }
+            got => {
+                bad.get_or_insert(format!("at {v} = {}: the inequality {} but the answer {}", q::decimal(x, 4), if want { "holds" } else { "fails" }, if got == Some(true) { "includes it" } else { "leaves it out" }));
+            }
+        }
+    }
+    out.push(match bad {
+        Some(b) => ck("intervals", false, b),
+        None => ck("intervals", true, format!("the inequality holds at all {inside} test points inside the answer and fails at all {outside} outside")),
+    });
+    // 2. each boundary is in the answer exactly when the inequality holds there
+    let mut notes = Vec::new();
+    let mut ok = true;
+    for &c in &cuts {
+        let want = truth(c);
+        let got = member(&path.state, v, c, tol).unwrap_or(false);
+        let here = format!("{v} = {}", q::decimal(c, 3).trim_end_matches('0').trim_end_matches('.'));
+        let why = match want {
+            None => "undefined there",
+            Some(true) => "holds there",
+            Some(false) => "fails there",
+        };
+        if got != want.unwrap_or(false) {
+            ok = false;
+        }
+        notes.push(format!("{here} {} ({why})", if got { "included" } else { "excluded" }));
+    }
+    if !cuts.is_empty() {
+        out.push(ck("boundaries", ok, notes.join("; ")));
+    }
+    // 3. every line of the working says the same as the original at every test point
+    let mut bad = None;
+    for (k, s) in path.steps.iter().enumerate() {
+        for &x in &points {
+            if let (Some(a), Some(b)) = (truth(x), member(&s.mv.result, v, x, tol)) {
+                if a != b && bad.is_none() {
+                    bad = Some(format!("after step {} ({}), {v} = {} changes side", k + 1, s.mv.rule, q::decimal(x, 4)));
+                }
+            }
+        }
+    }
+    out.push(match bad {
+        Some(b) => ck("working", false, b),
+        None => ck("working", true, format!("every line of the working agrees with the inequality at every test point ({} steps)", path.steps.len())),
+    });
+}
+
+/// Exact Gaussian elimination: the rank of a matrix of rationals.
+fn rank(mut rows: Vec<Vec<Q>>) -> Option<usize> {
+    let cols = rows.first().map_or(0, |r| r.len());
+    let mut rank = 0;
+    for c in 0..cols {
+        let Some(p) = (rank..rows.len()).find(|&i| !rows[i][c].is_zero()) else { continue };
+        rows.swap(rank, p);
+        for i in 0..rows.len() {
+            if i != rank && !rows[i][c].is_zero() {
+                let f = rows[i][c].div(&rows[rank][c])?;
+                for j in 0..cols {
+                    rows[i][j] = rows[i][j].sub(&f.mul(&rows[rank][j])?)?;
+                }
+            }
+        }
+        rank += 1;
+    }
+    Some(rank)
+}
+
+/// The determinant of a square matrix (expansion along the first row; n <= 3).
+fn det(m: &[Vec<Q>]) -> Option<Q> {
+    match m.len() {
+        1 => Some(m[0][0]),
+        n => {
+            let mut total = Q::ZERO;
+            for c in 0..n {
+                let minor: Vec<Vec<Q>> = m[1..].iter().map(|row| row.iter().enumerate().filter(|(j, _)| *j != c).map(|(_, x)| *x).collect()).collect();
+                let term = m[0][c].mul(&det(&minor)?)?;
+                total = if c % 2 == 0 { total.add(&term)? } else { total.sub(&term)? };
+            }
+            Some(total)
+        }
+    }
+}
+
+/// Systems: the answer is put back into every original equation exactly;
+/// how many solutions there are comes from the coefficients alone (the
+/// determinant, and the ranks when it is 0).
+fn system_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
+    let Math::System(eqs) = &req.problem.value else { return };
+    let vars: Vec<String> = eqs.iter().flat_map(|(l, r)| l.vars().into_iter().chain(r.vars())).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    let Some(forms) = eqs.iter().map(|(l, r)| poly::linear_form(l, r, &vars)).collect::<Option<Vec<_>>>() else {
+        out.push(ck("complete", false, "an equation isn't linear"));
+        return;
+    };
+    let a: Vec<Vec<Q>> = forms.iter().map(|(c, _)| c.clone()).collect();
+    let ab: Vec<Vec<Q>> = forms.iter().map(|(c, d)| c.iter().copied().chain([*d]).collect()).collect();
+    let (Some(ra), Some(rab)) = (rank(a.clone()), rank(ab)) else {
+        out.push(ck("complete", false, "the numbers are too large to eliminate exactly"));
+        return;
+    };
+    let n = vars.len();
+    let solved: Vec<(Expr, Expr)> = match &path.state {
+        Math::System(s) => s.clone(),
+        _ => vec![],
+    };
+    let free: Vec<String> = vars.iter().filter(|x| !solved.iter().any(|(l, _)| *l == Expr::Var((*x).clone()))).cloned().collect();
+    // 1. every equation holds: at the solution, or for several values of the free letters
+    let tries: Vec<Q> = if free.is_empty() { vec![Q::ZERO] } else { vec![Q::ZERO, Q::ONE, Q::int(2)] };
+    let mut ok = !solved.is_empty();
+    for t in &tries {
+        let value = |x: &str| -> Option<Q> {
+            if free.iter().any(|f| f == x) {
+                return Some(*t);
+            }
+            let (_, rhs) = solved.iter().find(|(l, _)| *l == Expr::Var(x.to_string()))?;
+            rhs.eval_q(&|y| free.iter().any(|f| f == y).then_some(*t))
+        };
+        for (l, r) in eqs {
+            match (l.eval_q(&|x| value(x)), r.eval_q(&|x| value(x))) {
+                (Some(p), Some(q)) if p == q => {}
+                _ => ok = false,
+            }
+        }
+    }
+    // 1b. "no solution": no sample point satisfies every equation
+    if matches!(path.state, Math::NoSolution) {
+        let tried = cfg.check.samples.len();
+        let held = (0..tried)
+            .filter(|&k| {
+                let e = env(req, cfg, k);
+                eqs.iter().all(|(l, r)| close(l.eval_f(&e), r.eval_f(&e), cfg.check.tolerance))
+            })
+            .count();
+        out.push(ck("samples", held == 0, format!("no sample point satisfies every equation ({tried} tried)")));
+    }
+    if !solved.is_empty() {
+        let mut at: Vec<String> = solved.iter().map(|(l, r)| format!("{} = {}", print::expr(l, Style::Ascii), print::expr(r, Style::Ascii))).collect();
+        at.sort();
+        let detail = if free.is_empty() { format!("{}: every equation holds exactly", at.join(", ")) } else { format!("every equation holds exactly for {} = 0, 1 and 2, so for every value (the equations are linear)", free.join(", ")) };
+        out.push(ck("satisfies", ok, detail));
+    }
+    // 2. how many solutions, from the coefficients
+    let square = eqs.len() == n;
+    let d = if square { det(&a) } else { None };
+    let (expected, why) = if ra < rab {
+        ("none", "the equations contradict each other (eliminating leaves 0 = a number that isn't 0)".to_string())
+    } else if ra == n {
+        ("one", match d {
+            Some(d) => format!("the determinant of the coefficients is {d}, not 0"),
+            None => format!("the coefficients have rank {ra}, the number of letters"),
+        })
+    } else {
+        ("many", format!("{}the equations leave {} free", if square { "the determinant of the coefficients is 0 and " } else { "" }, if n - ra == 1 { "1 letter".to_string() } else { format!("{} letters", n - ra) }))
+    };
+    let got = match &path.state {
+        Math::NoSolution => "none",
+        Math::System(_) if free.is_empty() => "one",
+        Math::System(_) if free.len() == n - ra => "many",
+        _ => "wrong",
+    };
+    let count = match expected {
+        "none" => "no solution",
+        "one" => "exactly one solution",
+        _ => "infinitely many solutions",
+    };
+    out.push(ck("complete", got == expected, format!("{why}: {count}{}", if got == expected { "" } else { ", but the answer differs" })));
+    // 3. every line of the working holds at the solution
+    if got == "one" && expected == "one" {
+        let value = |x: &str| solved.iter().find(|(l, _)| *l == Expr::Var(x.to_string())).and_then(|(_, r)| r.eval_q(&|_| None));
+        let mut bad = None;
+        for (k, s) in path.steps.iter().enumerate() {
+            if let Math::System(lines) = &s.mv.result {
+                if lines.iter().any(|(l, r)| l.eval_q(&|x| value(x)) != r.eval_q(&|x| value(x))) {
+                    bad.get_or_insert(format!("after step {} ({}), the solution no longer fits", k + 1, s.mv.rule));
+                }
+            }
+        }
+        out.push(match bad {
+            Some(b) => ck("working", false, b),
+            None => ck("working", true, format!("every line of the working holds at the solution ({} steps)", path.steps.len())),
         });
     }
 }

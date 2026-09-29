@@ -39,7 +39,7 @@ pub struct ParseOptions {
 }
 
 fn is_math(t: &Tok) -> bool {
-    matches!(t, Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op(_) | Tok::Squared | Tok::Cubed | Tok::Percent | Tok::Infix(_) | Tok::Bang | Tok::Built(_))
+    matches!(t, Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op(_) | Tok::Squared | Tok::Cubed | Tok::Percent | Tok::Infix(_) | Tok::Bang | Tok::Built(_) | Tok::Rel(_) | Tok::Log | Tok::LogBase)
 }
 
 fn words(ts: &[Token]) -> String {
@@ -98,6 +98,26 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
                 i += 2;
                 continue;
             }
+        }
+        // "divide A by B" is (A)/(B)
+        if t.tok == Tok::By {
+            if !cur.is_empty() && toks.get(i + 1).is_some_and(|n| is_math(&n.tok)) {
+                let mut j = i + 1;
+                while j < toks.len() && is_math(&toks[j].tok) {
+                    j += 1;
+                }
+                let op = |c: char, w: &str| Token { tok: Tok::Op(c), words: w.to_string() };
+                let mut wrapped = vec![op('(', "(")];
+                wrapped.append(&mut cur);
+                wrapped.extend([op(')', ")"), op('/', &t.words), op('(', "(")]);
+                wrapped.extend(toks[i + 1..j].iter().cloned());
+                wrapped.push(op(')', ")"));
+                cur = wrapped;
+                i = j;
+            } else {
+                i += 1;
+            }
+            continue;
         }
         if is_math(&t.tok) {
             cur.push(t.clone());
@@ -211,6 +231,18 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
     if !diags.is_empty() {
         return Err(diags);
     }
+    // several equations are a system, solved together
+    if problems.len() > 1 && problems.iter().all(|p| matches!(p.value, Math::Eq(..))) {
+        let words = problems.iter().map(|p| p.words.clone()).collect::<Vec<_>>().join(" and ");
+        let eqs = problems
+            .drain(..)
+            .filter_map(|p| match p.value {
+                Math::Eq(l, r) => Some((l, r)),
+                _ => None,
+            })
+            .collect();
+        problems.push(Said::new(Math::System(eqs), words));
+    }
     let problem = match problems.len() {
         0 => return Err(vec![Diag::new("no math in the sentence").hint("try: nuome \"solve 2x + 3 = 7\"")]),
         1 => problems.pop().unwrap(),
@@ -224,10 +256,14 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
     let letters = match &problem.value {
         Math::Expr(e) => e.vars(),
         Math::Eq(l, r) => l.vars().union(&r.vars()).cloned().collect(),
+        Math::Ineq(l, _, r) => l.vars().union(&r.vars()).cloned().collect(),
+        Math::System(eqs) => eqs.iter().flat_map(|(l, r)| l.vars().into_iter().chain(r.vars())).collect(),
         _ => Default::default(),
     };
     let task = task.unwrap_or_else(|| match &problem.value {
         Math::Eq(..) => Said::new(Task::Solve, "(an equation: solve)"),
+        Math::Ineq(..) => Said::new(Task::Solve, "(an inequality: solve)"),
+        Math::System(_) => Said::new(Task::Solve, "(equations: solve them together)"),
         _ if letters.is_empty() || !given.is_empty() => Said::new(Task::Evaluate, "(no letters: evaluate)"),
         _ => Said::new(Task::Simplify, "(letters: simplify)"),
     });
@@ -244,6 +280,7 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
             match free.len() {
                 0 => Said::new("x".to_string(), "(default x)"),
                 1 => Said::new(free[0].clone(), "(the only letter)"),
+                _ if matches!(problem.value, Math::System(_)) => Said::new(free[0].clone(), "(the first letter of the system)"),
                 _ if task.value == Task::Solve || task.value == Task::Differentiate => {
                     let names: Vec<&str> = free.iter().map(|s| s.as_str()).collect();
                     return Err(vec![Diag::new(format!("which letter? {} has {}", problem.words, names.join(", "))).hint(format!("say \"for {}\" or \"with respect to {}\"", names[0], names[0]))]);
@@ -252,9 +289,15 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
             }
         }
     };
+    // "divide 7 by 2" is arithmetic
+    let task = if task.value == Task::Divide && letters.is_empty() { Said::new(Task::Evaluate, task.words) } else { task };
     let shown = crate::print::math(&problem.value, crate::print::Style::Ascii);
     let math_ok = match (task.value, &problem.value) {
         (Task::Solve, Math::Eq(..)) => Ok(()),
+        (Task::Solve, Math::Ineq(..)) => Ok(()),
+        (Task::Solve, Math::System(eqs)) => system_ok(eqs, &letters),
+        (_, Math::Ineq(..) | Math::System(_)) => Err(Diag::new(format!("{shown} can only be solved, not {}", task.value.key())).hint(format!("say \"solve {shown}\""))),
+        (Task::Divide, Math::Expr(e)) => divide_ok(e, &var.value),
         (Task::Solve, _) => Err(Diag::new(format!("{shown} isn't an equation")).hint(format!("to find where it is zero, write \"solve {shown} = 0\""))),
         (_, Math::Eq(..)) => Err(Diag::new(format!("{shown} is an equation; {} works on an expression", task.value.key())).hint(format!("to find {}, say \"solve {shown}\"", var.value))),
         (Task::Evaluate, Math::Expr(e)) => {
@@ -274,15 +317,55 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
         }
     }
     if let Some(d) = &decimals {
-        if matches!(task.value, Task::Factor | Task::Expand | Task::Differentiate) && given.is_empty() {
+        if matches!(task.value, Task::Factor | Task::Expand | Task::Differentiate | Task::Divide) && given.is_empty() {
             return Err(vec![Diag::new(format!("\"{}\": a {} has no single value to round", d.words, task.value.key()))]);
         }
     }
     Ok(Request { sentence: sentence.trim().to_string(), task, problem, var, given, method, modifiers, decimals, notes })
 }
 
+/// A system: two or three linear equations in at most three letters.
+fn system_ok(eqs: &[(Expr, Expr)], letters: &std::collections::BTreeSet<String>) -> Result<(), Diag> {
+    let vars: Vec<String> = letters.iter().cloned().collect();
+    if eqs.len() > 3 || vars.len() > 3 {
+        return Err(Diag::new(format!("{} equations in {} letters is more than Nuome solves", eqs.len(), vars.len())).hint("systems of up to three equations in up to three letters"));
+    }
+    for (l, r) in eqs {
+        if crate::poly::linear_form(l, r, &vars).is_none() {
+            let shown = crate::print::math(&Math::Eq(l.clone(), r.clone()), crate::print::Style::Ascii);
+            return Err(Diag::new(format!("{shown} isn't linear")).hint("Nuome solves systems of linear equations (no powers or products of letters)"));
+        }
+    }
+    Ok(())
+}
+
+/// Polynomial division needs "A by B" with polynomials in one letter.
+fn divide_ok(e: &Expr, v: &str) -> Result<(), Diag> {
+    let Expr::Div(a, b) = e else {
+        return Err(Diag::new("divide what by what?").hint("e.g. \"divide x^3 - 1 by x - 1\""));
+    };
+    if e.vars().len() > 1 || crate::poly::from_expr(a, v).is_none() || crate::poly::from_expr(b, v).is_none_or(|p| p.deg().is_none_or(|d| d == 0)) {
+        let shown = crate::print::expr(e, crate::print::Style::Ascii);
+        return Err(Diag::new(format!("can't divide {shown} as polynomials")).hint("both parts must be polynomials in one letter, and the divisor must contain the letter"));
+    }
+    Ok(())
+}
+
 /// Parse one math span: an expression, or an equation with one "=".
 pub fn parse_math(ts: &[Token]) -> Result<Math, Diag> {
+    // an inequality: one sign, no "="
+    let rels: Vec<usize> = ts.iter().enumerate().filter(|(_, t)| matches!(t.tok, Tok::Rel(_))).map(|(i, _)| i).collect();
+    if let Some(&k) = rels.first() {
+        if rels.len() > 1 || ts.iter().any(|t| t.tok == Tok::Op('=')) {
+            return Err(Diag::new(format!("\"{}\" has more than one sign", words(ts))).hint("one inequality at a time; write a double inequality as two"));
+        }
+        let Tok::Rel(rel) = ts[k].tok else { unreachable!("found above") };
+        let (l, r) = (&ts[..k], &ts[k + 1..]);
+        if l.is_empty() || r.is_empty() {
+            return Err(Diag::new(format!("\"{}\": one side of {} is empty", words(ts), ts[k].words)));
+        }
+        return Ok(Math::Ineq(parse_expr(l)?, rel, parse_expr(r)?));
+    }
     let eqs: Vec<usize> = ts.iter().enumerate().filter(|(_, t)| t.tok == Tok::Op('=')).map(|(i, _)| i).collect();
     match eqs.len() {
         0 => Ok(Math::Expr(parse_expr(ts)?)),
@@ -298,7 +381,7 @@ pub fn parse_math(ts: &[Token]) -> Result<Math, Diag> {
 }
 
 pub fn parse_expr(ts: &[Token]) -> Result<Expr, Diag> {
-    let mut p = P { ts, i: 0 };
+    let mut p = P { ts, i: 0, bars: 0 };
     let e = p.sum()?;
     if p.i < ts.len() {
         return Err(Diag::new(format!("didn't expect \"{}\" in \"{}\"", ts[p.i].words, words(ts))));
@@ -309,6 +392,8 @@ pub fn parse_expr(ts: &[Token]) -> Result<Expr, Diag> {
 struct P<'a> {
     ts: &'a [Token],
     i: usize,
+    /// How many |...| are open: inside one, "|" closes it.
+    bars: usize,
 }
 
 impl P<'_> {
@@ -323,7 +408,7 @@ impl P<'_> {
         }
     }
     fn starts_primary(&self) -> bool {
-        matches!(self.peek(), Some(Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op('(') | Tok::Built(_)))
+        matches!(self.peek(), Some(Tok::Num(_) | Tok::Var(_) | Tok::Const(_) | Tok::Func(_) | Tok::Op('(') | Tok::Built(_) | Tok::Log | Tok::LogBase)) || (self.bars == 0 && self.peek() == Some(&Tok::Op('|')))
     }
     fn sum(&mut self) -> Result<Expr, Diag> {
         let mut terms = vec![self.product()?];
@@ -447,13 +532,51 @@ impl P<'_> {
                     self.postfix()?
                 } else {
                     let mut a = self.power()?;
-                    while self.starts_primary() && !matches!(self.peek(), Some(Tok::Func(_) | Tok::Num(_))) {
+                    while self.starts_primary() && !matches!(self.peek(), Some(Tok::Func(_) | Tok::Num(_) | Tok::Log | Tok::LogBase)) {
                         let r = self.power()?;
                         a = join_mul(a, r);
                     }
                     a
                 };
                 Ok(expr::func(*f, arg))
+            }
+            // log_2 8, log_2(x), log base 2 of 8, log(100) (base 10)
+            Tok::Log | Tok::LogBase => {
+                let base = if t.tok == Tok::LogBase {
+                    self.primary()?
+                } else if self.peek() == Some(&Tok::Op('_')) {
+                    self.i += 1;
+                    self.primary()?
+                } else {
+                    expr::num(10)
+                };
+                let arg = if self.peek() == Some(&Tok::Op('(')) {
+                    self.postfix()?
+                } else {
+                    let mut a = self.power()?;
+                    // log_3 1/9: a written fraction is the argument
+                    if let (Expr::Num(_), Some(Tok::Op('/')), Some(Tok::Num(d))) = (&a, self.peek(), self.ts.get(self.i + 1).map(|t| &t.tok)) {
+                        a = expr::div(a.clone(), Expr::Num(*d));
+                        self.i += 2;
+                    }
+                    while self.starts_primary() && !matches!(self.peek(), Some(Tok::Func(_) | Tok::Num(_) | Tok::Log | Tok::LogBase)) {
+                        let r = self.power()?;
+                        a = join_mul(a, r);
+                    }
+                    a
+                };
+                Ok(Expr::Log(Box::new(base), Box::new(arg)))
+            }
+            // |2x - 3|
+            Tok::Op('|') => {
+                self.bars += 1;
+                let e = self.sum()?;
+                self.bars -= 1;
+                if self.peek() != Some(&Tok::Op('|')) {
+                    return Err(self.err("missing closing |"));
+                }
+                self.i += 1;
+                Ok(expr::func(Func::Abs, e))
             }
             _ => {
                 self.i -= 1;
@@ -492,6 +615,20 @@ mod tests {
         assert_eq!(show("simplify -x^2 + 3x"), "simplify | -x^2 + 3x | x");
         assert_eq!(show("d/dt sin 2t"), "differentiate | sin(2t) | t");
         assert_eq!(show("find x if 7 = 3x - 2"), "solve | 7 = 3x - 2 | x");
+    }
+
+    #[test]
+    fn parses_algebra() {
+        assert_eq!(show("solve 2x + 3 < 7"), "solve | 2x + 3 < 7 | x");
+        assert_eq!(show("solve x is at least 4"), "solve | x >= 4 | x");
+        assert_eq!(show("solve x + y = 3 and x - y = 1"), "solve | x + y = 3, x - y = 1 | x");
+        assert_eq!(show("what is log base 2 of 8"), "evaluate | log_2(8) | x");
+        assert_eq!(show("what is log(100)"), "evaluate | log(100) | x");
+        assert_eq!(show("solve |2x - 3| = 5"), "solve | |2x - 3| = 5 | x");
+        assert_eq!(show("divide x^3 - 1 by x - 1"), "divide | (x^3 - 1)/(x - 1) | x");
+        let err = |s: &str| parse(s, &ParseOptions::default()).unwrap_err()[0].to_string();
+        assert!(err("solve x^2 + y = 3 and x - y = 1").contains("isn't linear"));
+        assert!(err("solve 1 < x < 3").contains("more than one sign"));
     }
 
     #[test]

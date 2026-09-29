@@ -1,0 +1,10 @@
+simplify (x^2 - 1)/(x - 1)
+simplify (x^2 + 5x + 6)/(x^2 - 4)
+simplify (2x^2 - 8)/(4x + 8)
+simplify (x^3 - x)/(x^2 + x)
+simplify 1/x + 1/(x + 1)
+simplify x/(x - 1) - 1/(x + 1)
+simplify x/(x^2 - 1) - 1/(x^2 - 1)
+combine 2/(x + 3) + 1/(x - 3)
+simplify (1/x + 1)/x
+simplify (x - 1)/(1 - x)

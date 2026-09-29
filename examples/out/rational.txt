@@ -1,0 +1,158 @@
+### simplify (x^2 - 1)/(x - 1)
+
+Simplify (x^2 - 1)/(x - 1)
+
+      (x^2 - 1)/(x - 1)
+  1.  Cancel the common factor x - 1; x = 1 stays excluded.   [rational_cancel]
+        x^2 - 1 = (x - 1)(x + 1)
+      x + 1
+
+Answer: x + 1, for x != 1
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify (x^2 + 5x + 6)/(x^2 - 4)
+
+Simplify (x^2 + 5x + 6)/(x^2 - 4)
+
+      (x^2 + 5x + 6)/(x^2 - 4)
+  1.  Cancel the common factor x + 2; x = -2 stays excluded.   [rational_cancel]
+        x^2 + 5x + 6 = (x + 2)(x + 3)
+        x^2 - 4 = (x - 2)(x + 2)
+      (x + 3)/(x - 2)
+
+Answer: (x + 3)/(x - 2), for x != -2
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify (2x^2 - 8)/(4x + 8)
+
+Simplify (2x^2 - 8)/(4x + 8)
+
+      (2x^2 - 8)/(4x + 8)
+  1.  Cancel the common factor x + 2; x = -2 stays excluded.   [rational_cancel]
+        2x^2 - 8 = 2(x - 2)(x + 2)
+        4x + 8 = 4(x + 2)
+      (x - 2)/2
+
+Answer: (x - 2)/2, for x != -2
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify (x^3 - x)/(x^2 + x)
+
+Simplify (x^3 - x)/(x^2 + x)
+
+      (x^3 - x)/(x^2 + x)
+  1.  Cancel the common factor x(x + 1); x = -1 and x = 0 stay excluded.   [rational_cancel]
+        x^3 - x = x(x - 1)(x + 1)
+        x^2 + x = x(x + 1)
+      x - 1
+
+Answer: x - 1, for x != -1 and x != 0
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify 1/x + 1/(x + 1)
+
+Simplify 1/x + 1/(x + 1)
+
+      1/x + 1/(x + 1)
+  1.  Write each fraction over the common denominator x(x + 1) and combine the numerators.   [add_fractions]
+        1/x = (x + 1)/(x(x + 1))
+        1/(x + 1) = x/(x(x + 1))
+      (x + 1 + x)/(x(x + 1))
+  2.  Collect the x terms.   [collect]
+        x + x = (1 + 1)x = 2x
+      (2x + 1)/(x(x + 1))
+
+Answer: (2x + 1)/(x(x + 1))
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify x/(x - 1) - 1/(x + 1)
+
+Simplify x/(x - 1) - 1/(x + 1)
+
+      x/(x - 1) - 1/(x + 1)
+  1.  Write each fraction over the common denominator (x - 1)(x + 1) and combine the numerators.   [add_fractions]
+        x/(x - 1) = x(x + 1)/((x - 1)(x + 1))
+        -1/(x + 1) = -(x - 1)/((x - 1)(x + 1))
+      (x(x + 1) - (x - 1))/((x - 1)(x + 1))
+  2.  Multiply x into the brackets.   [distribute]
+      (x^2 + x - (x - 1))/((x - 1)(x + 1))
+  3.  A minus sign before brackets flips every sign inside.   [distribute]
+      (x^2 + x - x + 1)/((x - 1)(x + 1))
+  4.  Collect the x terms.   [collect]
+        x - x = (1 - 1)x = 0
+      (x^2 + 1)/((x - 1)(x + 1))
+
+Answer: (x^2 + 1)/((x - 1)(x + 1))
+  ok steps: all 4 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify x/(x^2 - 1) - 1/(x^2 - 1)
+
+Simplify x/(x^2 - 1) - 1/(x^2 - 1)
+
+      x/(x^2 - 1) - 1/(x^2 - 1)
+  1.  Write each fraction over the common denominator (x - 1)(x + 1) and combine the numerators.   [add_fractions]
+        x/(x^2 - 1) = x/((x - 1)(x + 1))
+        -1/(x^2 - 1) = -1/((x - 1)(x + 1))
+      (x - 1)/((x - 1)(x + 1))
+  2.  Cancel the common factor x - 1; x = 1 stays excluded.   [rational_cancel]
+      1/(x + 1)
+
+Answer: 1/(x + 1), for x != 1
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### combine 2/(x + 3) + 1/(x - 3)
+
+Simplify 2/(x + 3) + 1/(x - 3)
+
+      2/(x + 3) + 1/(x - 3)
+  1.  Write each fraction over the common denominator (x + 3)(x - 3) and combine the numerators.   [add_fractions]
+        2/(x + 3) = 2(x - 3)/((x + 3)(x - 3))
+        1/(x - 3) = (x + 3)/((x + 3)(x - 3))
+      (2(x - 3) + x + 3)/((x + 3)(x - 3))
+  2.  Multiply 2 into the brackets.   [distribute]
+      (2x - 6 + x + 3)/((x + 3)(x - 3))
+  3.  Work out -6 + 3 = -3.   [fold]
+      (2x + x - 3)/((x + 3)(x - 3))
+  4.  Collect the x terms.   [collect]
+        2x + x = (2 + 1)x = 3x
+      (3x - 3)/((x + 3)(x - 3))
+
+Answer: (3x - 3)/((x + 3)(x - 3))
+  ok steps: all 4 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify (1/x + 1)/x
+
+Simplify (1/x + 1)/x
+
+      (1/x + 1)/x
+  1.  Write each fraction over the common denominator x and combine the numerators.   [add_fractions]
+        1 = x/x
+      (1 + x)/x/x
+  2.  Dividing (1 + x)/x by x multiplies its denominator by x.   [compound_fraction]
+      (1 + x)/x^2
+
+Answer: (1 + x)/x^2
+  ok steps: all 2 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+
+### simplify (x - 1)/(1 - x)
+
+Simplify (x - 1)/(1 - x)
+
+      (x - 1)/(1 - x)
+  1.  Cancel the common factor x - 1; x = 1 stays excluded.   [rational_cancel]
+        1 - x = -(x - 1)
+      -1
+
+Answer: -1, for x != 1
+  ok steps: all 1 steps agree at 6 sample points
+  ok same: equal to the original at 6 sample points
+

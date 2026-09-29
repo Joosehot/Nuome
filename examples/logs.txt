@@ -1,0 +1,25 @@
+what is log_2 8
+what is log(1000)
+what is log base 3 of 1/9
+what is ln(e^3)
+simplify log(2) + log(5)
+evaluate log_3 54 - log_3 2
+what is log_2 5 to 3 decimal places
+expand log(x^2 y)
+solve 2^x = 8
+solve 3^(x + 1) = 27
+solve 4^x = 8
+solve 9^x = 3^(x + 1)
+solve 5 * 2^x = 40
+solve 2^x = 5
+solve e^x = 5
+solve e^(2x) = 7
+solve 2^x = -4
+solve log_2(x) = 5
+solve ln(x) = 2
+solve log(x) + log(x - 3) = 1
+solve log(2x) = log(x + 4)
+solve log_2(x + 6) - log_2(x) = 2
+solve 2^(x^2) = 16
+solve 2^(x + 3) = 1/4
+solve ln(x) + ln(x + 1) = ln(6)

@@ -1,0 +1,210 @@
+### solve x + y = 3 and x - y = 1
+
+Solve x + y = 3, x - y = 1 for x and y
+
+      x + y = 3, x - y = 1
+  1.  Add the two equations to eliminate y.   [eliminate]
+      x + y = 3, 2x = 4
+  2.  Divide both sides by 2.   [system_scale]
+      x + y = 3, x = 2
+  3.  Put x = 2 into the first equation.   [back_substitute]
+        x + y = 3 becomes 2 + y = 3.
+      y = 1, x = 2
+
+Answer: x = 2, y = 1
+  ok satisfies: x = 2, y = 1: every equation holds exactly
+  ok complete: the determinant of the coefficients is -2, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (3 steps)
+
+### solve 2x + 3y = 12 and 3x - 2y = 5
+
+Solve 2x + 3y = 12, 3x - 2y = 5 for x and y
+
+      2x + 3y = 12, 3x - 2y = 5
+  1.  Multiply the first equation by 3 and the second equation by 2, then subtract to eliminate x.   [eliminate]
+        3 * (2x + 3y = 12) gives 6x + 9y = 36.
+        2 * (3x - 2y = 5) gives 6x - 4y = 10.
+      2x + 3y = 12, -13y = -26
+  2.  Divide both sides by -13.   [system_scale]
+      2x + 3y = 12, y = 2
+  3.  Put y = 2 into the first equation.   [back_substitute]
+        2x + 3y = 12 becomes 2x + 3 * 2 = 12.
+      2x = 6, y = 2
+  4.  Divide both sides by 2.   [system_scale]
+      x = 3, y = 2
+
+Answer: x = 3, y = 2
+  ok satisfies: x = 3, y = 2: every equation holds exactly
+  ok complete: the determinant of the coefficients is -13, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (4 steps)
+
+### solve y = 2x + 1 and 3x + y = 11
+
+Solve y = 2x + 1, 3x + y = 11 for x and y
+
+      y = 2x + 1, 3x + y = 11
+  1.  Substitute y = 2x + 1 into the second equation.   [substitution]
+        3x + y = 11 becomes 3x + (2x + 1) = 11.
+      y = 2x + 1, 5x = 10
+  2.  Divide both sides by 5.   [system_scale]
+      y = 2x + 1, x = 2
+  3.  Put x = 2 into the first equation.   [back_substitute]
+        y = 2x + 1 becomes y = 2 * 2 + 1.
+      y = 5, x = 2
+
+Answer: x = 2, y = 5
+  ok satisfies: x = 2, y = 5: every equation holds exactly
+  ok complete: the determinant of the coefficients is -5, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (3 steps)
+
+### solve x + y = 3 and x - y = 1 by substitution
+
+Solve x + y = 3, x - y = 1 for x and y
+
+      x + y = 3, x - y = 1
+  1.  Solve the second equation for x: x = 1 + y.   [substitution]
+      x + y = 3, x = 1 + y
+  2.  Substitute x = 1 + y into the first equation.   [substitution]
+        x + y = 3 becomes 1 + y + y = 3.
+      2y = 2, x = 1 + y
+  3.  Divide both sides by 2.   [system_scale]
+      y = 1, x = 1 + y
+  4.  Put y = 1 into the second equation.   [back_substitute]
+        x = 1 + y becomes x = 1 + 1.
+      y = 1, x = 2
+
+Answer: x = 2, y = 1
+  ok method: uses substitution as asked ("by substitution")
+  ok satisfies: x = 2, y = 1: every equation holds exactly
+  ok complete: the determinant of the coefficients is -2, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (4 steps)
+
+### solve 2x + y = 7 and x - y = 2 by elimination
+
+Solve 2x + y = 7, x - y = 2 for x and y
+
+      2x + y = 7, x - y = 2
+  1.  Add the two equations to eliminate y.   [eliminate]
+      2x + y = 7, 3x = 9
+  2.  Divide both sides by 3.   [system_scale]
+      2x + y = 7, x = 3
+  3.  Put x = 3 into the first equation.   [back_substitute]
+        2x + y = 7 becomes 2 * 3 + y = 7.
+      y = 1, x = 3
+
+Answer: x = 3, y = 1
+  ok method: uses eliminate as asked ("by elimination")
+  ok satisfies: x = 3, y = 1: every equation holds exactly
+  ok complete: the determinant of the coefficients is -3, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (3 steps)
+
+### solve the system a + 2b = 4, 3a - b = 5
+
+Solve a + 2b = 4, 3a - b = 5 for a and b
+
+      a + 2b = 4, 3a - b = 5
+  1.  Multiply the first equation by 3, then subtract to eliminate a.   [eliminate]
+        3 * (a + 2b = 4) gives 3a + 6b = 12.
+      a + 2b = 4, -7b = -7
+  2.  Divide both sides by -7.   [system_scale]
+      a + 2b = 4, b = 1
+  3.  Put b = 1 into the first equation.   [back_substitute]
+        a + 2b = 4 becomes a + 2 * 1 = 4.
+      a = 2, b = 1
+
+Answer: a = 2, b = 1
+  ok satisfies: a = 2, b = 1: every equation holds exactly
+  ok complete: the determinant of the coefficients is -7, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (3 steps)
+
+### solve x + y = 3 and 2x + 2y = 7
+
+Solve x + y = 3, 2x + 2y = 7 for x and y
+
+      x + y = 3, 2x + 2y = 7
+  1.  Multiply the first equation by 2, then subtract to eliminate x.   [eliminate]
+        2 * (x + y = 3) gives 2x + 2y = 6.
+      x + y = 3, 0 = 1
+  2.  0 = 1 is never true: the equations contradict each other.   [system_verdict]
+      no real solution
+
+Answer: no real solution
+  ok samples: no sample point satisfies every equation (6 tried)
+  ok complete: the equations contradict each other (eliminating leaves 0 = a number that isn't 0): no solution
+
+### solve x + y = 3 and 2x + 2y = 6
+
+Solve x + y = 3, 2x + 2y = 6 for x and y
+
+      x + y = 3, 2x + 2y = 6
+  1.  Solve the first equation for x: x = 3 - y.   [substitution]
+      x = 3 - y, 2x + 2y = 6
+  2.  Substitute x = 3 - y into the second equation.   [substitution]
+        2x + 2y = 6 becomes 2(3 - y) + 2y = 6.
+      x = 3 - y, 0 = 0
+  3.  0 = 0 always holds: that equation follows from the others, so drop it.   [system_verdict]
+      x = 3 - y
+
+Answer: x = 3 - y, for any y (infinitely many solutions)
+  ok satisfies: every equation holds exactly for y = 0, 1 and 2, so for every value (the equations are linear)
+  ok complete: the determinant of the coefficients is 0 and the equations leave 1 letter free: infinitely many solutions
+
+### solve x + y + z = 6, x - y + z = 2, 2x + y - z = 1
+
+Solve x + y + z = 6, x - y + z = 2, 2x + y - z = 1 for x, y and z
+
+      x + y + z = 6, x - y + z = 2, 2x + y - z = 1
+  1.  Add the second equation to the third equation to eliminate y.   [eliminate]
+      x + y + z = 6, x - y + z = 2, 3x = 3
+  2.  Divide both sides by 3.   [system_scale]
+      x + y + z = 6, x - y + z = 2, x = 1
+  3.  Subtract the first equation from the second equation to eliminate x.   [eliminate]
+      x + y + z = 6, -2y = -4, x = 1
+  4.  Divide both sides by -2.   [system_scale]
+      x + y + z = 6, y = 2, x = 1
+  5.  Put y = 2 into the first equation.   [back_substitute]
+        x + y + z = 6 becomes x + 2 + z = 6.
+      x + z = 4, y = 2, x = 1
+  6.  Put x = 1 into the first equation.   [back_substitute]
+        x + z = 4 becomes 1 + z = 4.
+      z = 3, y = 2, x = 1
+
+Answer: x = 1, y = 2, z = 3
+  ok satisfies: x = 1, y = 2, z = 3: every equation holds exactly
+  ok complete: the determinant of the coefficients is 6, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (6 steps)
+
+### solve 3x + 2y = 7 and 6x + 4y = 14
+
+Solve 3x + 2y = 7, 6x + 4y = 14 for x and y
+
+      3x + 2y = 7, 6x + 4y = 14
+  1.  Solve the first equation for x: x = (7 - 2y)/3.   [substitution]
+      x = (7 - 2y)/3, 6x + 4y = 14
+  2.  Substitute x = (7 - 2y)/3 into the second equation.   [substitution]
+        6x + 4y = 14 becomes 6 * ((7 - 2y)/3) + 4y = 14.
+      x = (7 - 2y)/3, 0 = 0
+  3.  0 = 0 always holds: that equation follows from the others, so drop it.   [system_verdict]
+      x = (7 - 2y)/3
+
+Answer: x = (7 - 2y)/3, for any y (infinitely many solutions)
+  ok satisfies: every equation holds exactly for y = 0, 1 and 2, so for every value (the equations are linear)
+  ok complete: the determinant of the coefficients is 0 and the equations leave 1 letter free: infinitely many solutions
+
+### solve x + y = 3 and x - y = 1 quickly
+
+Solve x + y = 3, x - y = 1 for x and y
+
+      x + y = 3, x - y = 1
+  1.  Add the two equations to eliminate y.   [eliminate]
+      x + y = 3, 2x = 4
+  2.  Divide both sides by 2.   [system_scale]
+      x + y = 3, x = 2
+  3.  Put x = 2 into the first equation.   [back_substitute]
+      y = 1, x = 2
+
+Answer: x = 2, y = 1
+  ok satisfies: x = 2, y = 1: every equation holds exactly
+  ok complete: the determinant of the coefficients is -2, not 0: exactly one solution
+  ok working: every line of the working holds at the solution (3 steps)
+

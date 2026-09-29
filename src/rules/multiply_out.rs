@@ -22,6 +22,10 @@ impl Rule for MultiplyOut {
             if cx.task() == Task::Solve && at.is_side_against_zero() {
                 return vec![];
             }
+            // denominators with letters stay factored
+            if at.in_letter_denominator() && cx.task() != Task::Expand {
+                return vec![];
+            }
             match e {
                 Expr::Mul(v) => {
                     let sums: Vec<usize> = v.iter().enumerate().filter(|(_, f)| matches!(f, Expr::Add(_))).map(|(i, _)| i).collect();

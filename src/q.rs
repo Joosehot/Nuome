@@ -125,6 +125,18 @@ impl Q {
             }
         }
     }
+    /// Exact k-th root, when there is one (odd roots of negatives included).
+    pub fn root(&self, k: i64) -> Option<Q> {
+        if k < 1 || (self.is_neg() && k % 2 == 0) {
+            return None;
+        }
+        let r = |n: i128| -> Option<i128> {
+            let guess = (n.abs() as f64).powf(1.0 / k as f64).round() as i128;
+            let hit = (guess.saturating_sub(1)..=guess + 1).find(|&c| c >= 0 && Q::int(c).pow(k).is_some_and(|p| p == Q::int(n.abs())))?;
+            Some(if n < 0 { -hit } else { hit })
+        };
+        Q::new(r(self.n)?, r(self.d)?)
+    }
     /// Round to `places` decimals, as text.
     pub fn decimal(&self, places: u32) -> String {
         decimal(self.to_f64(), places)

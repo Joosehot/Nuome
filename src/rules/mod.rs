@@ -57,6 +57,35 @@ pub mod sum_to;
 pub mod sequence;
 pub mod compound;
 pub mod percent;
+// algebra (agent A)
+pub mod factor_theorem;
+pub mod poly_divide;
+pub mod rational_cancel;
+pub mod add_fractions;
+pub mod power_quotient;
+pub mod neg_exponent;
+pub mod frac_exponent;
+pub mod rationalise;
+pub mod compound_fraction;
+pub mod log_eval;
+pub mod log_laws;
+pub mod log_to_exp;
+pub mod power_base;
+pub mod equate_exponents;
+pub mod take_log;
+pub mod log_domain;
+pub mod ineq_add;
+pub mod ineq_scale;
+pub mod ineq_swap;
+pub mod ineq_verdict;
+pub mod sign_chart;
+pub mod abs_split;
+pub mod abs_check;
+pub mod eliminate;
+pub mod substitution;
+pub mod back_substitute;
+pub mod system_scale;
+pub mod system_verdict;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -192,6 +221,35 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &sequence::Sequence,
         &compound::Compound,
         &percent::Percent,
+        // algebra (agent A)
+        &factor_theorem::FactorTheorem,
+        &poly_divide::PolyDivide,
+        &rational_cancel::RationalCancel,
+        &add_fractions::AddFractions,
+        &power_quotient::PowerQuotient,
+        &neg_exponent::NegExponent,
+        &frac_exponent::FracExponent,
+        &rationalise::Rationalise,
+        &compound_fraction::CompoundFraction,
+        &log_eval::LogEval,
+        &log_laws::LogLaws,
+        &log_to_exp::LogToExp,
+        &power_base::PowerBase,
+        &equate_exponents::EquateExponents,
+        &take_log::TakeLog,
+        &log_domain::LogDomain,
+        &ineq_add::IneqAdd,
+        &ineq_scale::IneqScale,
+        &ineq_swap::IneqSwap,
+        &ineq_verdict::IneqVerdict,
+        &sign_chart::SignChart,
+        &abs_split::AbsSplit,
+        &abs_check::AbsCheck,
+        &eliminate::Eliminate,
+        &substitution::Substitution,
+        &back_substitute::BackSubstitute,
+        &system_scale::SystemScale,
+        &system_verdict::SystemVerdict,
     ]
 }
 
@@ -216,8 +274,15 @@ impl At<'_> {
                     let (l, r) = &v[self.slot / 2];
                     (if self.slot % 2 == 0 { r } else { l }).is_num(0)
                 }
+                Math::Ineq(l, _, r) => (if self.slot == 0 { r } else { l }).is_num(0),
                 _ => false,
             }
+    }
+    /// Is this node inside a denominator that contains a letter? Those stay
+    /// factored: (2x + 1)/(x(x + 1)), not /(x^2 + x).
+    pub fn in_letter_denominator(&self) -> bool {
+        let e = self.math.slots()[self.slot];
+        (0..self.path.len()).any(|k| self.path[k] == 1 && matches!(e.get(&self.path[..k]), Expr::Div(_, d) if !d.vars().is_empty()))
     }
 }
 

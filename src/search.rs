@@ -96,10 +96,31 @@ pub fn is_answer(m: &Math, req: &Request) -> bool {
         (Task::Solve, Math::NoSolution | Math::AllReals) => true,
         (Task::Solve, Math::Eq(l, r)) => solved(l, r),
         (Task::Solve, Math::Or(eqs)) => eqs.iter().all(|(l, r)| solved(l, r)),
+        (Task::Solve, Math::Ineq(l, _, r)) => solved(l, r),
+        (Task::Solve, Math::Intervals(..)) => true,
+        (Task::Solve, Math::System(eqs)) => system_solved(eqs),
+        (Task::Divide, Math::Expr(e)) => crate::rules::poly_divide::divided(e),
         (Task::Solve, _) => false,
         (Task::Evaluate, Math::Expr(e)) => e.vars().is_empty() && !e.has_deriv() && !e.has_call(),
         (_, Math::Expr(e)) => !e.has_deriv() && !e.has_call(),
         _ => false,
+    }
+}
+
+/// Every equation reads "letter = ...", each letter once, and no right side
+/// uses a solved letter (the others are free: infinitely many solutions).
+pub fn system_solved(eqs: &[(Expr, Expr)]) -> bool {
+    let lefts: Vec<&String> = eqs.iter().filter_map(|(l, _)| if let Expr::Var(v) = l { Some(v) } else { None }).collect();
+    lefts.len() == eqs.len() && lefts.iter().enumerate().all(|(i, v)| !lefts[..i].contains(v)) && eqs.iter().all(|(_, r)| lefts.iter().all(|v| !r.has_var(v)))
+}
+
+/// What is out of scope about an algebra problem nothing could solve.
+fn scope_hint(req: &Request) -> Option<String> {
+    let abs = req.problem.value.slots().iter().map(|e| e.walk().iter().filter(|(_, n)| matches!(n, Expr::Func(crate::expr::Func::Abs, _))).count()).sum::<usize>();
+    match (&req.problem.value, abs) {
+        (Math::Ineq(..), 1..) => Some("absolute value inequalities aren't in Nuome yet: |A| < c means A < c and A > -c; solve each and keep what both allow".into()),
+        (_, 2..) => Some("one absolute value at a time: with several, split the line by hand where each inside changes sign".into()),
+        _ => None,
     }
 }
 
@@ -237,7 +258,7 @@ pub fn search(req: &Request, cfg: &Config) -> Result<Outcome, Vec<Diag>> {
     d.hint = Some(match (furthest, &req.method) {
         (_, Some(m)) => format!("\"{}\" doesn't fit this problem; try without it", m.words),
         (Some(path), None) if !path.steps.is_empty() => format!("got as far as {} and no rule applies there", print::math(&path.state, Style::Ascii)),
-        _ => "Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess".into(),
+        _ => scope_hint(req).unwrap_or_else(|| "Nuome v0 solves linear, quadratic and simple rational equations; other kinds refuse rather than guess".into()),
     });
     Err(vec![d])
 }

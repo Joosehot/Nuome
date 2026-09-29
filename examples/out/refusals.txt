@@ -38,11 +38,6 @@ error: no way to solve x + 1 = 0 passes the checks
 error: no way to evaluate 1/0 passes the checks
   hint: value: division by zero
 
-### solve x = 1 and y = 2
-
-error: more than one problem: "x = 1", "y = 2"
-  hint: solving systems of equations is not in Nuome v0; one equation at a time
-
 ### factor x^4 + 4
 
 error: no way to factor x^4 + 4 passes the checks
@@ -72,4 +67,14 @@ error: 5 mod 0 has no answer
 
 error: a growth problem needs a duration
   hint: e.g. "for 10 years", "for a month"
+
+### solve |x - 2| < 3
+
+error: none of my rules can solve |x - 2| < 3
+  hint: absolute value inequalities aren't in Nuome yet: |A| < c means A < c and A > -c; solve each and keep what both allow
+
+### solve |x - 1| + |x + 2| = 5
+
+error: none of my rules can solve |x - 1| + |x + 2| = 5
+  hint: one absolute value at a time: with several, split the line by hand where each inside changes sign
 

@@ -15,6 +15,7 @@ pub fn outer(f: Func, u: &Expr) -> Expr {
         Func::Exp => expr::func(Func::Exp, u),
         Func::Ln => expr::div(expr::num(1), u),
         Func::Sqrt => expr::div(expr::num(1), expr::mul(vec![expr::num(2), expr::sqrt(u)])),
+        Func::Abs => expr::div(u.clone(), expr::func(Func::Abs, u)),
     }
 }
 

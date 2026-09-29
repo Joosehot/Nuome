@@ -48,17 +48,21 @@ minor_share = 0.3
 # Factoring never sees distribute (it would undo it), expanding never sees
 # the factoring rules.
 [tasks]
-evaluate = ["substitute", "fold", "roots", "cancel", "identity", "gcd", "lcm", "modulo", "factorial", "choose", "mean", "median", "mode", "range", "spread", "sum_to", "sequence", "compound", "percent"]
-simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
-expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
-factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions"]
+evaluate = ["substitute", "fold", "roots", "cancel", "identity", "gcd", "lcm", "modulo", "factorial", "choose", "mean", "median", "mode", "range", "spread", "sum_to", "sequence", "compound", "percent", "neg_exponent", "frac_exponent", "rationalise", "log_eval", "log_laws"]
+simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction", "log_eval", "log_laws"]
+expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "log_laws", "log_eval"]
+factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors", "factor_theorem"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
+# ---- Algebra: tasks ----
+divide = ["poly_divide"]
 
 # Alternative methods for the same job. A path that starts one and switches
 # pays the method_switch judge; "using the quadratic formula" forbids the others.
 [methods]
 quadratic = ["factor_solve", "quadratic_formula", "square_root", "complete_square"]
+# ---- Algebra: methods ----
+system = ["eliminate", "substitution"]
 
 [method_follow]
 complete_square = ["square_root"]
@@ -253,6 +257,200 @@ weight = 1.0
 weight = 1.0
 [rules.diff_chain.variants.function]
 [rules.diff_chain.variants.power]
+
+# ---- Algebra: polynomial division and the factor theorem ----
+
+[rules.factor_theorem]
+weight = 1.0
+[rules.factor_theorem.variants.integer_root]
+elegance = 0.3
+[rules.factor_theorem.variants.fraction_root]
+elegance = 0.3
+
+[rules.poly_divide]
+weight = 1.0
+[rules.poly_divide.variants.long]          # one round per step: divide, multiply back, subtract
+clarity = 0.4
+[rules.poly_divide.variants.synthetic]     # by x - r, all rounds at once
+brevity = 0.5
+elegance = 0.3
+clarity = -0.5
+
+# ---- Algebra: rational expressions, exponents and roots ----
+
+[rules.rational_cancel]
+weight = 1.0
+[rules.rational_cancel.variants.common_factor]
+elegance = 0.3
+
+[rules.add_fractions]
+weight = 1.0
+[rules.add_fractions.variants.common_denominator]
+clarity = 0.3
+
+[rules.power_quotient]
+weight = 1.0
+[rules.power_quotient.variants.subtract]
+
+[rules.neg_exponent]
+weight = 1.0
+[rules.neg_exponent.variants.reciprocal]
+clarity = 0.5
+
+[rules.frac_exponent]
+weight = 1.0
+[rules.frac_exponent.variants.root_first]
+clarity = 0.5
+
+[rules.rationalise]
+weight = 1.0
+[rules.rationalise.variants.root]
+[rules.rationalise.variants.conjugate]
+
+[rules.compound_fraction]
+weight = 1.0
+[rules.compound_fraction.variants.over]
+[rules.compound_fraction.variants.under]
+
+# ---- Algebra: logarithms and exponential equations ----
+
+[rules.log_eval]
+weight = 1.0
+[rules.log_eval.variants.exact]
+clarity = 0.2
+[rules.log_eval.variants.inverse]
+clarity = 0.2
+
+[rules.log_laws]
+weight = 1.0
+[rules.log_laws.variants.product]
+[rules.log_laws.variants.quotient]
+[rules.log_laws.variants.power]
+[rules.log_laws.variants.split_product]
+[rules.log_laws.variants.split_quotient]
+[rules.log_laws.variants.power_down]
+[rules.log_laws.variants.change_of_base]   # only when a decimal answer is asked for
+
+[rules.log_to_exp]
+weight = 1.0
+[rules.log_to_exp.variants.exponential_form]
+clarity = 0.2
+[rules.log_to_exp.variants.one_to_one]
+elegance = 0.3
+
+[rules.power_base]
+weight = 1.0
+[rules.power_base.variants.same_base]      # 2^x = 8 -> 2^x = 2^3
+elegance = 0.5
+[rules.power_base.variants.common_base]    # 4^x = 8 -> 2^(2x) = 2^3
+elegance = 0.5
+
+[rules.equate_exponents]
+weight = 1.0
+[rules.equate_exponents.variants.same_base]
+
+[rules.take_log]
+weight = 1.0
+[rules.take_log.variants.log_base]         # 2^x = 5 -> x = log_2(5)
+[rules.take_log.variants.natural]          # e^x = 5 -> x = ln(5)
+[rules.take_log.variants.never]            # 2^x = -4: a power is never negative
+
+[rules.log_domain]
+weight = 1.0
+[rules.log_domain.variants.outside_domain]
+
+# ---- Algebra: inequalities ----
+
+[rules.ineq_add]
+weight = 1.0
+[rules.ineq_add.variants.constant]
+clarity = 0.3
+[rules.ineq_add.variants.variable]
+clarity = 0.2
+[rules.ineq_add.variants.standard_form]
+clarity = 0.2
+
+[rules.ineq_scale]
+weight = 1.0
+[rules.ineq_scale.variants.positive]
+clarity = 0.2
+[rules.ineq_scale.variants.negative]      # dividing by a negative flips the sign
+clarity = 0.2
+[rules.ineq_scale.variants.clear_fractions]   # x/2 + 1 > x - 3 -> x + 2 > 2x - 6
+elegance = 0.6
+clarity = 0.2
+
+[rules.ineq_swap]
+weight = 1.0
+minor = true
+[rules.ineq_swap.variants.sides]
+
+[rules.ineq_verdict]
+weight = 1.0
+[rules.ineq_verdict.variants.never]
+[rules.ineq_verdict.variants.always]
+
+[rules.sign_chart]
+weight = 1.0
+[rules.sign_chart.variants.polynomial]
+clarity = 0.3
+[rules.sign_chart.variants.rational]
+clarity = 0.3
+
+# ---- Algebra: absolute value equations ----
+
+[rules.abs_split]
+weight = 1.0
+[rules.abs_split.variants.cases]           # |A| = 5: A = 5 or A = -5
+[rules.abs_split.variants.zero]
+[rules.abs_split.variants.never]
+[rules.abs_split.variants.both_abs]        # |A| = |B|: A = B or A = -B
+[rules.abs_split.variants.cases_check]     # |A| = B: both cases, each checked
+
+[rules.abs_check]
+weight = 1.0
+[rules.abs_check.variants.rejected]
+
+# ---- Algebra: systems of linear equations ----
+
+[rules.eliminate]
+weight = 1.0
+[rules.eliminate.variants.add]             # x + y = 3, x - y = 1: add, y cancels
+elegance = 0.6
+[rules.eliminate.variants.subtract]
+elegance = 0.5
+[rules.eliminate.variants.scale]           # multiply first so a letter can cancel
+elegance = 0.3
+
+[rules.substitution]
+weight = 1.0
+[rules.substitution.variants.isolate]      # a letter with coefficient 1 or -1
+clarity = 0.3
+[rules.substitution.variants.isolate_fraction]
+clarity = -0.5
+[rules.substitution.variants.substitute]
+clarity = 0.3
+
+[rules.back_substitute]
+weight = 1.0
+[rules.back_substitute.variants.value]
+clarity = 0.2
+
+[rules.system_scale]
+weight = 1.0
+[rules.system_scale.variants.divide]
+clarity = 0.2
+
+[rules.system_verdict]
+weight = 1.0
+[rules.system_verdict.variants.never]
+[rules.system_verdict.variants.dependent]
+
+# ---- Algebra: checks ----
+
+[algebra]
+boundary_offset = 1e-4     # inequality checks test this far (relative) either side of every boundary
+sign_tolerance = 1e-12     # two sides this close count as equal when an inequality is tested
 
 # ---- Judges: preferences about the path as a whole ------------------------------
 # A judge adds  weight * (axes . profile) * amount  to a step.

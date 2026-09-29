@@ -1,7 +1,7 @@
 //! The closed vocabulary: words, phrases and symbols -> tokens. A word that
 //! isn't listed is an error with the nearest known word, never a guess.
 
-use crate::expr::{Func, Konst};
+use crate::expr::{Func, Konst, Rel};
 use crate::model::{Modifier, Task};
 use crate::calls::Named;
 use crate::q::Q;
@@ -83,6 +83,12 @@ pub enum Tok {
     PctChange,
     /// Built by the word grammar (words.rs): a finished expression.
     Built(crate::expr::Expr),
+    /// < <= > >=, "less than", "at least".
+    Rel(Rel),
+    /// "log": base 10 unless "_b" follows.
+    Log,
+    /// "log base": the base comes next.
+    LogBase,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -415,16 +421,70 @@ const PHRASES: &[(&str, Tok)] = &[
     ("matrix", Unsupported("matrix algebra")),
     ("matrices", Unsupported("matrix algebra")),
     ("determinant", Unsupported("matrix algebra")),
-    ("system", Unsupported("solving systems of equations")),
-    ("simultaneous", Unsupported("solving systems of equations")),
-    ("simultaneously", Unsupported("solving systems of equations")),
-    ("log", Unsupported("a logarithm other than ln")),
-    ("logarithm", Unsupported("a logarithm other than ln")),
-    ("inequality", Unsupported("solving inequalities")),
+
     ("graph", Unsupported("plotting")),
     ("plot", Unsupported("plotting")),
     ("prove", Unsupported("writing proofs")),
     ("probability", Unsupported("probability")),
+    // algebra (agent A)
+    ("divide", Task(Task::Divide)),
+    ("by long division", Filler),
+    ("using long division", Filler),
+    ("long division", Filler),
+    ("rationalise", Task(Task::Simplify)),
+    ("rationalize", Task(Task::Simplify)),
+    ("rationalise the denominator of", Task(Task::Simplify)),
+    ("rationalize the denominator of", Task(Task::Simplify)),
+    ("combine", Task(Task::Simplify)),
+    ("as a single fraction", Filler),
+    ("as one fraction", Filler),
+    ("log", Log),
+    ("log of", Log),
+    ("logarithm", Log),
+    ("logarithm of", Log),
+    ("log base", LogBase),
+    ("log to base", LogBase),
+    ("log to the base", LogBase),
+    ("logarithm base", LogBase),
+    ("logarithm to base", LogBase),
+    ("logarithm to the base", LogBase),
+    ("abs", Func(Func::Abs)),
+    ("absolute value of", Func(Func::Abs)),
+    ("the absolute value of", Func(Func::Abs)),
+    ("modulus of", Func(Func::Abs)),
+    ("less than", Rel(Rel::Lt)),
+    ("is less than", Rel(Rel::Lt)),
+    ("smaller than", Rel(Rel::Lt)),
+    ("is smaller than", Rel(Rel::Lt)),
+    ("greater than", Rel(Rel::Gt)),
+    ("is greater than", Rel(Rel::Gt)),
+    ("more than", Rel(Rel::Gt)),
+    ("is more than", Rel(Rel::Gt)),
+    ("bigger than", Rel(Rel::Gt)),
+    ("less than or equal to", Rel(Rel::Le)),
+    ("is less than or equal to", Rel(Rel::Le)),
+    ("greater than or equal to", Rel(Rel::Ge)),
+    ("is greater than or equal to", Rel(Rel::Ge)),
+    ("at most", Rel(Rel::Le)),
+    ("is at most", Rel(Rel::Le)),
+    ("at least", Rel(Rel::Ge)),
+    ("is at least", Rel(Rel::Ge)),
+    ("no more than", Rel(Rel::Le)),
+    ("no less than", Rel(Rel::Ge)),
+    ("inequality", Filler),
+    ("interval notation", Filler),
+    ("system", Filler),
+    ("system of equations", Filler),
+    ("simultaneous", Filler),
+    ("simultaneous equations", Filler),
+    ("simultaneously", Filler),
+    ("equations", Filler),
+    ("by substitution", Method("substitution")),
+    ("using substitution", Method("substitution")),
+    ("by the substitution method", Method("substitution")),
+    ("by elimination", Method("eliminate")),
+    ("using elimination", Method("eliminate")),
+    ("by the elimination method", Method("eliminate")),
 ];
 
 enum Raw {
@@ -479,7 +539,7 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
                 '÷' => '/',
                 '−' | '–' => '-',
                 '²' | '³' | '√' | 'π' => c,
-                '<' | '>' | '≤' | '≥' => '<',
+                '<' | '>' | '≤' | '≥' | '|' | '_' => c,
                 _ => return Err(format!("unknown symbol \"{c}\"")),
             };
             out.push(Raw::Sym(sym));
@@ -508,7 +568,17 @@ pub fn lex(s: &str) -> Result<Vec<Token>, String> {
                     '³' => Cubed,
                     '√' => Func(Func::Sqrt),
                     'π' => Const(Konst::Pi),
-                    '<' => Unsupported("solving inequalities"),
+                    // algebra (agent A): inequality signs; "<=" is two symbols
+                    '<' | '>' if matches!(raw.get(i + 1), Some(Raw::Sym('='))) => {
+                        let tok = Rel(if *c == '<' { Rel::Le } else { Rel::Ge });
+                        out.push(Token { tok, words: format!("{c}=") });
+                        i += 2;
+                        continue;
+                    }
+                    '<' => Rel(Rel::Lt),
+                    '>' => Rel(Rel::Gt),
+                    '≤' => Rel(Rel::Le),
+                    '≥' => Rel(Rel::Ge),
                     '!' => Bang,
                     '$' | '€' | '£' => Filler,
                     ',' | ';' | ':' | '?' | '.' => Sep,
@@ -627,7 +697,7 @@ fn distance(a: &str, b: &str) -> usize {
 /// Every word and phrase, for --vocabulary.
 pub fn vocabulary() -> Vec<String> {
     let mut v: Vec<String> = PHRASES.iter().map(|(p, _)| p.to_string()).collect();
-    v.extend(["any single letter (a variable)", "e", "d/dx", "+ - * / ^ ( ) = % ² ³ √ π × ÷"].map(String::from));
+    v.extend(["any single letter (a variable)", "e", "d/dx", "+ - * / ^ ( ) = % ² ³ √ π × ÷", "< <= > >= ≤ ≥ | _"].map(String::from));
     v.sort();
     v.dedup();
     v
