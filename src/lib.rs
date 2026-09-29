@@ -14,6 +14,7 @@ pub mod config;
 pub mod evidence;
 pub mod explain;
 pub mod expr;
+pub mod goldbach;
 pub mod lexicon;
 // logic and sets (agent L)
 pub mod logic;

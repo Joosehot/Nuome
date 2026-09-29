@@ -1024,7 +1024,9 @@ known = [
     "every odd number above 5 is a sum of three primes (Helfgott, 2013)",
 ]
 formal = "prove that every even number greater than 2 is a sum of two primes"
-check_up_to = 1000000
+check_up_to = 1000000000      # every even number up to this, unless the sentence asks ("up to 10^10")
+max_check = 1000000000000     # the most a sentence may ask for
+model_doubt = 0.001           # doubt in the Hardy-Littlewood model itself: a stated assumption, not a measurement
 
 [open.goldbach.guess]
 answer = "true"

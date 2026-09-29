@@ -128,6 +128,13 @@ pub struct OpenProblem {
     /// Only when asked for a guess: the expected answer, not a result.
     #[serde(default)]
     pub guess: Option<Guess>,
+    /// "check up to 10^10" in the sentence may ask for at most this.
+    #[serde(default)]
+    pub max_check: Option<u64>,
+    /// How much Nuome doubts the heuristic model itself (not measurable by
+    /// computing; stated here so the confidence score shows where it comes from).
+    #[serde(default)]
+    pub model_doubt: Option<f64>,
 }
 
 /// A best guess at an open problem: what is expected, why, and how firmly.
