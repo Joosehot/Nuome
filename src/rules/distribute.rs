@@ -28,6 +28,18 @@ pub fn times(a: &Expr, b: &Expr) -> Expr {
             None => factors.push(f),
         }
     }
+    // letters in alphabetical order: b * a -> ab
+    let key = |f: &Expr| match f {
+        Expr::Var(x) => Some(x.clone()),
+        Expr::Pow(b, _) => match &**b {
+            Expr::Var(x) => Some(x.clone()),
+            _ => None,
+        },
+        _ => None,
+    };
+    if factors.iter().all(|f| key(f).is_some()) {
+        factors.sort_by_key(|f| key(f));
+    }
     with_coeff(c, expr::mul(factors))
 }
 

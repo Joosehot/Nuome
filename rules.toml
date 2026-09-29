@@ -54,6 +54,7 @@ expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribut
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "prime_factors", "factor_theorem"]
 solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions", "abs_split", "abs_check", "eliminate", "substitution", "back_substitute", "system_scale", "system_verdict", "trig_exact", "trig_solve"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
+prove = ["sides_equal", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
 # calculus and trig (agent B). int_constant goes last: C is written once the rest is done.
@@ -813,3 +814,14 @@ known = [
     "checked by computer for every starting number below 2^68",
     "almost all starting numbers reach almost bounded values (Tao, 2019)",
 ]
+
+# ---- Proofs ----------------------------------------------------------------------
+
+[proof]
+max_grid = 20000           # exact grid points allowed when confirming a polynomial identity
+samples = 60               # points tried when the sides aren't polynomials (evidence only)
+
+[rules.sides_equal]
+weight = 1.0
+[rules.sides_equal.variants.same]
+[rules.sides_equal.variants.obligation]

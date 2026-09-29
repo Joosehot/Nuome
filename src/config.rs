@@ -96,6 +96,16 @@ pub struct Numbers {
     pub write_out_factorial: u64,
 }
 
+/// How proofs are checked.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProofCfg {
+    /// The largest exact grid used to confirm a polynomial identity.
+    pub max_grid: usize,
+    /// Points tried when the sides aren't polynomials (evidence, not proof).
+    pub samples: usize,
+}
+
 /// An open (or famously hard) problem, described so a refusal can say why.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -169,6 +179,7 @@ pub struct Config {
     pub finance: Finance,
     /// Famous problems Nuome recognises: what they say and where they stand.
     pub open: BTreeMap<String, OpenProblem>,
+    pub proof: ProofCfg,
     pub numbers: Numbers,
     pub algebra: AlgebraCfg,
     pub calculus: CalcCfg,

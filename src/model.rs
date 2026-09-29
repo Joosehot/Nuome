@@ -28,10 +28,12 @@ pub enum Task {
     Integrate,
     Limit,
     Tangent,
+    /// Prove a statement: an identity, an inequality, a law of logic...
+    Prove,
 }
 
 impl Task {
-    pub const ALL: [Task; 10] = [Task::Evaluate, Task::Simplify, Task::Expand, Task::Factor, Task::Solve, Task::Differentiate, Task::Divide, Task::Integrate, Task::Limit, Task::Tangent];
+    pub const ALL: [Task; 11] = [Task::Evaluate, Task::Simplify, Task::Expand, Task::Factor, Task::Solve, Task::Differentiate, Task::Divide, Task::Integrate, Task::Limit, Task::Tangent, Task::Prove];
     pub fn key(self) -> &'static str {
         match self {
             Task::Evaluate => "evaluate",
@@ -44,6 +46,7 @@ impl Task {
             Task::Integrate => "integrate",
             Task::Limit => "limit",
             Task::Tangent => "tangent",
+            Task::Prove => "prove",
         }
     }
     /// The task as a verb in a sentence: "none of my rules can find the limit of ...".
@@ -66,6 +69,7 @@ impl Task {
             Task::Integrate => "Integrate",
             Task::Limit => "Find the limit of",
             Task::Tangent => "Find the tangent to",
+            Task::Prove => "Prove",
         }
     }
 }

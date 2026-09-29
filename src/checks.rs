@@ -83,6 +83,7 @@ pub fn check(req: &Request, cfg: &Config, path: &Path) -> Vec<Check> {
         out.push(ck("method", used, if used { format!("uses {} as asked (\"{}\")", m.value, m.words) } else { format!("\"{}\" doesn't apply to this problem", m.words) }));
     }
     match req.task.value {
+        Task::Prove => crate::proof::checks(req, cfg, path, &mut out),
         Task::Solve if matches!(req.problem.value, Math::Ineq(..)) => ineq_checks(req, cfg, path, &mut out),
         Task::Solve if matches!(req.problem.value, Math::System(_)) => system_checks(req, cfg, path, &mut out),
         // calculus and trig (agent B)
@@ -158,7 +159,7 @@ fn expr_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
                 Err(e) => out.push(ck("derivative", false, e)),
             }
         }
-        Task::Solve | Task::Integrate | Task::Limit | Task::Tangent => unreachable!(),
+        Task::Solve | Task::Integrate | Task::Limit | Task::Tangent | Task::Prove => unreachable!(),
         Task::Divide => divide_checks(&original, fin, out),
     }
 }

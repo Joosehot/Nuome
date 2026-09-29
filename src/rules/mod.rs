@@ -41,6 +41,8 @@ pub mod swap;
 pub mod trinomial;
 pub mod verdict;
 pub mod zero_product;
+// proofs
+pub mod sides_equal;
 // numbers, sequences, statistics, finance (main)
 pub mod gcd;
 pub mod lcm;
@@ -228,6 +230,8 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &diff_product::DiffProduct,
         &diff_quotient::DiffQuotient,
         &diff_chain::DiffChain,
+        // proofs
+        &sides_equal::SidesEqual,
         // numbers, sequences, statistics, finance (main)
         &gcd::Gcd,
         &lcm::Lcm,

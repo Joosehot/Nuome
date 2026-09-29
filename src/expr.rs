@@ -563,6 +563,8 @@ pub enum Math {
     Intervals(String, Vec<Interval>),
     /// Simultaneous equations, all to hold at once.
     System(Vec<(Expr, Expr)>),
+    /// The end of a proof: the statement holds.
+    Proved,
 }
 
 impl Math {
@@ -573,7 +575,7 @@ impl Math {
             Math::Expr(e) => vec![e],
             Math::Eq(l, r) => vec![l, r],
             Math::Or(v) => v.iter().flat_map(|(l, r)| [l, r]).collect(),
-            Math::NoSolution | Math::AllReals => vec![],
+            Math::NoSolution | Math::AllReals | Math::Proved => vec![],
             Math::Ineq(l, _, r) => vec![l, r],
             Math::Intervals(_, v) => v.iter().flat_map(|i| i.lo.iter().chain(i.hi.iter()).map(|b| &b.at)).collect(),
             Math::System(v) => v.iter().flat_map(|(l, r)| [l, r]).collect(),

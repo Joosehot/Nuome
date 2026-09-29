@@ -24,7 +24,16 @@ fn rank(e: &Expr) -> u8 {
 
 fn ordered(v: &[Expr]) -> Vec<Expr> {
     let mut o = v.to_vec();
-    o.sort_by_key(rank);
+    // letters alphabetically within their rank: ba -> ab
+    let letter = |e: &Expr| match e {
+        Expr::Var(x) => x.clone(),
+        Expr::Pow(b, _) => match &**b {
+            Expr::Var(x) => x.clone(),
+            _ => String::new(),
+        },
+        _ => String::new(),
+    };
+    o.sort_by(|a, b| rank(a).cmp(&rank(b)).then_with(|| if rank(a) == 1 && rank(b) == 1 { letter(a).cmp(&letter(b)) } else { std::cmp::Ordering::Equal }));
     o
 }
 

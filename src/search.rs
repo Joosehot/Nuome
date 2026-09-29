@@ -99,6 +99,8 @@ pub fn is_answer(m: &Math, req: &Request) -> bool {
         (Task::Limit, Math::Expr(e)) => !e.is_pending() && !e.has_var(v),
         (Task::Tangent, Math::Eq(Expr::Var(y), r)) => *y == req.curve().0 && !r.is_pending() && crate::poly::from_expr(r, v).is_some_and(|p| p.deg().unwrap_or(0) <= 1),
         (Task::Tangent, _) => false,
+        (Task::Prove, Math::Proved) => true,
+        (Task::Prove, _) => false,
         (Task::Solve, Math::NoSolution | Math::AllReals) => true,
         (Task::Solve, Math::Eq(l, r)) => solved(l, r),
         (Task::Solve, Math::Or(eqs)) => eqs.iter().all(|(l, r)| solved(l, r)),

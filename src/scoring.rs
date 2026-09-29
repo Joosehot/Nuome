@@ -137,18 +137,20 @@ pub fn distance(m: &Math, req: &Request) -> f64 {
                 Expr::Deriv(a, _) => 3.0 + a.size() as f64,
                 Expr::Integral(a, _) | Expr::Limit(a, _, _) => 3.0 + a.size() as f64,
                 Expr::Bounds(..) | Expr::At(..) => 2.0,
-                Expr::Mul(f) if matches!(req.task.value, Task::Expand | Task::Simplify) && f.iter().filter(|x| matches!(x, Expr::Add(_))).count() > 0 => 3.0,
-                Expr::Pow(b, _) if matches!(req.task.value, Task::Expand | Task::Simplify) && matches!(**b, Expr::Add(_)) => 3.0,
+                Expr::Mul(f) if matches!(req.task.value, Task::Expand | Task::Simplify | Task::Prove) && f.iter().filter(|x| matches!(x, Expr::Add(_))).count() > 0 => 3.0,
+                Expr::Pow(b, _) if matches!(req.task.value, Task::Expand | Task::Simplify | Task::Prove) && matches!(**b, Expr::Add(_)) => 3.0,
                 _ => 0.0,
             })
             .sum()
     };
     match m {
+        // a proof: shorter sides are closer to reading the same
+        Math::Eq(l, r) if req.task.value == Task::Prove => (l.size() + r.size()) as f64 * 0.5 + unfinished(l) + unfinished(r),
         Math::Expr(e) => e.size() as f64 * 0.5 + unfinished(e),
         Math::Eq(l, r) if req.task.value == Task::Tangent => (l.size() + r.size()) as f64 * 0.5 + unfinished(r),
         Math::Eq(l, r) => eq_distance(l, r, v),
         Math::Or(eqs) => eqs.iter().map(|(l, r)| eq_distance(l, r, v)).sum(),
-        Math::NoSolution | Math::AllReals => 0.0,
+        Math::NoSolution | Math::AllReals | Math::Proved => 0.0,
         Math::Ineq(l, _, r) => eq_distance(l, r, v),
         Math::Intervals(_, ivs) => ivs.iter().flat_map(|i| i.lo.iter().chain(i.hi.iter())).map(|b| (b.at.size() - 1) as f64 * 0.5).sum(),
         Math::System(eqs) => eqs.iter().map(|(l, r)| system_distance(l, r)).sum(),

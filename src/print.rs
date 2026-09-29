@@ -42,6 +42,7 @@ pub fn math(m: &Math, s: Style) -> String {
         Math::Eq(l, r) => format!("{} = {}", expr(l, s), expr(r, s)),
         Math::Or(v) => v.iter().map(|(l, r)| format!("{} = {}", expr(l, s), expr(r, s))).collect::<Vec<_>>().join(if s == Style::Latex { " \\text{ or } " } else { " or " }),
         Math::NoSolution => if s == Style::Latex { "\\text{no real solution}" } else { "no real solution" }.into(),
+        Math::Proved => if s == Style::Latex { "\\blacksquare" } else { "proved" }.into(),
         Math::AllReals => if s == Style::Latex { "\\text{every real number}" } else { "every real number" }.into(),
         Math::Ineq(l, r, rr) => format!("{} {} {}", expr(l, s), rel(*r, s), expr(rr, s)),
         Math::Intervals(v, ivs) => inequalities(v, ivs, s),

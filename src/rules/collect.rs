@@ -16,7 +16,8 @@ fn groups(v: &[Expr]) -> Vec<(Expr, Vec<usize>)> {
         if rest.is_num(1) {
             continue;
         }
-        match out.iter_mut().find(|(r, _)| *r == rest) {
+        // like terms up to the order of factors: ab and ba
+        match out.iter_mut().find(|(r, _)| super::sides_equal::canon(r) == super::sides_equal::canon(&rest)) {
             Some((_, ix)) => ix.push(i),
             None => out.push((rest, vec![i])),
         }

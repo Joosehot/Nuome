@@ -17,6 +17,7 @@ pub mod model;
 pub mod parser;
 pub mod poly;
 pub mod print;
+pub mod proof;
 pub mod q;
 pub mod render;
 pub mod rules;

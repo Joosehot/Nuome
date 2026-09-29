@@ -425,6 +425,8 @@ pub fn parse_with(sentence: &str, opts: &ParseOptions, cfg: &crate::config::Conf
     let task = if task.value == Task::Divide && letters.is_empty() { Said::new(Task::Evaluate, task.words) } else { task };
     let shown = crate::print::math(&problem.value, crate::print::Style::Ascii);
     let math_ok = match (task.value, &problem.value) {
+        (Task::Prove, Math::Eq(..) | Math::Ineq(..) | Math::System(_)) => Ok(()),
+        (Task::Prove, _) => Err(Diag::new(format!("prove what about {shown}?")).hint("state it as an equation or an inequality, e.g. \"prove (a + b)^2 = a^2 + 2ab + b^2\"")),
         (Task::Solve, Math::Eq(..)) => Ok(()),
         (Task::Solve, Math::Ineq(..)) => Ok(()),
         (Task::Solve, Math::System(eqs)) => system_ok(eqs, &letters),

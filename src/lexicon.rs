@@ -559,8 +559,9 @@ const PHRASES: &[(&str, Tok)] = &[
     ("np-complete", Topic("complexity theory")),
     ("let", Filler),
     ("be", Filler),
-    ("prove that", Filler),
-    ("show that", Filler),
+    ("prove that", Task(Task::Prove)),
+    ("show that", Task(Task::Prove)),
+    ("verify that", Task(Task::Prove)),
     ("that", Filler),
     ("is a", Filler),
     ("type", Filler),
@@ -571,7 +572,7 @@ const PHRASES: &[(&str, Tok)] = &[
 
     ("graph", Unsupported("plotting")),
     ("plot", Unsupported("plotting")),
-    ("prove", Unsupported("writing proofs")),
+    ("prove", Task(Task::Prove)),
     ("probability", Unsupported("probability")),
     // algebra (agent A)
     ("divide", Task(Task::Divide)),
@@ -811,6 +812,16 @@ pub fn lex(s: &str) -> Result<Vec<Token>, String> {
                                 v => Var(v.into()),
                             }
                         } else {
+                            // "2ab", "ab + c": letters written together inside math are a product
+                            let in_math = matches!(i.checked_sub(1).and_then(|p| raw.get(p)), Some(Raw::Number(_)) | Some(Raw::Sym('+' | '-' | '*' | '/' | '^' | '=' | '(')))
+                                || matches!(raw.get(i + 1), Some(Raw::Sym('+' | '-' | '*' | '/' | '^' | '=' | ')')));
+                            if in_math && (2..=3).contains(&w.len()) && w.chars().all(|c| c.is_ascii_lowercase()) {
+                                for c in w.chars() {
+                                    out.push(Token { tok: Var(c.to_string()), words: c.to_string() });
+                                }
+                                i += 1;
+                                continue;
+                            }
                             Unknown
                         };
                         out.push(Token { tok, words: text });

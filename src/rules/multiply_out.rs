@@ -50,7 +50,8 @@ impl Rule for MultiplyOut {
                     let Expr::Add(ts) = &**base else { return vec![] };
                     let Some(n) = n.as_num().filter(|n| n.is_int() && n.num() >= 2 && n.num() <= 4) else { return vec![] };
                     let mut out = Vec::new();
-                    if n.num() == 2 && ts.len() == 2 {
+                    // proving an identity with the identity itself would be circular
+                    if n.num() == 2 && ts.len() == 2 && cx.task() != Task::Prove {
                         let (a, b) = (&ts[0], &ts[1]);
                         let new = expr::add(vec![times(a, a), times(&expr::num(2), &times(a, b)), times(b, b)]);
                         let says = Line::new().t("Use (a + b)^2 = a^2 + 2ab + b^2 with a = ").e(a).t(", b = ").e(b).t(".");
