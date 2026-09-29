@@ -58,6 +58,11 @@ pub mod power_base;
 pub mod equate_exponents;
 pub mod take_log;
 pub mod log_domain;
+pub mod ineq_add;
+pub mod ineq_scale;
+pub mod ineq_swap;
+pub mod ineq_verdict;
+pub mod sign_chart;
 
 /// One piece of a line of explanation: words, or math printed in the
 /// output's style.
@@ -194,6 +199,11 @@ pub fn all() -> Vec<&'static dyn Rule> {
         &equate_exponents::EquateExponents,
         &take_log::TakeLog,
         &log_domain::LogDomain,
+        &ineq_add::IneqAdd,
+        &ineq_scale::IneqScale,
+        &ineq_swap::IneqSwap,
+        &ineq_verdict::IneqVerdict,
+        &sign_chart::SignChart,
     ]
 }
 

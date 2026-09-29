@@ -73,6 +73,8 @@ pub fn check(req: &Request, cfg: &Config, path: &Path) -> Vec<Check> {
         out.push(ck("method", used, if used { format!("uses {} as asked (\"{}\")", m.value, m.words) } else { format!("\"{}\" doesn't apply to this problem", m.words) }));
     }
     match req.task.value {
+        Task::Solve if matches!(req.problem.value, Math::Ineq(..)) => ineq_checks(req, cfg, path, &mut out),
+        Task::Solve if matches!(req.problem.value, Math::System(_)) => system_checks(req, path, &mut out),
         Task::Solve => solve_checks(req, cfg, path, &mut out),
         _ => expr_checks(req, cfg, path, &mut out),
     }
@@ -683,4 +685,239 @@ fn log_complete(l: &Expr, r: &Expr, v: &str) -> Option<(Vec<f64>, String)> {
     let roots = real_root_values(&n)?;
     let inside: Vec<f64> = roots.into_iter().filter(|x| args.iter().all(|a| at(a, *x) > 0.0)).collect();
     Some((inside, "where every log is defined, the logs undo into a polynomial equation, whose roots there were counted".into()))
+}
+
+/// Where an inequality's sign can change, found from the inequality itself:
+/// the real roots of the numerator and denominator of l - r.
+fn boundaries(l: &Expr, r: &Expr, v: &str) -> Option<Vec<f64>> {
+    let (n, d) = poly::rational_from_expr(&expr::add(vec![l.clone(), expr::neg(r.clone())]), v)?;
+    let mut out = real_root_values(&n)?;
+    if d.deg().is_some_and(|k| k > 0) {
+        out.extend(real_root_values(&d)?);
+    }
+    out.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    out.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    Some(out)
+}
+
+/// Does a state say x belongs to the answer? None where it can't tell (undefined).
+fn member(m: &Math, v: &str, x: f64, tol: f64) -> Option<bool> {
+    match m {
+        Math::Ineq(l, rel, r) => {
+            let at = |e: &Expr| e.eval_f(&|n| if n == v { x } else { f64::NAN });
+            let (a, b) = (at(l), at(r));
+            (a.is_finite() && b.is_finite()).then(|| rel.holds(a, b, tol))
+        }
+        Math::Intervals(_, ivs) => Some(ivs.iter().any(|iv| iv.contains(x, tol))),
+        Math::AllReals => Some(true),
+        Math::NoSolution => Some(false),
+        _ => None,
+    }
+}
+
+/// Inequalities: the answer set is tested against the original inequality
+/// at points found independently of the steps: every boundary (root of the
+/// numerator or denominator), just either side of it, between boundaries,
+/// far out, and the usual samples.
+fn ineq_checks(req: &Request, cfg: &Config, path: &Path, out: &mut Vec<Check>) {
+    let v = &req.var.value;
+    let Math::Ineq(l, rel, r) = &req.problem.value else { return };
+    let tol = cfg.algebra.sign_tolerance;
+    let Some(cuts) = boundaries(l, r, v) else {
+        out.push(ck("intervals", false, "can't find where this kind of inequality changes sign"));
+        return;
+    };
+    let mut points: Vec<f64> = cfg.check.samples.clone();
+    for (i, &c) in cuts.iter().enumerate() {
+        let gap = [i.checked_sub(1).map(|j| c - cuts[j]), cuts.get(i + 1).map(|n| n - c)].into_iter().flatten().fold(f64::INFINITY, f64::min);
+        let d = (cfg.algebra.boundary_offset * 1f64.max(c.abs())).min(gap / 4.0);
+        points.extend([c, c - d, c + d]);
+        if let Some(n) = cuts.get(i + 1) {
+            points.push((c + n) / 2.0);
+        }
+    }
+    if let (Some(a), Some(b)) = (cuts.first(), cuts.last()) {
+        points.extend([a - 1.0 - a.abs(), b + 1.0 + b.abs()]);
+    }
+    let truth = |x: f64| member(&Math::Ineq(l.clone(), *rel, r.clone()), v, x, tol);
+    // 1. the answer holds exactly where the inequality does
+    let (mut inside, mut outside, mut bad) = (0, 0, None);
+    for &x in &points {
+        let want = truth(x).unwrap_or(false);
+        match member(&path.state, v, x, tol) {
+            Some(got) if got == want => {
+                if got {
+                    inside += 1;
+                } else {
+                    outside += 1;
+                }
+            }
+            got => {
+                bad.get_or_insert(format!("at {v} = {}: the inequality {} but the answer {}", q::decimal(x, 4), if want { "holds" } else { "fails" }, if got == Some(true) { "includes it" } else { "leaves it out" }));
+            }
+        }
+    }
+    out.push(match bad {
+        Some(b) => ck("intervals", false, b),
+        None => ck("intervals", true, format!("the inequality holds at all {inside} test points inside the answer and fails at all {outside} outside")),
+    });
+    // 2. each boundary is in the answer exactly when the inequality holds there
+    let mut notes = Vec::new();
+    let mut ok = true;
+    for &c in &cuts {
+        let want = truth(c);
+        let got = member(&path.state, v, c, tol).unwrap_or(false);
+        let here = format!("{v} = {}", q::decimal(c, 3).trim_end_matches('0').trim_end_matches('.'));
+        let why = match want {
+            None => "undefined there",
+            Some(true) => "holds there",
+            Some(false) => "fails there",
+        };
+        if got != want.unwrap_or(false) {
+            ok = false;
+        }
+        notes.push(format!("{here} {} ({why})", if got { "included" } else { "excluded" }));
+    }
+    if !cuts.is_empty() {
+        out.push(ck("boundaries", ok, notes.join("; ")));
+    }
+    // 3. every line of the working says the same as the original at every test point
+    let mut bad = None;
+    for (k, s) in path.steps.iter().enumerate() {
+        for &x in &points {
+            if let (Some(a), Some(b)) = (truth(x), member(&s.mv.result, v, x, tol)) {
+                if a != b && bad.is_none() {
+                    bad = Some(format!("after step {} ({}), {v} = {} changes side", k + 1, s.mv.rule, q::decimal(x, 4)));
+                }
+            }
+        }
+    }
+    out.push(match bad {
+        Some(b) => ck("working", false, b),
+        None => ck("working", true, format!("every line of the working agrees with the inequality at every test point ({} steps)", path.steps.len())),
+    });
+}
+
+/// Exact Gaussian elimination: the rank of a matrix of rationals.
+fn rank(mut rows: Vec<Vec<Q>>) -> Option<usize> {
+    let cols = rows.first().map_or(0, |r| r.len());
+    let mut rank = 0;
+    for c in 0..cols {
+        let Some(p) = (rank..rows.len()).find(|&i| !rows[i][c].is_zero()) else { continue };
+        rows.swap(rank, p);
+        for i in 0..rows.len() {
+            if i != rank && !rows[i][c].is_zero() {
+                let f = rows[i][c].div(&rows[rank][c])?;
+                for j in 0..cols {
+                    rows[i][j] = rows[i][j].sub(&f.mul(&rows[rank][j])?)?;
+                }
+            }
+        }
+        rank += 1;
+    }
+    Some(rank)
+}
+
+/// The determinant of a square matrix (expansion along the first row; n <= 3).
+fn det(m: &[Vec<Q>]) -> Option<Q> {
+    match m.len() {
+        1 => Some(m[0][0]),
+        n => {
+            let mut total = Q::ZERO;
+            for c in 0..n {
+                let minor: Vec<Vec<Q>> = m[1..].iter().map(|row| row.iter().enumerate().filter(|(j, _)| *j != c).map(|(_, x)| *x).collect()).collect();
+                let term = m[0][c].mul(&det(&minor)?)?;
+                total = if c % 2 == 0 { total.add(&term)? } else { total.sub(&term)? };
+            }
+            Some(total)
+        }
+    }
+}
+
+/// Systems: the answer is put back into every original equation exactly;
+/// how many solutions there are comes from the coefficients alone (the
+/// determinant, and the ranks when it is 0).
+fn system_checks(req: &Request, path: &Path, out: &mut Vec<Check>) {
+    let Math::System(eqs) = &req.problem.value else { return };
+    let vars: Vec<String> = eqs.iter().flat_map(|(l, r)| l.vars().into_iter().chain(r.vars())).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    let Some(forms) = eqs.iter().map(|(l, r)| poly::linear_form(l, r, &vars)).collect::<Option<Vec<_>>>() else {
+        out.push(ck("complete", false, "an equation isn't linear"));
+        return;
+    };
+    let a: Vec<Vec<Q>> = forms.iter().map(|(c, _)| c.clone()).collect();
+    let ab: Vec<Vec<Q>> = forms.iter().map(|(c, d)| c.iter().copied().chain([*d]).collect()).collect();
+    let (Some(ra), Some(rab)) = (rank(a.clone()), rank(ab)) else {
+        out.push(ck("complete", false, "the numbers are too large to eliminate exactly"));
+        return;
+    };
+    let n = vars.len();
+    let solved: Vec<(Expr, Expr)> = match &path.state {
+        Math::System(s) => s.clone(),
+        _ => vec![],
+    };
+    let free: Vec<String> = vars.iter().filter(|x| !solved.iter().any(|(l, _)| *l == Expr::Var((*x).clone()))).cloned().collect();
+    // 1. every equation holds: at the solution, or for several values of the free letters
+    let tries: Vec<Q> = if free.is_empty() { vec![Q::ZERO] } else { vec![Q::ZERO, Q::ONE, Q::int(2)] };
+    let mut ok = !solved.is_empty();
+    for t in &tries {
+        let value = |x: &str| -> Option<Q> {
+            if free.iter().any(|f| f == x) {
+                return Some(*t);
+            }
+            let (_, rhs) = solved.iter().find(|(l, _)| *l == Expr::Var(x.to_string()))?;
+            rhs.eval_q(&|y| free.iter().any(|f| f == y).then_some(*t))
+        };
+        for (l, r) in eqs {
+            match (l.eval_q(&|x| value(x)), r.eval_q(&|x| value(x))) {
+                (Some(p), Some(q)) if p == q => {}
+                _ => ok = false,
+            }
+        }
+    }
+    if !solved.is_empty() {
+        let at: Vec<String> = solved.iter().map(|(l, r)| format!("{} = {}", print::expr(l, Style::Ascii), print::expr(r, Style::Ascii))).collect();
+        let detail = if free.is_empty() { format!("{}: every equation holds exactly", at.join(", ")) } else { format!("every equation holds exactly for {} = 0, 1 and 2, so for every value (the equations are linear)", free.join(", ")) };
+        out.push(ck("satisfies", ok, detail));
+    }
+    // 2. how many solutions, from the coefficients
+    let square = eqs.len() == n;
+    let d = if square { det(&a) } else { None };
+    let (expected, why) = if ra < rab {
+        ("none", "the equations contradict each other (eliminating leaves 0 = a number that isn't 0)".to_string())
+    } else if ra == n {
+        ("one", match d {
+            Some(d) => format!("the determinant of the coefficients is {d}, not 0"),
+            None => format!("the coefficients have rank {ra}, the number of letters"),
+        })
+    } else {
+        ("many", format!("{}the equations leave {} letter(s) free", if square { "the determinant of the coefficients is 0 and " } else { "" }, n - ra))
+    };
+    let got = match &path.state {
+        Math::NoSolution => "none",
+        Math::System(_) if free.is_empty() => "one",
+        Math::System(_) if free.len() == n - ra => "many",
+        _ => "wrong",
+    };
+    let count = match expected {
+        "none" => "no solution",
+        "one" => "exactly one solution",
+        _ => "infinitely many solutions",
+    };
+    out.push(ck("complete", got == expected, format!("{why}: {count}{}", if got == expected { "" } else { ", but the answer differs" })));
+    // 3. every line of the working holds at the solution
+    if got == "one" && expected == "one" {
+        let value = |x: &str| solved.iter().find(|(l, _)| *l == Expr::Var(x.to_string())).and_then(|(_, r)| r.eval_q(&|_| None));
+        let mut bad = None;
+        for (k, s) in path.steps.iter().enumerate() {
+            if let Math::System(lines) = &s.mv.result {
+                if lines.iter().any(|(l, r)| l.eval_q(&|x| value(x)) != r.eval_q(&|x| value(x))) {
+                    bad.get_or_insert(format!("after step {} ({}), the solution no longer fits", k + 1, s.mv.rule));
+                }
+            }
+        }
+        out.push(match bad {
+            Some(b) => ck("working", false, b),
+            None => ck("working", true, format!("every line of the working holds at the solution ({} steps)", path.steps.len())),
+        });
+    }
 }

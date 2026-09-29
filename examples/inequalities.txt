@@ -1,0 +1,16 @@
+solve 2x + 3 < 7
+solve -3x + 2 <= 11
+solve 5 - 2x > 1
+solve 3(x - 1) >= 2x + 4
+solve x/2 + x/3 > 5
+solve x is greater than or equal to 4 - x
+solve x^2 - 5x + 6 < 0
+solve x^2 - 5x + 6 >= 0
+solve x^2 > 4
+solve x^2 - 4x + 1 <= 0
+solve x^2 + 1 > 0
+solve (x - 1)^2 <= 0
+solve x^3 - x > 0
+solve (x - 1)/(x + 2) >= 0
+solve (x + 3)/(x - 1) > 2
+solve 2x + 1 < 2x + 5

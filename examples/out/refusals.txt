@@ -38,10 +38,6 @@ error: no way to solve x + 1 = 0 passes the checks
 error: no way to evaluate 1/0 passes the checks
   hint: value: division by zero
 
-### solve x = 1 and y = 2
-
-error: no way to solve x = 1, y = 2 passes the checks
-
 ### factor x^4 + 4
 
 error: no way to factor x^4 + 4 passes the checks

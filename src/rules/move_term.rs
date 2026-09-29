@@ -14,7 +14,7 @@ fn negate(t: &Expr) -> Expr {
 }
 
 /// "Subtract 3 from both sides." / "Add 2x to both sides."
-fn says(t: &Expr) -> Line {
+pub fn says(t: &Expr) -> Line {
     let (c, r) = coeff(t);
     if c.is_neg() {
         Line::new().t("Add ").e(&with_coeff(c.neg(), r)).t(" to both sides.")

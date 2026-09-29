@@ -104,6 +104,17 @@ pub struct Config {
     pub judges: BTreeMap<String, JudgeCfg>,
     pub check: CheckCfg,
     pub display: Display,
+    pub algebra: AlgebraCfg,
+}
+
+/// Algebra checks (inequalities).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AlgebraCfg {
+    /// Inequality checks test this far (relative) either side of each boundary.
+    pub boundary_offset: f64,
+    /// Two sides this close count as equal when an inequality is tested.
+    pub sign_tolerance: f64,
 }
 
 pub const JUDGES: &[&str] = &["fractions", "negative_lead", "method_switch", "growth", "branch_order", "brackets_first", "arithmetic_first"];
@@ -177,6 +188,12 @@ impl Config {
         }
         if self.check.samples.len() < 3 {
             bail!("[check] needs at least 3 samples");
+        }
+        if !(self.algebra.boundary_offset > 0.0 && self.algebra.boundary_offset < 0.1) {
+            bail!("[algebra] boundary_offset must be between 0 and 0.1");
+        }
+        if !(self.algebra.sign_tolerance > 0.0 && self.algebra.sign_tolerance < self.algebra.boundary_offset * self.algebra.boundary_offset) {
+            bail!("[algebra] sign_tolerance must be positive and below boundary_offset squared (or a double root looks like a sign change)");
         }
         Ok(())
     }

@@ -86,7 +86,11 @@ impl Rule for AddFractions {
     fn variants(&self) -> &'static [&'static str] {
         &["common_denominator"]
     }
-    fn moves(&self, m: &Math, _cx: &Cx) -> Vec<Move> {
+    fn moves(&self, m: &Math, cx: &Cx) -> Vec<Move> {
+        // an equation clears its denominators instead; an inequality can't
+        if cx.task() == crate::model::Task::Solve && !matches!(m, Math::Ineq(..)) {
+            return vec![];
+        }
         local("add_fractions", m, |e, _| {
             let Expr::Add(ts) = e else { return vec![] };
             let vars = e.vars();

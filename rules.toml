@@ -52,7 +52,7 @@ evaluate = ["substitute", "fold", "roots", "cancel", "identity", "neg_exponent",
 simplify = ["substitute", "fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "rational_cancel", "add_fractions", "power_quotient", "neg_exponent", "frac_exponent", "rationalise", "compound_fraction", "log_eval", "log_laws"]
 expand = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "log_laws", "log_eval"]
 factor = ["fold", "identity", "powers", "collect", "factor_common", "diff_squares", "trinomial", "factor_theorem"]
-solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain"]
+solve = ["fold", "identity", "cancel", "roots", "powers", "collect", "distribute", "multiply_out", "factor_common", "clear_denominators", "move_term", "scale", "swap", "verdict", "factor_solve", "zero_product", "quadratic_formula", "square_root", "complete_square", "solutions", "factor_theorem", "log_eval", "log_laws", "log_to_exp", "power_base", "equate_exponents", "take_log", "log_domain", "ineq_add", "ineq_scale", "ineq_swap", "ineq_verdict", "sign_chart", "add_fractions"]
 differentiate = ["diff_linear", "diff_power", "diff_elementary", "diff_product", "diff_quotient", "diff_chain", "fold", "identity", "cancel", "powers", "collect", "substitute"]
 # ---- Algebra: tasks ----
 divide = ["poly_divide"]
@@ -356,6 +356,50 @@ weight = 1.0
 [rules.log_domain]
 weight = 1.0
 [rules.log_domain.variants.outside_domain]
+
+# ---- Algebra: inequalities ----
+
+[rules.ineq_add]
+weight = 1.0
+[rules.ineq_add.variants.constant]
+clarity = 0.3
+[rules.ineq_add.variants.variable]
+clarity = 0.2
+[rules.ineq_add.variants.standard_form]
+clarity = 0.2
+
+[rules.ineq_scale]
+weight = 1.0
+[rules.ineq_scale.variants.positive]
+clarity = 0.2
+[rules.ineq_scale.variants.negative]      # dividing by a negative flips the sign
+clarity = 0.2
+[rules.ineq_scale.variants.clear_fractions]   # x/2 + 1 > x - 3 -> x + 2 > 2x - 6
+elegance = 0.6
+clarity = 0.2
+
+[rules.ineq_swap]
+weight = 1.0
+minor = true
+[rules.ineq_swap.variants.sides]
+
+[rules.ineq_verdict]
+weight = 1.0
+[rules.ineq_verdict.variants.never]
+[rules.ineq_verdict.variants.always]
+
+[rules.sign_chart]
+weight = 1.0
+[rules.sign_chart.variants.polynomial]
+clarity = 0.3
+[rules.sign_chart.variants.rational]
+clarity = 0.3
+
+# ---- Algebra: checks ----
+
+[algebra]
+boundary_offset = 1e-4     # inequality checks test this far (relative) either side of every boundary
+sign_tolerance = 1e-12     # two sides this close count as equal when an inequality is tested
 
 # ---- Judges: preferences about the path as a whole ------------------------------
 # A judge adds  weight * (axes . profile) * amount  to a step.
