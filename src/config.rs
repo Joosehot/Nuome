@@ -160,6 +160,9 @@ pub struct OpenProblem {
     /// Improving steps per child in a fitness search over graphs.
     #[serde(default)]
     pub evolve_climb: Option<usize>,
+    /// A folder (from the crate root) for pictures of what was built.
+    #[serde(default)]
+    pub pictures: Option<String>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]

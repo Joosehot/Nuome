@@ -1107,6 +1107,8 @@ evolve_population = 120
 evolve_generations = 100
 evolve_seed = 2026
 evolve_climb = 300
+# pictures of the best graph found (adjacency matrix, BMP), from the crate root
+pictures = "out"
 
 [open.conway99.guess]
 answer = "no guess: experts are divided"

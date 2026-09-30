@@ -589,6 +589,75 @@ pub struct Evolved {
     pub history: Vec<u32>,
     pub graph: Option<Vec<Set>>,
     pub free_points: usize,
+    /// the best graph of the last generation, perfect or not
+    pub best_graph: Vec<Set>,
+}
+
+/// A picture of a graph as its adjacency matrix, one square per pair of
+/// points, as a 24-bit BMP: black = a line, white = no line, where that
+/// pair's common neighbours are right; red = too many, blue = too few (dark
+/// for a line, light for no line); grey = a point with itself; thin grey
+/// grid lines every `block` points. Returns the file and the counts of
+/// pairs with too many and too few.
+pub fn picture(g: &[Set], lambda: u32, mu: u32, block: usize, cell: usize) -> (Vec<u8>, usize, usize) {
+    let n = g.len();
+    let side = n * cell;
+    let (mut many, mut few) = (0, 0);
+    let mut px = vec![[255u8, 255, 255]; side * side]; // rgb, top row first
+    for u in 0..n {
+        for v in 0..n {
+            let joined = g[u] >> v & 1 == 1;
+            let colour = if u == v {
+                [150, 150, 150]
+            } else {
+                let common = (g[u] & g[v]).count_ones();
+                let target = if joined { lambda } else { mu };
+                if u < v {
+                    if common > target {
+                        many += 1;
+                    } else if common < target {
+                        few += 1;
+                    }
+                }
+                match (common.cmp(&target), joined) {
+                    (std::cmp::Ordering::Equal, true) => [0, 0, 0],
+                    (std::cmp::Ordering::Equal, false) => [255, 255, 255],
+                    (std::cmp::Ordering::Greater, true) => [150, 0, 0],
+                    (std::cmp::Ordering::Greater, false) => [255, 120, 120],
+                    (std::cmp::Ordering::Less, true) => [0, 0, 150],
+                    (std::cmp::Ordering::Less, false) => [130, 160, 255],
+                }
+            };
+            for y in 0..cell {
+                for x in 0..cell {
+                    let edge = block > 0 && ((x == 0 && v % block == 0) || (y == 0 && u % block == 0));
+                    px[(u * cell + y) * side + v * cell + x] = if edge && u != v { [190, 190, 190] } else { colour };
+                }
+            }
+        }
+    }
+    // BMP: rows bottom-up, blue-green-red, each row padded to 4 bytes
+    let row = (side * 3).div_ceil(4) * 4;
+    let size = 54 + row * side;
+    let mut out = Vec::with_capacity(size);
+    out.extend(b"BM");
+    out.extend((size as u32).to_le_bytes());
+    out.extend([0u8; 4]);
+    out.extend(54u32.to_le_bytes());
+    out.extend(40u32.to_le_bytes());
+    out.extend((side as i32).to_le_bytes());
+    out.extend((side as i32).to_le_bytes());
+    out.extend(1u16.to_le_bytes());
+    out.extend(24u16.to_le_bytes());
+    out.extend([0u8; 24]);
+    for y in (0..side).rev() {
+        for x in 0..side {
+            let [r, gr, b] = px[y * side + x];
+            out.extend([b, gr, r]);
+        }
+        out.extend(vec![0u8; row - side * 3]);
+    }
+    (out, many, few)
 }
 
 /// Evolve graphs srg(n, k, 1, 2) around the fixed part.
@@ -655,7 +724,7 @@ pub fn evolve(k: u32, s: &Evolve) -> Option<Evolved> {
     pop.sort_by_key(|p| p.0);
     let best = pop[0].0;
     history.push(best);
-    Some(Evolved { best, history, graph: (best == 0 && is_srg(&pop[0].1, k)).then(|| pop[0].1.clone()), free_points: m })
+    Some(Evolved { best, history, graph: (best == 0 && is_srg(&pop[0].1, k)).then(|| pop[0].1.clone()), free_points: m, best_graph: pop[0].1.clone() })
 }
 
 /// The "evolve the small graph" rule: n = t copies of a block graph that
@@ -930,7 +999,7 @@ pub fn evolve_blocks(shape: &Blocks, s: &Evolve) -> Evolved {
     let g = shape.graph(&pop[0].1);
     let k = g[0].count_ones();
     let regular = g.iter().all(|x| x.count_ones() == k);
-    Evolved { best, history, graph: (best == 0 && regular && violations_with(&g, shape.lambda, shape.mu) == 0).then_some(g), free_points: m * shape.copies }
+    Evolved { best, history, graph: (best == 0 && regular && violations_with(&g, shape.lambda, shape.mu) == 0).then(|| g.clone()), free_points: m * shape.copies, best_graph: g }
 }
 
 /// The known necessary conditions for a strongly regular graph
@@ -962,7 +1031,7 @@ pub fn conditions(n: i64, k: i64, l: i64, m: i64) -> Vec<(&'static str, String, 
 }
 
 /// Report lines for the attempt at the problem; `budget` branch points in all.
-pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
+pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>) -> Vec<String> {
     let (reps, total) = matching_orbits(14);
     let mut out = vec![
         "what is asked: 99 points, some joined by lines; every point has exactly 14 lines; two joined points have exactly 1 common neighbour; two points not joined have exactly 2".to_string(),
@@ -1072,6 +1141,20 @@ pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
         }
         None => format!("  best graph off by {} in total: not found. The rule assumes the 99-graph contains 11 separate copies of the 9-point graph, which nobody knows; if it does not, this route cannot succeed", big.best),
     });
+    if let Some(dir) = pictures {
+        // the best 99-point graph and the true 9-point graph, to compare by eye
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir);
+        let (image, many, few) = picture(&big.best_graph, 1, 2, 9, 6);
+        let (small, _, _) = picture(&rook9(), 1, 2, 3, 40);
+        let saved = std::fs::create_dir_all(&dir).is_ok()
+            && std::fs::write(dir.join("99-graph.bmp"), image).is_ok()
+            && std::fs::write(dir.join("9-graph.bmp"), small).is_ok();
+        out.push(if saved {
+            format!("  pictures: {} and 9-graph.bmp beside it (the true 9-point graph). One square per pair of points: black = a line, white = no line, where the common neighbours are right; red = too many common neighbours ({many} pairs), blue = too few ({few} pairs), dark for a line and light for no line; grid lines between the 11 copies", dir.join("99-graph.bmp").display())
+        } else {
+            format!("  pictures could not be written to {}", dir.display())
+        });
+    }
     if let Some(e) = evolve(14, fitness) {
         let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
         out.push(format!(

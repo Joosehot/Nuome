@@ -81,6 +81,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
                 seed: p.evolve_seed.unwrap_or(2026),
                 climb: p.evolve_climb.unwrap_or(300),
             },
+            p.pictures.as_deref(),
         ),
         ("riemann", Some(n)) => crate::zeta::report(requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))) as f64, &p.tables),
         ("bsd", Some(n)) => crate::bsd::report(requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))), &p.tables),
