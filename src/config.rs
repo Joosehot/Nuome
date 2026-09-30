@@ -166,6 +166,15 @@ pub struct OpenProblem {
     /// A graph to start the repair search from ("a-b" lines, from the crate root).
     #[serde(default)]
     pub seed_graph: Option<String>,
+    /// Lattice simulations: side of the lattice, couplings, sweeps.
+    #[serde(default)]
+    pub lattice: Option<usize>,
+    #[serde(default)]
+    pub betas: Vec<f64>,
+    #[serde(default)]
+    pub thermalise: Option<usize>,
+    #[serde(default)]
+    pub measure: Option<usize>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]

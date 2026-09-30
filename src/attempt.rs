@@ -73,6 +73,13 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
+        ("yang_mills", _) => crate::yang_mills::report(&crate::yang_mills::Settings {
+            lattice: p.lattice.unwrap_or(8),
+            betas: if p.betas.is_empty() { vec![0.5, 2.2, 2.3, 2.4, 2.5, 4.0] } else { p.betas.clone() },
+            thermalise: p.thermalise.unwrap_or(50),
+            measure: p.measure.unwrap_or(100),
+            seed: p.evolve_seed.unwrap_or(2026),
+        }),
         ("conway99", Some(n)) => crate::conway::report(
             requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))),
             &crate::conway::Evolve {

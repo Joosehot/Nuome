@@ -978,6 +978,12 @@ name = "Yang-Mills existence and mass gap"
 statement = "quantum Yang-Mills theory exists on four-dimensional space-time for every compact simple gauge group, with a positive mass gap"
 status = "it is open and is a Millennium Prize Problem"
 formal = "prove that quantum gauge theory with a compact simple group on four dimensional spacetime has a positive lowest energy"
+# lattice simulation (src/yang_mills.rs): SU(2) on lattice^4, one run per beta
+lattice = 8
+betas = [0.5, 2.2, 2.3, 2.4, 2.5, 4.0]
+thermalise = 50
+measure = 100
+evolve_seed = 2026
 
 [open.yang_mills.guess]
 answer = "true: the theory exists and has a mass gap"
