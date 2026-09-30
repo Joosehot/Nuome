@@ -926,7 +926,7 @@ check_up_to = 1000
 max_check = 10000000
 # Odlyzko's tables (www-users.cse.umn.edu/~odlyzko/zeta_tables): zeros6 = the first
 # 2 001 052 zeros (not in git, 36 MB), zeros1 = the first 100 000
-zero_tables = ["data/zeta/zeros6", "data/zeta/zeros1"]
+tables = ["data/zeta/zeros6", "data/zeta/zeros1"]
 
 [open.riemann.guess]
 answer = "true: every nontrivial zero has real part 1/2"
@@ -995,6 +995,10 @@ known = [
     "true when the analytic rank is 0 or 1 (Gross and Zagier, 1986; Kolyvagin, 1989)",
 ]
 formal = "prove that the rank of every elliptic curve equals the order of vanishing of its l-function at s = 1"
+# conductor limit for the check (src/bsd.rs); Cremona's table, github.com/JohnCremona/ecdata
+check_up_to = 1000
+max_check = 10000
+tables = ["data/ecdata/allcurves.00000-09999"]
 
 [open.bsd.guess]
 answer = "true"
