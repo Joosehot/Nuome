@@ -399,7 +399,18 @@ pub fn search_split(k: u32, budget: u64) -> Option<(usize, Vec<Outcome>)> {
 
 /// Report lines for the attempt at the problem; `budget` branch points in all.
 pub fn report(budget: u64) -> Vec<String> {
-    let mut out = Vec::new();
+    let (reps, total) = matching_orbits(14);
+    let mut out = vec![
+        "what is asked: 99 points, some joined by lines; every point has exactly 14 lines; two joined points have exactly 1 common neighbour; two points not joined have exactly 2".to_string(),
+        "why a search can settle it: there are 99 * 98 / 2 = 4851 possible lines, so finitely many graphs (2^4851); a complete search answers yes (a graph, checked line by line) or no (every possibility ruled out)".into(),
+        "step 1, triangles: two joined points share exactly 1 neighbour, so every line lies in exactly one triangle; the 14 neighbours of a point form 7 triangles through it, touching only at that point".into(),
+        "step 2, name the points: take point 0 and its 14 neighbours (7 triangles). Each of the other 84 points is not joined to 0, so it shares exactly 2 neighbours with 0, from different triangles (from the same one, a line would lie in two triangles). Two neighbours of 0 from different triangles share exactly one neighbour besides 0. There are 14 * 12 / 2 = 84 such pairs, so the 84 points are exactly these pairs, one each".into(),
+        "step 3, what is left: every line at point 0 and its neighbours is now fixed; open are the lines among the 84 points: 84 * 83 / 2 = 3486 yes/no choices, each of the 84 points needing 12 more lines".into(),
+        format!("step 4, split into cases: point 1's 12 neighbours among the 84 must pair up into 6 lines (each line at point 1 lies in one triangle): {total} ways. Renaming the triangles and swapping points inside them turns many ways into each other (46080 renamings), which leaves {} truly different cases", reps.len()),
+        "step 5, search each case: pick an open pair, try 'line', and if that fails 'no line'; after every choice apply everything it forces (a point with 14 lines gets no more; two points whose common neighbours are complete get no further shared ones; and the reverse when only just enough are possible); a contradiction rules the branch out".into(),
+        "how to read the result: a case is closed when every branch in it ends in a contradiction; all cases closed = no such graph; a completed graph = yes, checked pair by pair before it is reported".into(),
+        "warm-ups first: the same search on the smaller members of the family, 1 common neighbour for joined and 2 for others, with 4, 6 and 8 neighbours (9, 19 and 33 points), where the answer is known: it must find the 9-point graph and rule out the other two".into(),
+    ];
     for k in [4u32, 6, 8] {
         if let Some(o) = search(k, u64::MAX) {
             let what = if o.found > 0 {
@@ -410,18 +421,21 @@ pub fn report(budget: u64) -> Vec<String> {
             out.push(format!("warm-up srg({}, {k}, 1, 2): complete search of {} undecided pairs, {} branch points: {what}", o.n, o.open_pairs, o.nodes));
         }
     }
-    let per_case = (budget / matching_orbits(14).0.len() as u64).max(1);
+    let per_case = (budget / reps.len() as u64).max(1);
     let t0 = std::time::Instant::now();
     match search_split(14, per_case) {
-        Some((total, cases)) => {
+        Some((_, cases)) => {
             let secs = t0.elapsed().as_secs_f64().max(1e-9);
             let nodes: u64 = cases.iter().map(|c| c.nodes).sum();
             let closed = cases.iter().filter(|c| c.complete && c.found == 0).count();
             let found: u64 = cases.iter().map(|c| c.found).sum();
             let deepest = cases.iter().map(|c| c.deepest).max().unwrap_or(0);
             let open: Vec<String> = cases.iter().enumerate().filter(|(_, c)| !c.complete).map(|(i, _)| (i + 1).to_string()).collect();
-            out.push(format!("srg(99, 14, 1, 2): the structure fixes every edge at vertex 0 and its 14 neighbours; {} pairs among the other 84 vertices are left", cases.first().map_or(0, |c| c.open_pairs + 6)));
-            out.push(format!("vertex 1's 12 neighbours among those 84 must pair up into 6 edges: {total} matchings, {} up to the 46080 symmetries of the fixed part; each is a separate case", cases.len()));
+            out.push(format!(
+                "the 99-point search: {} cases, each with {} open pairs after its 6 fixed lines",
+                cases.len(),
+                cases.first().map_or(0, |c| c.open_pairs)
+            ));
             out.push(format!(
                 "{nodes} branch points in all (at most {per_case} per case, {:.0} per second): {closed} of {} cases closed completely (no graph in them), {found} graphs found, cases still open: {}; at most {deepest} pairs decided at once",
                 nodes as f64 / secs,
