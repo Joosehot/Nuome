@@ -73,7 +73,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
-        ("riemann", Some(n)) => crate::evidence::riemann(n as f64),
+        ("riemann", Some(n)) => crate::zeta::report(requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))) as f64),
         _ => vec!["nothing: no finite calculation bears on this statement".into()],
     };
     out.push("  attempt 2, compute:".into());

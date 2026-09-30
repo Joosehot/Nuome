@@ -158,10 +158,13 @@ error: The Riemann hypothesis: an attempt
       "0 <": one side of < is empty
     so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
   attempt 2, compute:
-    computed Z(t) (the Riemann-Siegel formula) for 10 <= t <= 100 and found 29 sign changes: 29 zeros of zeta exactly on the line Re(s) = 1/2
-    first ones: t = 14.14, 21.02, 25.02, 30.43, 32.93 (to about 0.01; the formula keeps one correction term)
-    the Riemann-von Mangoldt formula puts about 29.0 zeros in the whole strip 0 < Re(s) < 1 up to that height, so none appear to be off the line there
-    making that last step rigorous needs Turing's method and careful error bounds, and it says nothing above that height: evidence, not a proof
+    verified the hypothesis up to height 1000.48 (the Gram point g_648) by Turing's method, the standard way it is checked
+    found 649 sign changes of Z(t): 649 zeros of zeta exactly on the line Re(s) = 1/2 (first: t = 14.134725, 21.022040, 25.010858, 30.424876, 32.935062)
+    Rosser's rule held in all 629 Gram blocks (22 bad Gram points, longest block 2 intervals)
+    Turing's method (Brent's form) with 2 blocks past that point, 0.8 needed, bounds ALL zeros in the strip up to that height by 649
+    so the strip 0 < Re(s) < 1 holds exactly 649 zeros up to height 1000.48, and every one is on the line and simple: the hypothesis is TRUE up to that height
+    certainty: every sign used was fixed with an error bound (Gabcke's bound on the Riemann-Siegel remainder, and Euler-Maclaurin below t = 200 and near zeros) and only when |Z| was at least 2 times that bound; the smallest |Z| used was 2.4 times its bound; 744 values of Z; floating-point rounding is estimated, not interval arithmetic
+    above that height nothing is checked: the hypothesis is about every height, so this is a verified finite range, not a proof
   result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases
   (ask for a "best guess" to see what is expected, clearly marked as unchecked)
 

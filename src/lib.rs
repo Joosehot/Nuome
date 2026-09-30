@@ -31,6 +31,7 @@ pub mod rules;
 pub mod scoring;
 pub mod search;
 pub mod words;
+pub mod zeta;
 // abstract algebra (agent G)
 pub mod abstract_algebra;
 

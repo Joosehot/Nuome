@@ -921,13 +921,15 @@ known = [
     "more than 40% of all nontrivial zeros lie on it (Conrey, 1989, and later work)",
 ]
 formal = "prove that if zeta(s) = 0 and 0 < re(s) < 1 then re(s) = 1/2"
-check_up_to = 100
+# height checked by Turing's method (src/zeta.rs); "up to 10^5" in the question asks for more
+check_up_to = 1000
+max_check = 10000000
 
 [open.riemann.guess]
 answer = "true: every nontrivial zero has real part 1/2"
 confidence = "high"
 basis = [
-    "the first 10^13 zeros are on the line, and Nuome found all 29 zeros up to height 100 on it",
+    "the first 10^13 zeros are on the line, and Nuome verified by Turing's method that every zero up to the height it checked is on it",
     "more than 40% of all zeros are proved to be on the line",
     "its consequences for primes match every computation so far",
 ]
