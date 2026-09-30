@@ -945,6 +945,11 @@ known = [
     "relativization (1975), natural proofs (1994) and algebrization (2008) rule out whole families of proof techniques",
 ]
 formal = "prove that every problem checkable in polynomial time is solvable in polynomial time"
+# experiment (src/p_vs_np.rs): random 3-SAT with n variables and ratio * n clauses
+sizes = [20, 40, 60, 80, 100, 120, 140, 160]
+instances = 40
+ratio = 4.26
+evolve_seed = 2026
 
 [open.p_vs_np.guess]
 answer = "P != NP"

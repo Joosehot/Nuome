@@ -26,6 +26,7 @@ pub mod lexicon;
 pub mod logic;
 pub mod model;
 pub mod navier_stokes;
+pub mod p_vs_np;
 pub mod parser;
 pub mod poly;
 pub mod print;

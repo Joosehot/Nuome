@@ -73,6 +73,12 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
+        ("p_vs_np", _) => crate::p_vs_np::report(&crate::p_vs_np::Settings {
+            sizes: if p.sizes.is_empty() { vec![20, 30, 40, 50, 60, 70, 80] } else { p.sizes.clone() },
+            instances: p.instances.unwrap_or(40),
+            ratio: p.ratio.unwrap_or(4.26),
+            seed: p.evolve_seed.unwrap_or(2026),
+        }),
         ("navier_stokes", _) => crate::navier_stokes::report(&crate::navier_stokes::Settings {
             grid: p.grid.unwrap_or(32),
             viscosity: p.viscosity.unwrap_or(0.01),

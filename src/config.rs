@@ -184,6 +184,13 @@ pub struct OpenProblem {
     pub t_end: Option<f64>,
     #[serde(default)]
     pub dt: Option<f64>,
+    /// Experiments over problem sizes: the sizes, instances per size, a ratio.
+    #[serde(default)]
+    pub sizes: Vec<usize>,
+    #[serde(default)]
+    pub instances: Option<usize>,
+    #[serde(default)]
+    pub ratio: Option<f64>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]
