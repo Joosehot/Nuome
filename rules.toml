@@ -1101,6 +1101,12 @@ formal = "prove that there is a graph on 99 vertices where every vertex has 14 n
 # branch points the search may use (src/conway.rs); "up to 10^8" asks for more
 check_up_to = 100000
 max_check = 100000000000
+# the fitness search beside it: the Goldbach formula's genetic search (src/evolve.rs)
+# over whole graphs; climb = improving line swaps tried per child
+evolve_population = 120
+evolve_generations = 100
+evolve_seed = 2026
+evolve_climb = 300
 
 [open.conway99.guess]
 answer = "no guess: experts are divided"

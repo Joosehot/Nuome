@@ -456,8 +456,170 @@ pub fn search_split(k: u32, budget: u64) -> Option<(usize, Vec<Outcome>)> {
     Some((total, slots.into_iter().map(|m| m.into_inner().expect("done").expect("ran")).collect()))
 }
 
+/// The fitness search, the same genetic search as the Goldbach formula
+/// (src/evolve.rs): seeded, a population, the best tenth kept, parents by a
+/// tournament of three. A member is a whole graph: the fixed part plus a
+/// graph on the other points with every degree right. Its fitness is how
+/// far the common-neighbour counts are off, summed over every pair (0 = the
+/// graph asked for). A child is a parent with a few line swaps (a-b, c-d
+/// become a-c, b-d: degrees stay), then `climb` swaps kept when not worse.
+pub struct Evolve {
+    pub population: usize,
+    pub generations: usize,
+    pub seed: u64,
+    pub climb: usize,
+}
+
+/// Sum over all pairs of |common neighbours - target|.
+fn violations(g: &[Set]) -> u32 {
+    let n = g.len();
+    let mut total = 0;
+    for u in 0..n {
+        for v in u + 1..n {
+            let common = (g[u] & g[v]).count_ones() as i32;
+            let target = if g[u] >> v & 1 == 1 { 1 } else { 2 };
+            total += (common - target).unsigned_abs();
+        }
+    }
+    total
+}
+
+/// One swap among the free points (from `free` on); false if none was made.
+fn swap(g: &mut [Set], free: usize, r: &mut crate::evolve::Rng) -> Option<[usize; 4]> {
+    let n = g.len();
+    let inside: Set = ((1u128 << n) - 1) & !((1u128 << free) - 1);
+    let pick = |r: &mut crate::evolve::Rng, g: &[Set]| -> Option<(usize, usize)> {
+        let a = free + r.below(n - free);
+        let ns: Vec<usize> = bits(g[a] & inside).collect();
+        (!ns.is_empty()).then(|| (a, ns[r.below(ns.len())]))
+    };
+    let (a, b) = pick(r, g)?;
+    let (c, d) = pick(r, g)?;
+    if a == c || a == d || b == c || b == d || g[a] >> c & 1 == 1 || g[b] >> d & 1 == 1 {
+        return None;
+    }
+    for (x, y, on) in [(a, b, false), (c, d, false), (a, c, true), (b, d, true)] {
+        if on {
+            g[x] |= 1 << y;
+            g[y] |= 1 << x;
+        } else {
+            g[x] &= !(1 << y);
+            g[y] &= !(1 << x);
+        }
+    }
+    Some([a, b, c, d])
+}
+
+fn unswap(g: &mut [Set], [a, b, c, d]: [usize; 4]) {
+    for (x, y, on) in [(a, c, false), (b, d, false), (a, b, true), (c, d, true)] {
+        if on {
+            g[x] |= 1 << y;
+            g[y] |= 1 << x;
+        } else {
+            g[x] &= !(1 << y);
+            g[y] &= !(1 << x);
+        }
+    }
+}
+
+/// A child: a few swaps, then a climb that keeps swaps that are not worse.
+fn child(parent: &[Set], free: usize, seed: u64, climb: usize) -> (u32, Vec<Set>) {
+    let mut r = crate::evolve::Rng(seed.max(1));
+    let mut g = parent.to_vec();
+    for _ in 0..1 + r.below(3) {
+        swap(&mut g, free, &mut r);
+    }
+    let mut score = violations(&g);
+    for _ in 0..climb {
+        if let Some(m) = swap(&mut g, free, &mut r) {
+            let s = violations(&g);
+            if s <= score {
+                score = s;
+            } else {
+                unswap(&mut g, m);
+            }
+        }
+    }
+    (score, g)
+}
+
+pub struct Evolved {
+    pub best: u32,
+    /// the best fitness after each tenth of the generations
+    pub history: Vec<u32>,
+    pub graph: Option<Vec<Set>>,
+    pub free_points: usize,
+}
+
+/// Evolve graphs srg(n, k, 1, 2) around the fixed part.
+pub fn evolve(k: u32, s: &Evolve) -> Option<Evolved> {
+    let (base, _) = start(k)?;
+    let (n, free) = (base.n, k as usize + 1);
+    let m = n - free;
+    let d = k as usize - 2; // lines each free point still needs among the free points
+    let mut r = crate::evolve::Rng(s.seed.max(1));
+    // the first graph: a circulant (every degree d), then shuffled by swaps
+    let mut first = base.e.clone();
+    for i in 0..m {
+        for j in 1..=d / 2 {
+            let (x, y) = (free + i, free + (i + j) % m);
+            first[x] |= 1 << y;
+            first[y] |= 1 << x;
+        }
+    }
+    let mut pop: Vec<(u32, Vec<Set>)> = (0..s.population)
+        .map(|_| {
+            let mut g = first.clone();
+            for _ in 0..20 * m {
+                swap(&mut g, free, &mut r);
+            }
+            (violations(&g), g)
+        })
+        .collect();
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let mut history = Vec::new();
+    for generation in 0..s.generations {
+        pop.sort_by_key(|p| p.0);
+        if pop[0].0 == 0 {
+            break;
+        }
+        if generation % (s.generations / 10).max(1) == 0 {
+            history.push(pop[0].0);
+        }
+        let elite = (s.population / 10).max(1);
+        let mut next: Vec<(u32, Vec<Set>)> = pop.iter().take(elite).cloned().collect();
+        // parents and seeds drawn in a fixed order, children built in parallel
+        let jobs: Vec<(usize, u64)> = (next.len()..s.population)
+            .map(|_| {
+                let mut best = r.below(pop.len());
+                for _ in 0..2 {
+                    let c = r.below(pop.len());
+                    if pop[c].0 < pop[best].0 {
+                        best = c;
+                    }
+                }
+                (best, r.next())
+            })
+            .collect();
+        let size = jobs.len().div_ceil(threads).max(1);
+        let children: Vec<(u32, Vec<Set>)> = std::thread::scope(|sc| {
+            let hs: Vec<_> = jobs.chunks(size).map(|part| {
+                let pop = &pop;
+                sc.spawn(move || part.iter().map(|&(p, seed)| child(&pop[p].1, free, seed, s.climb)).collect::<Vec<_>>())
+            }).collect();
+            hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
+        });
+        next.extend(children);
+        pop = next;
+    }
+    pop.sort_by_key(|p| p.0);
+    let best = pop[0].0;
+    history.push(best);
+    Some(Evolved { best, history, graph: (best == 0 && is_srg(&pop[0].1, k)).then(|| pop[0].1.clone()), free_points: m })
+}
+
 /// Report lines for the attempt at the problem; `budget` branch points in all.
-pub fn report(budget: u64) -> Vec<String> {
+pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
     let (reps, total) = matching_orbits(14);
     let mut out = vec![
         "what is asked: 99 points, some joined by lines; every point has exactly 14 lines; two joined points have exactly 1 common neighbour; two points not joined have exactly 2".to_string(),
@@ -516,6 +678,21 @@ pub fn report(budget: u64) -> Vec<String> {
         }
         None => out.push("the search could not be set up".into()),
     }
+    if let Some(e) = evolve(14, fitness) {
+        let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
+        out.push(format!(
+            "fitness search beside it (the Goldbach formula's genetic search): {} graphs, {} generations, seed {}, the best tenth kept, parents by a tournament of three; fitness = how far the common-neighbour counts are off, summed over all 4851 pairs (0 = the graph); a child is a parent with a few swaps of line ends among the {} free points (degrees stay right) and then {} swaps kept when not worse",
+            fitness.population, fitness.generations, fitness.seed, e.free_points, fitness.climb
+        ));
+        out.push(format!("best fitness by tenths of the run: {}", steps.join(" -> ")));
+        out.push(match &e.graph {
+            Some(g) => {
+                let edges: Vec<String> = (0..g.len()).flat_map(|u| bits(g[u]).filter(move |&v| v > u).map(move |v| format!("{u}-{v}"))).collect();
+                format!("FOUND by the fitness search, fitness 0 and checked pair by pair: {}", edges.join(" "))
+            }
+            None => format!("best graph found is off by {} in total: not the graph. A fitness search can find the graph but never prove it does not exist", e.best),
+        });
+    }
     out
 }
 
@@ -554,6 +731,16 @@ mod tests {
         let (reps, total) = matching_orbits(14);
         assert_eq!(total, 10395);
         assert!(reps.len() < 100, "{}", reps.len());
+    }
+
+    #[test]
+    fn fitness_search_finds_the_nine_point_graph() {
+        let e = evolve(4, &Evolve { population: 10, generations: 20, seed: 1, climb: 20 }).expect("set up");
+        assert_eq!(e.best, 0);
+        assert!(is_srg(e.graph.as_ref().expect("found"), 4));
+        let a = evolve(14, &Evolve { population: 6, generations: 2, seed: 5, climb: 10 }).expect("set up");
+        let b = evolve(14, &Evolve { population: 6, generations: 2, seed: 5, climb: 10 }).expect("set up");
+        assert_eq!(a.history, b.history); // seeded: the same run twice
     }
 
     #[test]

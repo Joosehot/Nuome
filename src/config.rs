@@ -157,6 +157,9 @@ pub struct OpenProblem {
     /// Fitness by forward prediction (true) or by fit (false).
     #[serde(default)]
     pub evolve_forward: Option<bool>,
+    /// Improving steps per child in a fitness search over graphs.
+    #[serde(default)]
+    pub evolve_climb: Option<usize>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]
