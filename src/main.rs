@@ -46,6 +46,10 @@ struct Cli {
     /// every degree), then check and draw the best graph found.
     #[arg(long, requires = "graph")]
     repair: bool,
+    /// Search for the 99-graph for this many hours, round by round, from
+    /// Joose's 3 x 33 grid and his 7-network graph; progress in out/overnight.log.
+    #[arg(long)]
+    overnight: Option<f64>,
 }
 
 fn main() -> Result<()> {
@@ -60,6 +64,15 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(hours) = cli.overnight {
+        let problem = cfg.open.get("conway99");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let seven_path = root.join(problem.and_then(|p| p.seed_graph.clone()).unwrap_or_else(|| "data/conway/joose-7-networks.txt".into()));
+        let seven = nuome::conway::parse_edges(&std::fs::read_to_string(&seven_path).with_context(|| format!("reading {}", seven_path.display()))?).context("the 7-network graph")?;
+        let s = nuome::conway::Evolve { population: 200, generations: 300, seed: problem.and_then(|p| p.evolve_seed).unwrap_or(2026), climb: 600 };
+        println!("{}", nuome::conway::overnight(hours, &root.join("out"), &seven, &s));
+        return Ok(());
+    }
     if let Some(f) = &cli.graph {
         let text = std::fs::read_to_string(f).with_context(|| format!("reading {}", f.display()))?;
         let problem = cfg.open.get("conway99");

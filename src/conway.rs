@@ -1497,7 +1497,7 @@ fn row_unswap(g: &mut [Set], [a, b, c, d]: [usize; 4]) {
 
 /// The fitness search inside the grid structure: the Goldbach formula's
 /// genetic search, children made by row-keeping swaps and a climb.
-pub fn evolve_rows(start: &[Set], size: usize, s: &Evolve) -> Evolved {
+pub fn evolve_rows(start: &[Set], size: usize, s: &Evolve, shuffle: bool) -> Evolved {
     let mut r = crate::evolve::Rng(s.seed.max(1));
     let child = |parent: &[Set], seed: u64| -> (u32, Vec<Set>) {
         let mut r = crate::evolve::Rng(seed.max(1));
@@ -1518,12 +1518,15 @@ pub fn evolve_rows(start: &[Set], size: usize, s: &Evolve) -> Evolved {
         }
         (score, g)
     };
-    // shuffle the start inside the structure, a different way for each member
+    // shuffle the start inside the structure, a different way for each
+    // member (or, when continuing from a good graph, keep it as it is)
     let mut pop: Vec<(u32, Vec<Set>)> = (0..s.population)
         .map(|_| {
             let mut g = start.to_vec();
-            for _ in 0..20 * start.len() {
-                row_swap(&mut g, size, &mut r);
+            if shuffle {
+                for _ in 0..20 * start.len() {
+                    row_swap(&mut g, size, &mut r);
+                }
             }
             (violations(&g), g)
         })
@@ -1568,6 +1571,54 @@ pub fn evolve_rows(start: &[Set], size: usize, s: &Evolve) -> Evolved {
     history.push(best);
     let g = pop[0].1.clone();
     Evolved { best, history, graph: (best == 0 && is_srg(&g, 14)).then(|| g.clone()), free_points: g.len(), best_graph: g }
+}
+
+/// A long run, round by round, like a Pokemon evolving: each round's best
+/// graph starts the next round (with a new seed), for Joose's 3 x 33 grid
+/// and his 7-network graph in turn, until `hours` have passed or a graph
+/// with no error is found. Progress goes to `dir`/overnight.log and the best
+/// graph of each search to `dir`/overnight-<name>-best.txt.
+pub fn overnight(hours: f64, dir: &std::path::Path, seven: &[Set], s: &Evolve) -> String {
+    use std::io::Write;
+    let _ = std::fs::create_dir_all(dir);
+    let log_path = dir.join("overnight.log");
+    let log = |line: &str| {
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+            let _ = writeln!(f, "{line}");
+        }
+    };
+    let start = std::time::Instant::now();
+    let limit = std::time::Duration::from_secs_f64(hours * 3600.0);
+    // (name, current best graph, its errors, uses the grid moves)
+    let mut searches: Vec<(&str, Vec<Set>, u32, bool)> = vec![("grid-3x33", grid_rows(3, 33, 2, 6), u32::MAX, true), ("seven-networks", seven.to_vec(), violations(seven), false)];
+    log(&format!("start: {hours} hours, population {}, generations {} per round, climb {}", s.population, s.generations, s.climb));
+    let mut round = 0u64;
+    while start.elapsed() < limit {
+        for (name, best, errors, grid) in searches.iter_mut() {
+            let settings = Evolve { population: s.population, generations: s.generations, seed: s.seed.wrapping_add(round * 7919 + if *grid { 0 } else { 1 }), climb: s.climb };
+            // the first grid round shuffles the plain start; later rounds continue from the best
+            let e = if *grid { evolve_rows(best, 33, &settings, *errors == u32::MAX) } else { evolve_from(best, &settings) };
+            if e.best < *errors {
+                *errors = e.best;
+                *best = e.best_graph.clone();
+                let _ = std::fs::write(dir.join(format!("overnight-{name}-best.txt")), format!("# {name}: fitness {} ({} wrong pairs), round {round}\n{}", e.best, wrong_pairs(best), edge_list(best)));
+            }
+            log(&format!("{:>7.0} s  round {round:>4}  {name:<15} this round {:>5}  best so far {:>5} ({} wrong pairs)", start.elapsed().as_secs_f64(), e.best, *errors, wrong_pairs(best)));
+            if e.best == 0 && is_srg(best, 14) {
+                let msg = format!("FOUND by {name} in round {round}: a graph srg(99, 14, 1, 2), checked pair by pair; saved in overnight-{name}-best.txt");
+                log(&msg);
+                return msg;
+            }
+            if start.elapsed() >= limit {
+                break;
+            }
+        }
+        round += 1;
+    }
+    let summary = searches.iter().map(|(name, best, errors, _)| format!("{name}: fitness {errors}, {} wrong pairs", wrong_pairs(best))).collect::<Vec<_>>().join("; ");
+    let msg = format!("done after {round} rounds: {summary}; not solved");
+    log(&msg);
+    msg
 }
 
 /// A graph as text, one "a-b" per line.
@@ -1922,7 +1973,7 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph:
     {
         let start = grid_rows(3, 33, 2, 6);
         let degrees_ok = start.iter().all(|x| x.count_ones() == 14);
-        let e = evolve_rows(&start, 33, fitness);
+        let e = evolve_rows(&start, 33, fitness, true);
         let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
         out.push(format!(
             "Joose's 3 x 33 grid: if the 99-graph splits evenly into three rows of 33, the eigenvalues force 2 neighbours in the own row and 6 in each other row (a + 2b = 14 and a - b = -4); start: each row a closed ring, each pair of rows a band ({}), then only swaps that keep those counts: fitness {}; {} wrong pairs in the best graph{}",
