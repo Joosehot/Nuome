@@ -618,6 +618,34 @@ pub fn evolve(k: u32, s: &Evolve) -> Option<Evolved> {
     Some(Evolved { best, history, graph: (best == 0 && is_srg(&pop[0].1, k)).then(|| pop[0].1.clone()), free_points: m })
 }
 
+/// The known necessary conditions for a strongly regular graph
+/// srg(n, k, lambda, mu), each as (name, what was computed, holds). A single
+/// failure proves that no such graph exists.
+pub fn conditions(n: i64, k: i64, l: i64, m: i64) -> Vec<(&'static str, String, bool)> {
+    let mut out = Vec::new();
+    let count = k * (k - l - 1) == (n - k - 1) * m;
+    out.push(("counting", format!("k(k - lambda - 1) = {} and (n - k - 1) mu = {}", k * (k - l - 1), (n - k - 1) * m), count));
+    // eigenvalues r > s: roots of x^2 - (lambda - mu) x - (k - mu)
+    let disc = ((l - m) * (l - m) + 4 * (k - m)) as f64;
+    let (r, s) = (((l - m) as f64 + disc.sqrt()) / 2.0, ((l - m) as f64 - disc.sqrt()) / 2.0);
+    let f = ((n - 1) as f64 - (2.0 * k as f64 + (n - 1) as f64 * (l - m) as f64) / (r - s)) / 2.0;
+    let g = (n - 1) as f64 - f;
+    let whole = |x: f64| (x - x.round()).abs() < 1e-9;
+    out.push(("multiplicities", format!("eigenvalues {r:.4} and {s:.4} with multiplicities {f:.4} and {g:.4}"), whole(f) && whole(g) && f > 0.0 && g > 0.0));
+    let (kf, nf) = (k as f64, n as f64);
+    let krein1 = (r + 1.0) * (kf + r + 2.0 * r * s) <= (kf + r) * (s + 1.0).powi(2) + 1e-9;
+    let krein2 = (s + 1.0) * (kf + s + 2.0 * r * s) <= (kf + s) * (r + 1.0).powi(2) + 1e-9;
+    out.push(("Krein conditions", format!("{:.2} <= {:.2} and {:.2} <= {:.2}", (r + 1.0) * (kf + r + 2.0 * r * s), (kf + r) * (s + 1.0).powi(2), (s + 1.0) * (kf + s + 2.0 * r * s), (kf + s) * (r + 1.0).powi(2)), krein1 && krein2));
+    out.push(("absolute bound", format!("n = {n} <= f(f + 3)/2 = {:.1} and <= g(g + 3)/2 = {:.1}", f * (f + 3.0) / 2.0, g * (g + 3.0) / 2.0), nf <= f * (f + 3.0) / 2.0 + 1e-9 && nf <= g * (g + 3.0) / 2.0 + 1e-9));
+    let clique = 1.0 - kf / s;
+    out.push(("Hoffman clique bound", format!("a clique has at most 1 - k/s = {clique:.2} points; lambda = {l} needs cliques of {}", l + 2), (l + 2) as f64 <= clique + 1e-9));
+    out.push(("Hoffman ratio bound", format!("an independent set has at most n(-s)/(k - s) = {:.2} points", nf * -s / (kf - s)), nf * -s / (kf - s) >= 1.0));
+    let (mf, sf) = (m as f64, s);
+    let claw = if (mf - sf * sf).abs() > 1e-9 && (mf - sf * (sf + 1.0)).abs() > 1e-9 { 2.0 * (r + 1.0) <= sf * (sf + 1.0) * (mf + 1.0) + 1e-9 } else { true };
+    out.push(("claw bound (Brouwer)", format!("2(r + 1) = {:.2} <= s(s + 1)(mu + 1) = {:.2}", 2.0 * (r + 1.0), sf * (sf + 1.0) * (mf + 1.0)), claw));
+    out
+}
+
 /// Report lines for the attempt at the problem; `budget` branch points in all.
 pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
     let (reps, total) = matching_orbits(14);
@@ -633,6 +661,20 @@ pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
         "how to read the result: a case is closed when every branch in it ends in a contradiction; all cases closed = no such graph; a completed graph = yes, checked pair by pair before it is reported".into(),
         "warm-ups first: the same search on the smaller members of the family, 1 common neighbour for joined and 2 for others, with 4, 6 and 8 neighbours (9, 19 and 33 points), where the answer is known: it must find the 9-point graph and rule out the other two".into(),
     ];
+    // the mathematical route first: does a known necessary condition fail?
+    out.push("known necessary conditions (one failure proves no such graph exists); tested first where the answer is known:".into());
+    for (n, k, what) in [(9i64, 4i64, "exists"), (19, 6, "does not exist"), (33, 8, "does not exist"), (243, 22, "exists"), (99, 14, "OPEN")] {
+        let c = conditions(n, k, 1, 2);
+        let failed: Vec<&str> = c.iter().filter(|x| !x.2).map(|x| x.0).collect();
+        out.push(format!(
+            "  srg({n}, {k}, 1, 2), {what}: {}",
+            if failed.is_empty() { format!("passes all {}", c.len()) } else { format!("fails {}", failed.join(", ")) }
+        ));
+    }
+    for (name, computed, holds) in conditions(99, 14, 1, 2) {
+        out.push(format!("  99: {name}: {computed}: {}", if holds { "holds" } else { "FAILS" }));
+    }
+    out.push("  so no known condition rules the 99-graph out: a proof that it does not exist needs a new one, and a construction needs a new idea; this is where the problem has stood since 1971".into());
     for k in [4u32, 6, 8] {
         if let Some(o) = search(k, u64::MAX) {
             let what = if o.found > 0 {
