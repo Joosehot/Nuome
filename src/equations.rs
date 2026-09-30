@@ -7,18 +7,30 @@
 //!    crossover, a new subtree, or a nudged constant; a price per node);
 //! 3. the printed equation rechecked, pair by pair.
 //!
-//! The points sit on a grid of `rows` x `cols`; point p is (x_p, y_p). An
-//! equation is a term t(p, q) and a modulus M: p and q are joined when
+//! The points sit on a grid with the given sides (3 x 3, or 3 x 3 x 11);
+//! point p has coordinates x_p, y_p, z_p, ... and a label p (its number).
+//! An equation is a term t(p, q) and a modulus M: p and q are joined when
 //! t(p, q) = 0 or t(q, p) = 0 (mod M), which makes the rule symmetric.
 //! Arithmetic is in Z_M, so a product is 0 when one factor is: a product
 //! says "or" ((x_p - x_q)(y_p - y_q) = 0 is "same row or same column").
+//!
+//! The chain (like a Pokemon evolving): the equation found for a small graph
+//! is lifted onto the bigger grid, in several evolved forms, and seeds the
+//! search there.
 
 use crate::conway::{violations_with, Set};
 use crate::evolve::Rng;
 
+/// A variable: point (0 = p, 1 = q) times 8 plus the axis (0 x, 1 y, 2 z,
+/// 3 w; 7 = the point's label).
+const LABEL: u8 = 7;
+
+fn coord(point: u8, axis: u8) -> Term {
+    Var(point * 8 + axis)
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Term {
-    /// 0 x_p, 1 y_p, 2 x_q, 3 y_q, 4 p, 5 q
     Var(u8),
     Num(i64),
     Add(Box<Term>, Box<Term>),
@@ -33,7 +45,7 @@ fn b(t: Term) -> Box<Term> {
 }
 
 impl Term {
-    fn eval(&self, v: &[i64; 6], m: i64) -> i64 {
+    fn eval(&self, v: &[i64; 16], m: i64) -> i64 {
         match self {
             Var(i) => v[*i as usize].rem_euclid(m),
             Num(c) => c.rem_euclid(m),
@@ -50,7 +62,14 @@ impl Term {
     }
     pub fn show(&self) -> String {
         match self {
-            Var(i) => ["x_p", "y_p", "x_q", "y_q", "p", "q"][*i as usize].to_string(),
+            Var(i) => {
+                let point = if i / 8 == 0 { "p" } else { "q" };
+                if i % 8 == LABEL {
+                    point.to_string()
+                } else {
+                    format!("{}_{point}", ["x", "y", "z", "w", "v", "u", "t"][(i % 8) as usize])
+                }
+            }
             Num(c) => c.to_string(),
             Add(a, c) => format!("({} + {})", a.show(), c.show()),
             Sub(a, c) => format!("({} - {})", a.show(), c.show()),
@@ -104,10 +123,10 @@ impl Equation {
 }
 
 /// The problem: a grid of points and the counts asked for.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Target {
-    pub rows: usize,
-    pub cols: usize,
+    /// the sides of the grid, first coordinate first
+    pub dims: Vec<usize>,
     pub k: u32,
     pub lambda: u32,
     pub mu: u32,
@@ -115,11 +134,29 @@ pub struct Target {
 
 impl Target {
     fn n(&self) -> usize {
-        self.rows * self.cols
+        self.dims.iter().product()
     }
-    fn vars(&self, p: usize, q: usize) -> [i64; 6] {
-        let (c, pi, qi) = (self.cols, p as i64, q as i64);
-        [(p / c) as i64, (p % c) as i64, (q / c) as i64, (q % c) as i64, pi, qi]
+    pub fn shape(&self) -> String {
+        self.dims.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(" x ")
+    }
+    fn coords(&self, p: usize) -> Vec<i64> {
+        let mut rest = p;
+        let mut c = vec![0; self.dims.len()];
+        for (i, &d) in self.dims.iter().enumerate().rev() {
+            c[i] = (rest % d) as i64;
+            rest /= d;
+        }
+        c
+    }
+    fn vars(&self, p: usize, q: usize) -> [i64; 16] {
+        let mut v = [0i64; 16];
+        for (point, x) in [(0, p), (1, q)] {
+            for (axis, c) in self.coords(x).into_iter().enumerate() {
+                v[point * 8 + axis] = c;
+            }
+            v[point * 8 + LABEL as usize] = x as i64;
+        }
+        v
     }
     /// The graph the equation draws.
     pub fn build(&self, e: &Equation) -> Vec<Set> {
@@ -150,19 +187,23 @@ impl Target {
     }
 }
 
+fn diff(axis: u8) -> Term {
+    Sub(b(coord(0, axis)), b(coord(1, axis)))
+}
+
 /// The fixed families, each a shape with one constant c (0..modulus).
 pub fn families() -> Vec<(&'static str, fn(i64) -> Term)> {
-    fn d(i: u8, j: u8) -> Term {
-        Sub(b(Var(i)), b(Var(j)))
-    }
     vec![
-        ("same row or same column: (x_p - x_q)(y_p - y_q)", |_| Mul(b(d(0, 2)), b(d(1, 3)))),
-        ("difference of labels: p - q - c", |c| Sub(b(d(4, 5)), b(Num(c)))),
-        ("square of the difference: (p - q)^2 - c", |c| Sub(b(Mul(b(d(4, 5)), b(d(4, 5)))), b(Num(c)))),
-        ("row difference times column difference minus c: (x_p - x_q)(y_p - y_q) - c", |c| Sub(b(Mul(b(d(0, 2)), b(d(1, 3)))), b(Num(c)))),
-        ("distance: (x_p - x_q)^2 + (y_p - y_q)^2 - c", |c| Sub(b(Add(b(Mul(b(d(0, 2)), b(d(0, 2)))), b(Mul(b(d(1, 3)), b(d(1, 3)))))), b(Num(c)))),
-        ("dot product: x_p x_q + y_p y_q - c", |c| Sub(b(Add(b(Mul(b(Var(0)), b(Var(2)))), b(Mul(b(Var(1)), b(Var(3)))))), b(Num(c)))),
-        ("line: y_q - y_p - c (x_q - x_p)", |c| Sub(b(d(3, 1)), b(Mul(b(Num(c)), b(d(2, 0)))))),
+        ("same row or same column: (x_p - x_q)(y_p - y_q)", |_| Mul(b(diff(0)), b(diff(1)))),
+        ("difference of labels: p - q - c", |c| Sub(b(Sub(b(coord(0, LABEL)), b(coord(1, LABEL)))), b(Num(c)))),
+        ("square of the difference: (p - q)^2 - c", |c| {
+            let d = Sub(b(coord(0, LABEL)), b(coord(1, LABEL)));
+            Sub(b(Mul(b(d.clone()), b(d))), b(Num(c)))
+        }),
+        ("row difference times column difference minus c: (x_p - x_q)(y_p - y_q) - c", |c| Sub(b(Mul(b(diff(0)), b(diff(1)))), b(Num(c)))),
+        ("distance: (x_p - x_q)^2 + (y_p - y_q)^2 - c", |c| Sub(b(Add(b(Mul(b(diff(0)), b(diff(0)))), b(Mul(b(diff(1)), b(diff(1)))))), b(Num(c)))),
+        ("dot product: x_p x_q + y_p y_q - c", |c| Sub(b(Add(b(Mul(b(coord(0, 0)), b(coord(1, 0)))), b(Mul(b(coord(0, 1)), b(coord(1, 1)))))), b(Num(c)))),
+        ("line: y_q - y_p - c (x_q - x_p)", |c| Sub(b(Sub(b(coord(1, 1)), b(coord(0, 1)))), b(Mul(b(Num(c)), b(Sub(b(coord(1, 0)), b(coord(0, 0)))))))),
     ]
 }
 
@@ -184,26 +225,34 @@ pub fn fit_families(t: &Target, price: f64) -> Vec<(&'static str, Equation, f64)
 
 /// The index and value of the smallest score, computed on every thread.
 fn parallel_best<T: Sync>(items: &[T], score: impl Fn(&T) -> f64 + Sync) -> (usize, f64) {
+    let scores = parallel_scores(items, score);
+    scores.iter().enumerate().fold((0, f64::INFINITY), |best, (i, &s)| if s < best.1 { (i, s) } else { best })
+}
+
+fn parallel_scores<T: Sync>(items: &[T], score: impl Fn(&T) -> f64 + Sync) -> Vec<f64> {
     let threads = std::thread::available_parallelism().map_or(4, |t| t.get());
     let size = items.len().div_ceil(threads).max(1);
-    let scores: Vec<f64> = std::thread::scope(|sc| {
+    std::thread::scope(|sc| {
         let hs: Vec<_> = items.chunks(size).map(|part| {
             let score = &score;
             sc.spawn(move || part.iter().map(score).collect::<Vec<_>>())
         }).collect();
         hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
-    });
-    scores.iter().enumerate().fold((0, f64::INFINITY), |best, (i, &s)| if s < best.1 { (i, s) } else { best })
+    })
 }
 
-fn random_term(r: &mut Rng, depth: usize, m: i64) -> Term {
+fn random_term(r: &mut Rng, depth: usize, m: i64, axes: usize) -> Term {
     if depth == 0 || r.below(3) == 0 {
-        return if r.below(4) == 0 { Num(r.below(m as usize) as i64) } else { Var(r.below(6) as u8) };
+        return match r.below(5) {
+            0 => Num(r.below(m as usize) as i64),
+            1 => coord(r.below(2) as u8, LABEL),
+            _ => coord(r.below(2) as u8, r.below(axes) as u8),
+        };
     }
     match r.below(3) {
-        0 => Add(b(random_term(r, depth - 1, m)), b(random_term(r, depth - 1, m))),
-        1 => Sub(b(random_term(r, depth - 1, m)), b(random_term(r, depth - 1, m))),
-        _ => Mul(b(random_term(r, depth - 1, m)), b(random_term(r, depth - 1, m))),
+        0 => Add(b(random_term(r, depth - 1, m, axes)), b(random_term(r, depth - 1, m, axes))),
+        1 => Sub(b(random_term(r, depth - 1, m, axes)), b(random_term(r, depth - 1, m, axes))),
+        _ => Mul(b(random_term(r, depth - 1, m, axes)), b(random_term(r, depth - 1, m, axes))),
     }
 }
 
@@ -221,26 +270,20 @@ pub struct Evolved {
     pub history: Vec<f64>,
 }
 
-/// Evolve equations; the population starts with the fitted families.
+/// Evolve equations; the population starts with the given seeds.
 pub fn evolve(t: &Target, seeds: &[Equation], s: &Settings) -> Evolved {
     let n = t.n();
+    let axes = t.dims.len();
     let mut r = Rng(s.seed.max(1));
-    let mut pop: Vec<Equation> = seeds.to_vec();
+    let mut pop: Vec<Equation> = seeds.iter().take(s.population).cloned().collect();
     while pop.len() < s.population {
         let m = 2 + r.below(n - 1) as i64;
-        pop.push(Equation { term: random_term(&mut r, 3, m), modulus: m });
+        pop.push(Equation { term: random_term(&mut r, 3, m, axes), modulus: m });
     }
     let mut history = Vec::new();
     let mut scored: Vec<(f64, Equation)> = Vec::new();
     for generation in 0..s.generations {
-        let scores = {
-            let threads = std::thread::available_parallelism().map_or(4, |x| x.get());
-            let size = pop.len().div_ceil(threads).max(1);
-            std::thread::scope(|sc| {
-                let hs: Vec<_> = pop.chunks(size).map(|part| sc.spawn(move || part.iter().map(|e| t.fitness(e, s.price_per_node)).collect::<Vec<_>>())).collect();
-                hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect::<Vec<f64>>()
-            })
-        };
+        let scores = parallel_scores(&pop, |e| t.fitness(e, s.price_per_node));
         scored = scores.into_iter().zip(pop.drain(..)).collect();
         scored.sort_by(|a, c| a.0.total_cmp(&c.0));
         if generation % (s.generations / 10).max(1) == 0 {
@@ -249,8 +292,8 @@ pub fn evolve(t: &Target, seeds: &[Equation], s: &Settings) -> Evolved {
         if generation + 1 == s.generations {
             break;
         }
-        let elite = s.population / 10;
-        let mut next: Vec<Equation> = scored.iter().take(elite.max(1)).map(|(_, e)| e.clone()).collect();
+        let elite = (s.population / 10).max(1);
+        let mut next: Vec<Equation> = scored.iter().take(elite).map(|(_, e)| e.clone()).collect();
         let pick = |r: &mut Rng| -> Equation {
             // tournament of three
             let mut best = r.below(scored.len());
@@ -274,7 +317,7 @@ pub fn evolve(t: &Target, seeds: &[Equation], s: &Settings) -> Evolved {
                 }
                 1 => {
                     let k = r.below(child.term.size());
-                    *child.term.at(k) = random_term(&mut r, 2, child.modulus);
+                    *child.term.at(k) = random_term(&mut r, 2, child.modulus, axes);
                 }
                 _ => {
                     // nudge a constant, or the modulus
@@ -286,7 +329,7 @@ pub fn evolve(t: &Target, seeds: &[Equation], s: &Settings) -> Evolved {
                     }
                 }
             }
-            if child.term.size() <= 15 {
+            if child.term.size() <= 21 {
                 next.push(child);
             }
         }
@@ -297,25 +340,85 @@ pub fn evolve(t: &Target, seeds: &[Equation], s: &Settings) -> Evolved {
     Evolved { best, fitness, history }
 }
 
+/// The small graph's equation, lifted onto a grid with one more coordinate
+/// (z) in its evolved forms: as it is, times the new difference, plus it,
+/// with the new coordinate folded into one of the old ones, and all of
+/// these at every modulus that is a multiple of the old one.
+pub fn lift(small: &Equation, n: usize) -> Vec<Equation> {
+    let z = diff(2);
+    let t = small.term.clone();
+    let shapes = vec![
+        t.clone(),
+        Mul(b(t.clone()), b(z.clone())),
+        Add(b(t.clone()), b(z.clone())),
+        Sub(b(t.clone()), b(z.clone())),
+        Mul(b(t.clone()), b(Mul(b(z.clone()), b(z.clone())))),
+        Mul(b(Add(b(diff(0)), b(z.clone()))), b(diff(1))),
+        Mul(b(diff(0)), b(Add(b(diff(1)), b(z.clone())))),
+        Mul(b(t.clone()), b(Sub(b(Mul(b(z.clone()), b(z.clone()))), b(Num(1))))),
+        Mul(b(Mul(b(diff(0)), b(diff(1)))), b(z)),
+    ];
+    let mut out = Vec::new();
+    for m in (small.modulus..=n as i64).filter(|m| m % small.modulus == 0) {
+        for s in &shapes {
+            out.push(Equation { term: s.clone(), modulus: m });
+        }
+    }
+    out
+}
+
 /// Report lines: families, evolution, and the printed equation rechecked.
 pub fn report(t: &Target, s: &Settings) -> Vec<String> {
     let mut out = Vec::new();
     let fitted = fit_families(t, s.price_per_node);
-    out.push(format!("equation families on a {} x {} grid, each with its best constant and modulus (fitness = common-neighbour counts off + 10 per neighbour off + {} per node; 0 errors = the graph):", t.rows, t.cols, s.price_per_node));
+    out.push(format!("equation families on a {} grid, each with its best constant and modulus (fitness = common-neighbour counts off + 10 per neighbour off + {} per node; 0 errors = the graph):", t.shape(), s.price_per_node));
     for (name, e, f) in &fitted {
         let (common, degree) = t.errors(e);
         out.push(format!("    {name}: best {} ({common} common-neighbour errors, {degree} neighbour errors, fitness {f:.1})", e.show()));
     }
     let seeds: Vec<Equation> = fitted.iter().map(|x| x.1.clone()).collect();
     let e = evolve(t, &seeds, s);
+    out.extend(evolved_lines(t, &e, s, "seeded with the families"));
+    out
+}
+
+fn evolved_lines(t: &Target, e: &Evolved, s: &Settings, seeded: &str) -> Vec<String> {
     let steps: Vec<String> = e.history.iter().map(|h| format!("{h:.0}")).collect();
-    out.push(format!(
-        "  evolved like the Goldbach formula ({} equations, {} generations, seed {}, seeded with the families, tournament of three, crossover, new subtrees, nudged constants): fitness {}",
-        s.population, s.generations, s.seed, steps.join(" -> ")
-    ));
-    // recheck the equation exactly as printed
     let (common, degree) = t.errors(&e.best);
-    out.push(format!("  best equation: join p and q when {} (either order); rechecked as printed, pair by pair: {common} common-neighbour errors, {degree} neighbour errors{}", e.best.show(), if common == 0 && degree == 0 { ": IT IS THE GRAPH" } else { ": not the graph" }));
+    vec![
+        format!(
+            "  evolved like the Goldbach formula ({} equations, {} generations, seed {}, {seeded}, tournament of three, crossover, new subtrees, nudged constants): fitness {}",
+            s.population, s.generations, s.seed, steps.join(" -> ")
+        ),
+        format!(
+            "  best equation: join p and q when {} (either order); rechecked as printed, pair by pair: {common} common-neighbour errors, {degree} neighbour errors{}",
+            e.best.show(),
+            if common == 0 && degree == 0 { ": IT IS THE GRAPH" } else { ": not the graph" }
+        ),
+    ]
+}
+
+/// The chain: find the small graph's equation, then evolve it into the big
+/// one (the lifted forms seed the big search, beside its own families).
+pub fn chain(small: &Target, big: &Target, s: &Settings) -> Vec<String> {
+    let mut out = Vec::new();
+    let fitted = fit_families(small, s.price_per_node);
+    let first = evolve(small, &fitted.iter().map(|x| x.1.clone()).collect::<Vec<_>>(), s);
+    let (c, d) = small.errors(&first.best);
+    out.push(format!("stage 1, {} points ({} grid): {} ({c} common-neighbour errors, {d} neighbour errors{})", small.n(), small.shape(), first.best.show(), if c == 0 && d == 0 { ": the graph" } else { "" }));
+    let lifted = lift(&first.best, big.n());
+    let scores = parallel_scores(&lifted, |e| big.fitness(e, s.price_per_node));
+    let mut ranked: Vec<(f64, Equation)> = scores.into_iter().zip(lifted).collect();
+    ranked.sort_by(|a, c| a.0.total_cmp(&c.0));
+    let (lc, ld) = big.errors(&ranked[0].1);
+    out.push(format!(
+        "stage 2, the equation evolved onto {} points ({} grid): {} lifted forms (times, plus and minus the new difference z_p - z_q, folded into x or y, at every modulus that is a multiple of {}); best lifted form {} ({lc} common-neighbour errors, {ld} neighbour errors)",
+        big.n(), big.shape(), ranked.len(), first.best.modulus, ranked[0].1.show()
+    ));
+    let mut seeds: Vec<Equation> = ranked.iter().take(s.population / 2).map(|x| x.1.clone()).collect();
+    seeds.extend(fit_families(big, s.price_per_node).into_iter().map(|x| x.1));
+    let e = evolve(big, &seeds, s);
+    out.extend(evolved_lines(big, &e, s, "seeded with the lifted forms and the families"));
     out
 }
 
@@ -325,7 +428,7 @@ mod tests {
 
     #[test]
     fn the_nine_point_graph_has_an_equation() {
-        let t = Target { rows: 3, cols: 3, k: 4, lambda: 1, mu: 2 };
+        let t = Target { dims: vec![3, 3], k: 4, lambda: 1, mu: 2 };
         let fitted = fit_families(&t, 0.01);
         let e = &fitted[0].1;
         assert_eq!(t.errors(e), (0, 0), "{}", e.show()); // same row or same column
@@ -334,5 +437,13 @@ mod tests {
         let b = evolve(&t, &[e.clone()], &s);
         assert_eq!(a.best, b.best); // seeded
         assert_eq!(t.errors(&a.best), (0, 0));
+    }
+
+    #[test]
+    fn a_lift_keeps_the_small_graph_inside() {
+        // on a 3 x 3 x 1 grid the lifted equation "as it is" is still the 9-point graph
+        let small = Equation { term: Mul(b(diff(0)), b(diff(1))), modulus: 3 };
+        let t = Target { dims: vec![3, 3, 1], k: 4, lambda: 1, mu: 2 };
+        assert_eq!(t.errors(&lift(&small, 9)[0]), (0, 0));
     }
 }
