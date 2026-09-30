@@ -1,3 +1,4 @@
 target/
 /data/zeta/*
 !/data/zeta/zeros1
+/out/
