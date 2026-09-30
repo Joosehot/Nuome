@@ -1108,6 +1108,26 @@ basis = [
     "Tao (2019): almost all orbits reach almost bounded values",
 ]
 
+[open.eff_prime]
+name = "The EFF prize for a 100-million-digit prime"
+statement = "find a prime number with at least 100 million decimal digits (EFF Cooperative Computing Award, $150,000)"
+status = "unclaimed; the largest known primes are Mersenne primes 2^p - 1 found by GIMPS, still below 100 million digits"
+known = [
+    "the $50,000 award for 10 million digits was won by GIMPS in 2009 (2^43112609 - 1)",
+    "Lucas-Lehmer decides whether 2^p - 1 is prime with p - 2 modular squarings",
+]
+formal = "find a prime with at least 100000000 digits"
+# Lucas-Lehmer on every prime exponent below this (src/mersenne.rs); squarings timed for the estimate
+check_up_to = 4500
+measure = 2
+
+[open.eff_prime.guess]
+answer = "such a prime exists (there are infinitely many primes), and GIMPS will likely find one, but not on one machine"
+confidence = "high that it exists; the time to find one is the whole question"
+basis = [
+    "about 1.8 Mersenne primes are expected between p and 2p",
+]
+
 [open.conway99]
 name = "Conway's 99-graph problem"
 statement = "is there a graph on 99 vertices, each with 14 neighbours, where adjacent vertices have exactly 1 common neighbour and non-adjacent vertices exactly 2 (a strongly regular graph srg(99, 14, 1, 2))?"

@@ -25,6 +25,7 @@ pub mod hodge;
 pub mod lexicon;
 // logic and sets (agent L)
 pub mod logic;
+pub mod mersenne;
 pub mod model;
 pub mod navier_stokes;
 pub mod p_vs_np;

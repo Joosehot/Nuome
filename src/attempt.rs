@@ -73,6 +73,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
+        ("eff_prime", Some(n)) => crate::mersenne::report(&crate::mersenne::Settings { check_below: n as usize, timed_steps: p.measure.unwrap_or(2) }),
         ("hodge", _) => crate::hodge::report(&crate::hodge::Settings {
             surface_degrees: if p.surface_degrees.is_empty() { (3..=12).collect() } else { p.surface_degrees.clone() },
             fourfold_degrees: if p.fourfold_degrees.is_empty() { (3..=10).collect() } else { p.fourfold_degrees.clone() },
@@ -119,6 +120,8 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
     // 3. the verdict
     out.push(if proved {
         "  result: proved".into()
+    } else if key == "eff_prime" {
+        "  result: not found. The task is finite (one prime and one check), but at this machine's speed one test of one candidate takes decades".into()
     } else if key == "conway99" {
         "  result: not settled. The problem is finite, so a complete search would settle it either way; this search did not finish".into()
     } else {

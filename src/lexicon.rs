@@ -556,6 +556,11 @@ const PHRASES: &[(&str, Tok)] = &[
     ("ninety-nine-graph problem", Open("conway99")),
     ("the ninety-nine-graph", Open("conway99")),
     ("ninety-nine-graph", Open("conway99")),
+    ("the eff prize", Open("eff_prime")),
+    ("eff prize", Open("eff_prime")),
+    ("the hundred-million-digit prime", Open("eff_prime")),
+    ("hundred-million-digit prime", Open("eff_prime")),
+    ("a hundred-million-digit prime", Open("eff_prime")),
     ("3n + 1 problem", Open("collatz")),
     ("variety", Topic("algebraic geometry")),
     ("varieties", Topic("algebraic geometry")),
@@ -865,6 +870,8 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
 pub fn lex(s: &str) -> Result<Vec<Token>, String> {
     // a name with a number in it: Conway's 99-graph problem
     let s = s.replace("99-graph", "ninety-nine-graph").replace("99-Graph", "ninety-nine-graph").replace("99 graph", "ninety-nine-graph");
+    // and the EFF prize's 100-million-digit prime
+    let s = s.replace("100-million-digit", "hundred-million-digit").replace("100 million digit", "hundred-million-digit");
     let raw = scan(&s)?;
     let mut out: Vec<Token> = Vec::new();
     let mut i = 0;
