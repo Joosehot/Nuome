@@ -1053,6 +1053,92 @@ pub fn evolve_from(start: &[Set], s: &Evolve) -> Evolved {
     Evolved { best, history, graph: (best == 0 && is_srg(&g, k)).then(|| g.clone()), free_points: g.len(), best_graph: g }
 }
 
+/// A tree grown from point 0 level by level: the first number is how many
+/// children point 0 gets, the next how many each of those gets, and so on
+/// (the last number repeats), until there are `n` points.
+pub fn tree(branching: &[usize], n: usize) -> Vec<Set> {
+    let mut g = vec![0 as Set; n];
+    let (mut level, mut next_point, mut depth) = (vec![0usize], 1usize, 0usize);
+    while next_point < n && !level.is_empty() {
+        let b = branching[depth.min(branching.len() - 1)];
+        let mut children = Vec::new();
+        for &parent in &level {
+            for _ in 0..b {
+                if next_point >= n {
+                    break;
+                }
+                g[parent] |= 1 << next_point;
+                g[next_point] |= 1 << parent;
+                children.push(next_point);
+                next_point += 1;
+            }
+        }
+        level = children;
+        depth += 1;
+    }
+    g
+}
+
+/// Add random lines until every point has k neighbours, keeping the given
+/// ones (seeded; points with the most missing go first). None if it gets stuck.
+pub fn complete_regular(start: &[Set], k: u32, seed: u64) -> Option<Vec<Set>> {
+    let n = start.len();
+    for attempt in 0..200u64 {
+        let mut r = crate::evolve::Rng(seed.wrapping_add(attempt * 7919).max(1));
+        let mut g = start.to_vec();
+        let ok = loop {
+            let need: Vec<usize> = (0..n).filter(|&v| g[v].count_ones() < k).collect();
+            if need.is_empty() {
+                break true;
+            }
+            if need.iter().any(|&v| g[v].count_ones() > k) {
+                break false;
+            }
+            let v = *need.iter().max_by_key(|&&v| (k - g[v].count_ones(), std::cmp::Reverse(v))).expect("some point");
+            let options: Vec<usize> = need.iter().copied().filter(|&w| w != v && g[v] >> w & 1 == 0).collect();
+            if options.is_empty() {
+                break false;
+            }
+            let w = options[r.below(options.len())];
+            g[v] |= 1 << w;
+            g[w] |= 1 << v;
+        };
+        if ok && g.iter().all(|x| x.count_ones() == k) {
+            return Some(g);
+        }
+    }
+    None
+}
+
+/// Starting shapes from the "Start in the middle, branching out" idea, each
+/// completed to 14 neighbours per point: (name, graph).
+pub fn architectures(seed: u64, joose: Option<&[Set]>) -> Vec<(String, Vec<Set>)> {
+    let mut out = Vec::new();
+    for (name, branching) in [
+        ("1-3-3: Start with 3, every point after it 3 more (1, 3, 9, 27, 59)", vec![3]),
+        ("1-2-2: 2 at every step (1, 2, 4, 8, 16, 32, 36)", vec![2]),
+        ("1-7-7: 7 at every step (1, 7, 49, 42)", vec![7]),
+        ("1-14-6: Start with 14, each of them 6 more (1, 14, 84), the shape the conditions force", vec![14, 6]),
+    ] {
+        if let Some(g) = complete_regular(&tree(&branching, 99), 14, seed) {
+            out.push((name.to_string(), g));
+        }
+    }
+    if let Some(g) = joose {
+        out.push(("Joose's 7 networks, drawn by hand".to_string(), g.to_vec()));
+    }
+    if let Some(g) = complete_regular(&vec![0 as Set; 99], 14, seed) {
+        out.push(("random, for comparison".to_string(), g));
+    }
+    out
+}
+
+/// Pairs whose common-neighbour count is wrong (lambda = 1, mu = 2).
+pub fn wrong_pairs(g: &[Set]) -> usize {
+    let n = g.len();
+    (0..n).map(|u| (u + 1..n).filter(|&v| (g[u] & g[v]).count_ones() != if g[u] >> v & 1 == 1 { 1 } else { 2 }).count()).sum()
+}
+
 /// A graph as text, one "a-b" per line.
 pub fn edge_list(g: &[Set]) -> String {
     let mut out = String::new();
@@ -1351,6 +1437,14 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph:
             }
             _ => out.push(format!("Joose's graph could not be read from {}", file.display())),
         }
+    }
+    // other shapes from the same idea, each repaired with the same budget
+    let joose = seed_graph.and_then(|p| std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(p)).ok()).and_then(|t| parse_edges(&t)).filter(|g| g.len() == 99);
+    out.push("architectures from the same idea (Start in the middle, levels branching out), each completed at random to 14 neighbours per point and repaired with the same fitness search:".into());
+    for (name, g) in architectures(fitness.seed, joose.as_deref()) {
+        let before = wrong_pairs(&g);
+        let e = evolve_from(&g, fitness);
+        out.push(format!("  {name}: {before} wrong pairs at the start -> {} after the repair (fitness {} -> {}){}", wrong_pairs(&e.best_graph), e.history.first().copied().unwrap_or(0), e.best, if e.graph.is_some() { ": SOLVED, checked pair by pair" } else { "" }));
     }
     if let Some(e) = evolve(14, fitness) {
         let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
