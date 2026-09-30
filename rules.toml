@@ -924,6 +924,9 @@ formal = "prove that if zeta(s) = 0 and 0 < re(s) < 1 then re(s) = 1/2"
 # height checked by Turing's method (src/zeta.rs); "up to 10^5" in the question asks for more
 check_up_to = 1000
 max_check = 10000000
+# Odlyzko's tables (www-users.cse.umn.edu/~odlyzko/zeta_tables): zeros6 = the first
+# 2 001 052 zeros (not in git, 36 MB), zeros1 = the first 100 000
+zero_tables = ["data/zeta/zeros6", "data/zeta/zeros1"]
 
 [open.riemann.guess]
 answer = "true: every nontrivial zero has real part 1/2"

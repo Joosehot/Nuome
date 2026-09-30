@@ -172,11 +172,15 @@ pub struct Verified {
     pub blocks: u64,
     pub longest_block: i64,
     pub bad_gram_points: u64,
+    /// Gram points whose sign could not be fixed (merged into their block)
+    pub unfixed_gram_points: u64,
     pub turing_blocks: u64,
     pub turing_needed: f64,
     /// the smallest |Z| used, as a multiple of its error bound
     pub margin: f64,
     pub evaluations: u64,
+    /// an interval around each zero found up to the height, in order
+    pub brackets: Vec<(f64, f64)>,
 }
 
 /// Verify the hypothesis up to at least `t_max`.
@@ -198,7 +202,11 @@ pub fn verify(t_max: f64) -> Result<Verified, String> {
     let mut g = vec![gram(-1, 10.0)];
     let mut sign = Vec::new();
     let at = |n: i64| (n + 1) as usize;
-    let ensure = |n: i64, g: &mut Vec<f64>, sign: &mut Vec<f64>, margin: &mut f64| -> Result<(), String> {
+    // a Gram point whose sign cannot be fixed (a zero within ~1e-7 of it) is
+    // kept as None: while counting it is merged into its block like a bad
+    // point, which leaves every sign change found a real zero; Turing's step
+    // past the height needs all its Gram points signed
+    let ensure = |n: i64, g: &mut Vec<f64>, sign: &mut Vec<Option<f64>>, margin: &mut f64| {
         while g.len() <= at(n) {
             let last = *g.last().expect("g_-1");
             let k = g.len() as i64 - 1;
@@ -206,51 +214,59 @@ pub fn verify(t_max: f64) -> Result<Verified, String> {
         }
         while sign.len() <= at(n) {
             let i = sign.len();
-            match signed(g[i], margin) {
-                Some(s) => sign.push(s),
-                None => return Err(format!("the sign of Z at the Gram point g_{} = {:.6} could not be fixed within its error bound", i as i64 - 1, g[i])),
-            }
+            sign.push(signed(g[i], margin));
         }
-        Ok(())
     };
-    let good = |n: i64, sign: &[f64]| (if n % 2 == 0 { 1.0 } else { -1.0 }) * sign[at(n)] > 0.0;
-    ensure(-1, &mut g, &mut sign, &mut margin)?;
+    let good = |n: i64, sign: &[Option<f64>]| sign[at(n)].is_some_and(|s| (if n % 2 == 0 { 1.0 } else { -1.0 }) * s > 0.0);
+    ensure(-1, &mut g, &mut sign, &mut margin);
     if !good(-1, &sign) {
         return Err("g_-1 is not a good Gram point".into());
     }
-    let (mut a, mut found, mut blocks, mut longest, mut bad) = (-1i64, 0u64, 0u64, 1i64, 0u64);
+    let (mut a, mut found, mut blocks, mut longest, mut bad, mut unfixed) = (-1i64, 0u64, 0u64, 1i64, 0u64, 0u64);
     let mut end: Option<(i64, u64)> = None; // (n, zeros found up to g_n)
     let mut past = 0u64;
+    let mut brackets = Vec::new();
     loop {
         // the next Gram block [g_a, g_b]
         let mut b = a + 1;
         loop {
-            ensure(b, &mut g, &mut sign, &mut margin)?;
+            ensure(b, &mut g, &mut sign, &mut margin);
             if good(b, &sign) {
                 break;
             }
             b += 1;
         }
         let k = b - a;
+        let unsigned = (a + 1..b).filter(|&i| sign[at(i)].is_none()).count() as u64;
+        if end.is_some() && unsigned > 0 {
+            return Err(format!("past the height, the sign of Z at a Gram point between g_{a} = {:.6} and g_{b} = {:.6} could not be fixed within its error bound", g[at(a)], g[at(b)]));
+        }
+        unfixed += unsigned;
         bad += (k - 1) as u64;
         longest = longest.max(k);
         let mut changes = 0u64;
+        let mut found_here = Vec::new();
         if k == 1 {
             changes = 1; // good points of opposite parity have opposite signs
+            found_here.push((g[at(a)], g[at(b)]));
         } else {
             for level in 1..=10 {
                 let parts = 1i64 << level;
-                let mut last = sign[at(a)];
+                let mut last = sign[at(a)].expect("a good point is signed");
+                let mut last_t = g[at(a)];
                 changes = 0;
+                found_here.clear();
                 for i in a..b {
                     for r in 1..=parts {
                         let t = if r == parts { g[at(i + 1)] } else { g[at(i)] + (g[at(i + 1)] - g[at(i)]) * r as f64 / parts as f64 };
-                        let s = if r == parts { Some(sign[at(i + 1)]) } else { signed(t, &mut margin) };
+                        let s = if r == parts { sign[at(i + 1)] } else { signed(t, &mut margin) };
                         if let Some(s) = s {
                             if s != last {
                                 changes += 1;
+                                found_here.push((last_t, t));
                                 last = s;
                             }
+                            last_t = t;
                         }
                     }
                 }
@@ -266,6 +282,7 @@ pub fn verify(t_max: f64) -> Result<Verified, String> {
         match end {
             None => {
                 found += changes;
+                brackets.extend(found_here);
                 if g[at(b)] >= t_max {
                     end = Some((b, found));
                 }
@@ -307,28 +324,75 @@ pub fn verify(t_max: f64) -> Result<Verified, String> {
                     blocks,
                     longest_block: longest,
                     bad_gram_points: bad,
+                    unfixed_gram_points: unfixed,
                     turing_blocks: past,
                     turing_needed: needed,
                     margin,
                     evaluations: evaluations.get(),
+                    brackets,
                 });
             }
         }
     }
 }
 
+/// Compare the zeros found with a published table: every table zero up to
+/// the height should sit in its own interval, and every interval hold one.
+pub fn compare(brackets: &[(f64, f64)], height: f64, table: &[f64]) -> String {
+    let top = height.min(*table.last().unwrap_or(&0.0));
+    let listed: Vec<f64> = table.iter().copied().take_while(|&z| z <= top).collect();
+    let mine: Vec<(f64, f64)> = brackets.iter().copied().take_while(|b| b.0 < top).collect();
+    let (mut i, mut matched, mut outside) = (0usize, 0usize, 0usize);
+    let mut crowded = 0usize;
+    for &(lo, hi) in &mine {
+        while i < listed.len() && listed[i] < lo {
+            outside += 1;
+            i += 1;
+        }
+        let mut here = 0;
+        while i < listed.len() && listed[i] <= hi {
+            here += 1;
+            i += 1;
+        }
+        match here {
+            1 => matched += 1,
+            0 => {}
+            _ => crowded += 1,
+        }
+    }
+    let empty = mine.len() - matched - crowded;
+    if matched == listed.len() && matched == mine.len() {
+        format!("compared with Odlyzko's published table: all {} of its zeros up to height {top:.2} match Nuome's one to one (each lies in its own sign-change interval of Z; none missing, none extra)", listed.len())
+    } else {
+        format!("compared with Odlyzko's published table up to height {top:.2}: {} of {} table zeros matched; {outside} table zeros outside Nuome's intervals, {empty} intervals with no table zero, {crowded} with several", matched, listed.len())
+    }
+}
+
+/// The first table that can be read, as heights.
+fn load_table(paths: &[String]) -> Option<Vec<f64>> {
+    paths.iter().find_map(|p| {
+        let text = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(p)).ok()?;
+        Some(text.lines().filter_map(|l| l.trim().parse().ok()).collect())
+    })
+}
+
 /// Report lines for the attempt at the Riemann hypothesis.
-pub fn report(t_max: f64) -> Vec<String> {
+pub fn report(t_max: f64, tables: &[String]) -> Vec<String> {
     match verify(t_max) {
         Ok(v) => {
             let first: Vec<String> = v.first.iter().map(|z| format!("{z:.6}")).collect();
+            let table = load_table(tables);
             vec![
                 format!("verified the hypothesis up to height {:.2} (the Gram point g_{}) by Turing's method, the standard way it is checked", v.height, v.index),
                 format!("found {} sign changes of Z(t): {} zeros of zeta exactly on the line Re(s) = 1/2 (first: t = {})", v.zeros, v.zeros, first.join(", ")),
-                format!("Rosser's rule held in all {} Gram blocks ({} bad Gram points, longest block {} intervals)", v.blocks, v.bad_gram_points, v.longest_block),
+                format!("Rosser's rule held in all {} Gram blocks ({} bad Gram points, longest block {} intervals){}", v.blocks, v.bad_gram_points, v.longest_block, if v.unfixed_gram_points > 0 { format!("; {} Gram points had a zero too close to fix the sign of Z there and were counted inside their block", v.unfixed_gram_points) } else { String::new() }),
                 format!("Turing's method (Brent's form) with {} blocks past that point, {:.1} needed, bounds ALL zeros in the strip up to that height by {}", v.turing_blocks, v.turing_needed, v.index + 1),
                 format!("so the strip 0 < Re(s) < 1 holds exactly {} zeros up to height {:.2}, and every one is on the line and simple: the hypothesis is TRUE up to that height", v.zeros, v.height),
                 format!("certainty: every sign used was fixed with an error bound (Gabcke's bound on the Riemann-Siegel remainder, and Euler-Maclaurin below t = 200 and near zeros) and only when |Z| was at least {SAFETY} times that bound; the smallest |Z| used was {:.1} times its bound; {} values of Z; floating-point rounding is estimated, not interval arithmetic", v.margin, v.evaluations),
+                match table {
+                    Some(t) => compare(&v.brackets, v.height, &t),
+                    None => "no published table of zeros found to compare with (zero_tables in rules.toml)".into(),
+                },
                 "above that height nothing is checked: the hypothesis is about every height, so this is a verified finite range, not a proof".into(),
             ]
         }
@@ -359,5 +423,9 @@ mod tests {
         assert_eq!(v.zeros, (v.index + 1) as u64);
         assert!((v.first[0] - 14.134_725).abs() < 1e-5);
         assert!((v.first[1] - 21.022_040).abs() < 1e-5);
+        assert_eq!(v.brackets.len() as u64, v.zeros);
+        let table = [14.134725142, 21.022039639, 25.010857580];
+        assert!(compare(&v.brackets, 26.0, &table).contains("all 3 of its zeros"));
+        assert!(compare(&v.brackets, 26.0, &table[..2]).contains("all 2"));
     }
 }

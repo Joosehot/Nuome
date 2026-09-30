@@ -157,6 +157,10 @@ pub struct OpenProblem {
     /// Fitness by forward prediction (true) or by fit (false).
     #[serde(default)]
     pub evolve_forward: Option<bool>,
+    /// Published tables of zeta zeros (one height per line, paths from the
+    /// crate root) to compare with; the first one that exists is used.
+    #[serde(default)]
+    pub zero_tables: Vec<String>,
 }
 
 /// A best guess at an open problem: what is expected, why, and how firmly.

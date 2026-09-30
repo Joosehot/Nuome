@@ -164,6 +164,7 @@ error: The Riemann hypothesis: an attempt
     Turing's method (Brent's form) with 2 blocks past that point, 0.8 needed, bounds ALL zeros in the strip up to that height by 649
     so the strip 0 < Re(s) < 1 holds exactly 649 zeros up to height 1000.48, and every one is on the line and simple: the hypothesis is TRUE up to that height
     certainty: every sign used was fixed with an error bound (Gabcke's bound on the Riemann-Siegel remainder, and Euler-Maclaurin below t = 200 and near zeros) and only when |Z| was at least 2 times that bound; the smallest |Z| used was 2.4 times its bound; 744 values of Z; floating-point rounding is estimated, not interval arithmetic
+    compared with Odlyzko's published table: all 649 of its zeros up to height 1000.48 match Nuome's one to one (each lies in its own sign-change interval of Z; none missing, none extra)
     above that height nothing is checked: the hypothesis is about every height, so this is a verified finite range, not a proof
   result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases
   (ask for a "best guess" to see what is expected, clearly marked as unchecked)
