@@ -1109,6 +1109,8 @@ evolve_seed = 2026
 evolve_climb = 300
 # pictures of the best graph found (adjacency matrix, BMP), from the crate root
 pictures = "out"
+# the repair search also starts from Joose Hotari's hand-drawn 7-network graph
+seed_graph = "data/conway/joose-7-networks.txt"
 
 [open.conway99.guess]
 answer = "no guess: experts are divided"

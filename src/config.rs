@@ -163,6 +163,9 @@ pub struct OpenProblem {
     /// A folder (from the crate root) for pictures of what was built.
     #[serde(default)]
     pub pictures: Option<String>,
+    /// A graph to start the repair search from ("a-b" lines, from the crate root).
+    #[serde(default)]
+    pub seed_graph: Option<String>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]

@@ -1206,7 +1206,7 @@ pub fn conditions(n: i64, k: i64, l: i64, m: i64) -> Vec<(&'static str, String, 
 }
 
 /// Report lines for the attempt at the problem; `budget` branch points in all.
-pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>) -> Vec<String> {
+pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph: Option<&str>) -> Vec<String> {
     let (reps, total) = matching_orbits(14);
     let mut out = vec![
         "what is asked: 99 points, some joined by lines; every point has exactly 14 lines; two joined points have exactly 1 common neighbour; two points not joined have exactly 2".to_string(),
@@ -1329,6 +1329,28 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>) -> Vec<Stri
         } else {
             format!("  pictures could not be written to {}", dir.display())
         });
+    }
+    if let Some(path) = seed_graph {
+        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
+        match std::fs::read_to_string(&file).ok().and_then(|t| parse_edges(&t)) {
+            Some(g) if g.len() == 99 => {
+                let wrong = |g: &[Set]| (0..99).map(|u| (u + 1..99).filter(|&v| (g[u] & g[v]).count_ones() != if g[u] >> v & 1 == 1 { 1 } else { 2 }).count()).sum::<usize>();
+                // a fixed skeleton would be hopeless when two unjoined hubs share no neighbour
+                let hubs_apart = (0..99).any(|u| (u + 1..99).any(|v| g[u] >> v & 1 == 0 && (g[u] & g[v]).count_ones() == 0));
+                let e = evolve_from(&g, fitness);
+                let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
+                out.push(format!("starting from Joose Hotari's hand-drawn 7-network graph ({path}): every point has {} neighbours; {} of the 4851 pairs are wrong", if g.iter().all(|x| x.count_ones() == 14) { "14" } else { "not always 14" }, wrong(&g)));
+                if hubs_apart {
+                    out.push("  it cannot be kept as a fixed skeleton: some unjoined pairs there share no neighbour at all, and with their lines fixed nothing could give them 2; so the search may move any line".into());
+                }
+                out.push(format!("  repaired by the fitness search (line swaps keeping every degree): fitness {}; {} pairs wrong in the best graph", steps.join(" -> "), wrong(&e.best_graph)));
+                out.push(match &e.graph {
+                    Some(g) => format!("  FOUND from Joose's graph, checked pair by pair: {}", edge_list(g).replace('\n', " ")),
+                    None => "  not solved from it".into(),
+                });
+            }
+            _ => out.push(format!("Joose's graph could not be read from {}", file.display())),
+        }
     }
     if let Some(e) = evolve(14, fitness) {
         let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
