@@ -1141,6 +1141,238 @@ pub fn wrong_pairs(g: &[Set]) -> usize {
     (0..n).map(|u| (u + 1..n).filter(|&v| (g[u] & g[v]).count_ones() != if g[u] >> v & 1 == 1 { 1 } else { 2 }).count()).sum()
 }
 
+/// An abelian group Z_m x Z_q, element a * q + b.
+#[derive(Clone, Copy)]
+pub struct Group {
+    pub m: usize,
+    pub q: usize,
+}
+
+impl Group {
+    pub fn order(&self) -> usize {
+        self.m * self.q
+    }
+    fn add(&self, x: usize, y: usize) -> usize {
+        ((x / self.q + y / self.q) % self.m) * self.q + (x % self.q + y % self.q) % self.q
+    }
+    fn neg(&self, x: usize) -> usize {
+        ((self.m - x / self.q) % self.m) * self.q + (self.q - x % self.q) % self.q
+    }
+    pub fn name(&self) -> String {
+        if self.m == 1 || self.q == 1 {
+            format!("Z{}", self.order())
+        } else {
+            format!("Z{} x Z{}", self.m, self.q)
+        }
+    }
+}
+
+/// The difference rule ("a and b are joined when a - b is in S", a Cayley
+/// graph) searched completely: every symmetric S of size k without 0 in a
+/// group of odd order. S works when every d in S is s + t (s, t in S) in
+/// exactly lambda ways and every other d != 0 in exactly mu ways. Returns
+/// (sets checked, the first S that works).
+pub fn difference_rule(group: Group, k: usize, lambda: u32, mu: u32) -> (u64, Option<Vec<usize>>) {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let n = group.order();
+    // one representative of each pair {x, -x}
+    let classes: Vec<usize> = (1..n).filter(|&x| x < group.neg(x)).collect();
+    let choose = k / 2;
+    let checked = AtomicU64::new(0);
+    let found = std::sync::Mutex::new(None);
+    let works = |s: &[usize]| -> bool {
+        let mut member = vec![false; n];
+        for &x in s {
+            member[x] = true;
+        }
+        for d in 1..n {
+            let target = if member[d] { lambda } else { mu };
+            let mut ways = 0;
+            for &x in s {
+                if member[group.add(d, group.neg(x))] {
+                    ways += 1;
+                    if ways > target {
+                        return false;
+                    }
+                }
+            }
+            if ways != target {
+                return false;
+            }
+        }
+        true
+    };
+    // split the work by the first class chosen
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|sc| {
+        for _ in 0..std::thread::available_parallelism().map_or(4, |t| t.get()) {
+            sc.spawn(|| loop {
+                let first = next.fetch_add(1, Ordering::Relaxed);
+                if first + choose > classes.len() || choose == 0 {
+                    break;
+                }
+                let mut idx: Vec<usize> = (0..choose).map(|i| first + i).collect();
+                let mut local = 0u64;
+                loop {
+                    local += 1;
+                    let s: Vec<usize> = idx.iter().flat_map(|&i| [classes[i], group.neg(classes[i])]).collect();
+                    if works(&s) {
+                        found.lock().expect("no panics").get_or_insert(s);
+                    }
+                    // next combination with idx[0] fixed
+                    let mut i = choose - 1;
+                    loop {
+                        if i == 0 {
+                            break;
+                        }
+                        if idx[i] < classes.len() - (choose - i) {
+                            idx[i] += 1;
+                            for j in i + 1..choose {
+                                idx[j] = idx[j - 1] + 1;
+                            }
+                            break;
+                        }
+                        i -= 1;
+                    }
+                    if i == 0 {
+                        break;
+                    }
+                }
+                checked.fetch_add(local, Ordering::Relaxed);
+            });
+        }
+    });
+    (checked.into_inner(), found.into_inner().expect("done"))
+}
+
+/// The orbit rule: points (i, a) for i in 0..orbits and a in Z_p; (i, a) and
+/// (j, b) are joined when b - a (mod p) is in S_ij, with S_ji = -S_ij and
+/// S_ii symmetric without 0 (the graph then has the symmetry a -> a + 1).
+/// The sets are evolved by the Goldbach formula's genetic search; fitness =
+/// the common-neighbour counts off plus 10 for each neighbour too many or too
+/// few at a point. Returns (best fitness, history, the graph if solved).
+pub fn orbit_rule(orbits: usize, p: usize, k: u32, lambda: u32, mu: u32, s: &Evolve) -> (u32, Vec<u32>, Option<Vec<Set>>) {
+    let n = orbits * p;
+    let blocks: Vec<(usize, usize)> = (0..orbits).flat_map(|i| (i..orbits).map(move |j| (i, j))).collect();
+    // a rule: one bitmask of Z_p per block (i <= j)
+    let build = |rule: &[u32]| -> Vec<Set> {
+        let mut g = vec![0 as Set; n];
+        for (bi, &(i, j)) in blocks.iter().enumerate() {
+            for x in 0..p {
+                if rule[bi] >> x & 1 == 0 {
+                    continue;
+                }
+                for a in 0..p {
+                    let (u, v) = (i * p + a, j * p + (a + x) % p);
+                    if u != v {
+                        g[u] |= 1 << v;
+                        g[v] |= 1 << u;
+                    }
+                }
+            }
+        }
+        g
+    };
+    let score = |rule: &[u32]| -> u32 {
+        let g = build(rule);
+        let degree: u32 = g.iter().map(|x| (x.count_ones() as i32 - k as i32).unsigned_abs()).sum();
+        violations_with(&g, lambda, mu) + 10 * degree
+    };
+    // a move toggles x in one block's set (and -x on the diagonal, to stay symmetric)
+    let toggle = |rule: &mut [u32], bi: usize, x: usize| {
+        let (i, j) = blocks[bi];
+        rule[bi] ^= 1 << x;
+        if i == j && (p - x) % p != x {
+            rule[bi] ^= 1 << ((p - x) % p);
+        }
+    };
+    let mut r = crate::evolve::Rng(s.seed.max(1));
+    let random_rule = |r: &mut crate::evolve::Rng| -> Vec<u32> {
+        let mut rule = vec![0u32; blocks.len()];
+        for _ in 0..(k as usize * orbits) / 2 {
+            let bi = r.below(blocks.len());
+            let x = r.below(p);
+            if blocks[bi].0 == blocks[bi].1 && x == 0 {
+                continue;
+            }
+            toggle(&mut rule, bi, x);
+        }
+        rule
+    };
+    let child = |parent: &[u32], seed: u64| -> (u32, Vec<u32>) {
+        let mut r = crate::evolve::Rng(seed.max(1));
+        let mut rule = parent.to_vec();
+        let mv = |rule: &mut Vec<u32>, r: &mut crate::evolve::Rng| -> Option<(usize, usize)> {
+            let bi = r.below(blocks.len());
+            let x = r.below(p);
+            if blocks[bi].0 == blocks[bi].1 && x == 0 {
+                return None;
+            }
+            toggle(rule, bi, x);
+            Some((bi, x))
+        };
+        for _ in 0..1 + r.below(2) {
+            mv(&mut rule, &mut r);
+        }
+        let mut best = score(&rule);
+        for _ in 0..s.climb {
+            if let Some((bi, x)) = mv(&mut rule, &mut r) {
+                let now = score(&rule);
+                if now <= best {
+                    best = now;
+                } else {
+                    toggle(&mut rule, bi, x);
+                }
+            }
+        }
+        (best, rule)
+    };
+    let mut pop: Vec<(u32, Vec<u32>)> = (0..s.population).map(|_| {
+        let rule = random_rule(&mut r);
+        (score(&rule), rule)
+    }).collect();
+    let threads = std::thread::available_parallelism().map_or(4, |t| t.get());
+    let mut history = Vec::new();
+    for generation in 0..s.generations {
+        pop.sort_by_key(|x| x.0);
+        if pop[0].0 == 0 {
+            break;
+        }
+        if generation % (s.generations / 10).max(1) == 0 {
+            history.push(pop[0].0);
+        }
+        let elite = (s.population / 10).max(1);
+        let mut next: Vec<(u32, Vec<u32>)> = pop.iter().take(elite).cloned().collect();
+        let jobs: Vec<(usize, u64)> = (next.len()..s.population)
+            .map(|_| {
+                let mut best = r.below(pop.len());
+                for _ in 0..2 {
+                    let c = r.below(pop.len());
+                    if pop[c].0 < pop[best].0 {
+                        best = c;
+                    }
+                }
+                (best, r.next())
+            })
+            .collect();
+        let size = jobs.len().div_ceil(threads).max(1);
+        let children: Vec<(u32, Vec<u32>)> = std::thread::scope(|sc| {
+            let hs: Vec<_> = jobs.chunks(size).map(|part| {
+                let (pop, child) = (&pop, &child);
+                sc.spawn(move || part.iter().map(|&(i, seed)| child(&pop[i].1, seed)).collect::<Vec<_>>())
+            }).collect();
+            hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
+        });
+        next.extend(children);
+        pop = next;
+    }
+    pop.sort_by_key(|x| x.0);
+    history.push(pop[0].0);
+    let g = build(&pop[0].1);
+    let solved = pop[0].0 == 0 && g.iter().all(|x| x.count_ones() == k) && violations_with(&g, lambda, mu) == 0;
+    (pop[0].0, history, solved.then_some(g))
+}
+
 /// A graph as text, one "a-b" per line.
 pub fn edge_list(g: &[Set]) -> String {
     let mut out = String::new();
@@ -1440,6 +1672,35 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph:
             _ => out.push(format!("Joose's graph could not be read from {}", file.display())),
         }
     }
+    // equations for the lines: rules that decide every line at once
+    out.push("equations for the lines: instead of lines one by one, a rule that decides all of them at once (the 9-point graph's rule is 'same row or same column')".into());
+    let show_set = |g: Group, s: &[usize]| s.iter().map(|&x| if g.m == 1 { x.to_string() } else { format!("({},{})", x / g.q, x % g.q) }).collect::<Vec<_>>().join(" ");
+    for (label, groups, k) in [("9 points", vec![Group { m: 1, q: 9 }, Group { m: 3, q: 3 }], 4usize), ("99 points", vec![Group { m: 1, q: 99 }, Group { m: 3, q: 33 }], 14)] {
+        for g in groups {
+            let (checked, found) = difference_rule(g, k, 1, 2);
+            out.push(format!(
+                "  difference rule on {label}, group {}: points are the group's elements, a and b joined when a - b is in S; all {checked} possible sets S checked: {}",
+                g.name(),
+                match &found {
+                    Some(s) => format!("WORKS with S = {{{}}}", show_set(g, s)),
+                    None => "none works".to_string(),
+                }
+            ));
+        }
+    }
+    out.push("  every group with 99 elements is Z99 or Z3 x Z33 (99 = 9 x 11, and by Sylow's theorems both parts are normal), so this proves: no difference rule gives the 99-graph".into());
+    for (orbits, p) in [(9usize, 11usize), (33, 3)] {
+        let (best, history, g) = orbit_rule(orbits, p, 14, 1, 2, fitness);
+        let steps: Vec<String> = history.iter().map(|h| h.to_string()).collect();
+        out.push(format!(
+            "  orbit rule, {orbits} groups of {p} points: (i, a) joined to (j, b) when b - a mod {p} is in S_ij; the sets evolved by the genetic search: fitness {}{}",
+            steps.join(" -> "),
+            match &g {
+                Some(g) => format!(": SOLVED, checked pair by pair: {}", edge_list(g).replace('\n', " ")),
+                None => format!(": best {best}, not solved (a search: it cannot prove there is none)"),
+            }
+        ));
+    }
     // other shapes from the same idea, each repaired with the same budget
     let joose = seed_graph.and_then(|p| std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(p)).ok()).and_then(|t| parse_edges(&t)).filter(|g| g.len() == 99);
     out.push("architectures from the same idea (Start in the middle, levels branching out), each completed at random to 14 neighbours per point and repaired with the same fitness search:".into());
@@ -1529,6 +1790,18 @@ mod tests {
         assert!(cases.iter().all(|c| c.complete) && cases.iter().any(|c| c.found > 0)); // GQ(2, 2) exists
         let (_, cases) = search_blocks_split(&Blocks { block: complete(3), copies: 7, lambda: 1, mu: 4 }, u64::MAX).expect("set up");
         assert!(cases.iter().all(|c| c.complete && c.found == 0)); // srg(21, 8, 1, 4) does not
+    }
+
+    #[test]
+    fn equations_for_the_nine_point_graph() {
+        // the rook's graph is the difference rule on Z3 x Z3 with S = {(0,±1), (±1,0)}; Z9 has none
+        let (checked, s) = difference_rule(Group { m: 3, q: 3 }, 4, 1, 2);
+        assert!(checked > 0 && s.is_some());
+        assert!(difference_rule(Group { m: 1, q: 9 }, 4, 1, 2).1.is_none());
+        // and an orbit rule with 3 orbits of 3 points finds it
+        let (best, _, g) = orbit_rule(3, 3, 4, 1, 2, &Evolve { population: 20, generations: 30, seed: 1, climb: 30 });
+        assert_eq!(best, 0);
+        assert!(is_srg(&g.expect("found"), 4));
     }
 
     #[test]
