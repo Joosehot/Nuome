@@ -73,6 +73,10 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
+        ("hodge", _) => crate::hodge::report(&crate::hodge::Settings {
+            surface_degrees: if p.surface_degrees.is_empty() { (3..=12).collect() } else { p.surface_degrees.clone() },
+            fourfold_degrees: if p.fourfold_degrees.is_empty() { (3..=10).collect() } else { p.fourfold_degrees.clone() },
+        }),
         ("p_vs_np", _) => crate::p_vs_np::report(&crate::p_vs_np::Settings {
             sizes: if p.sizes.is_empty() { vec![20, 30, 40, 50, 60, 70, 80] } else { p.sizes.clone() },
             instances: p.instances.unwrap_or(40),

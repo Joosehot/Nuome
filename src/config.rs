@@ -191,6 +191,11 @@ pub struct OpenProblem {
     pub instances: Option<usize>,
     #[serde(default)]
     pub ratio: Option<f64>,
+    /// Degrees of the varieties to check (surfaces, fourfolds).
+    #[serde(default)]
+    pub surface_degrees: Vec<usize>,
+    #[serde(default)]
+    pub fourfold_degrees: Vec<usize>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]
