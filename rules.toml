@@ -964,6 +964,11 @@ known = [
     "true for small enough initial data",
 ]
 formal = "prove that du/dt + (u . grad) u = laplacian u - grad p with div u = 0 has a smooth solution for all t"
+# flow simulation (src/navier_stokes.rs): Taylor-Green vortex on grid^3, Reynolds number 1/viscosity
+grid = 64
+viscosity = 0.01
+t_end = 10.0
+dt = 0.02
 
 [open.navier_stokes.guess]
 answer = "no guess: experts are genuinely divided"

@@ -73,6 +73,12 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
+        ("navier_stokes", _) => crate::navier_stokes::report(&crate::navier_stokes::Settings {
+            grid: p.grid.unwrap_or(32),
+            viscosity: p.viscosity.unwrap_or(0.01),
+            t_end: p.t_end.unwrap_or(10.0),
+            dt: p.dt.unwrap_or(0.02),
+        }),
         ("yang_mills", _) => crate::yang_mills::report(&crate::yang_mills::Settings {
             lattice: p.lattice.unwrap_or(8),
             betas: if p.betas.is_empty() { vec![0.5, 2.2, 2.3, 2.4, 2.5, 4.0] } else { p.betas.clone() },

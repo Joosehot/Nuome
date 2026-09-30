@@ -175,6 +175,15 @@ pub struct OpenProblem {
     pub thermalise: Option<usize>,
     #[serde(default)]
     pub measure: Option<usize>,
+    /// Flow simulations: grid side, viscosity, end time, time step.
+    #[serde(default)]
+    pub grid: Option<usize>,
+    #[serde(default)]
+    pub viscosity: Option<f64>,
+    #[serde(default)]
+    pub t_end: Option<f64>,
+    #[serde(default)]
+    pub dt: Option<f64>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
     /// from the crate root); the first one that exists is used.
     #[serde(default)]

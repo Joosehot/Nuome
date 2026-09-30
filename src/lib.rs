@@ -25,6 +25,7 @@ pub mod lexicon;
 // logic and sets (agent L)
 pub mod logic;
 pub mod model;
+pub mod navier_stokes;
 pub mod parser;
 pub mod poly;
 pub mod print;
