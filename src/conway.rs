@@ -17,7 +17,7 @@
 //! complete search that finds nothing proves no such graph exists.
 
 /// One set of neighbours per vertex, n <= 128.
-type Set = u128;
+pub type Set = u128;
 
 struct State {
     n: usize,
@@ -511,7 +511,7 @@ fn violations(g: &[Set]) -> u32 {
 }
 
 /// The same for any lambda (joined pairs) and mu (the others).
-fn violations_with(g: &[Set], lambda: u32, mu: u32) -> u32 {
+pub fn violations_with(g: &[Set], lambda: u32, mu: u32) -> u32 {
     let n = g.len();
     let mut total = 0;
     for u in 0..n {
@@ -1526,7 +1526,7 @@ pub fn conditions(n: i64, k: i64, l: i64, m: i64) -> Vec<(&'static str, String, 
 }
 
 /// Report lines for the attempt at the problem; `budget` branch points in all.
-pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph: Option<&str>) -> Vec<String> {
+pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph: Option<&str>, price_per_node: f64) -> Vec<String> {
     let (reps, total) = matching_orbits(14);
     let mut out = vec![
         "what is asked: 99 points, some joined by lines; every point has exactly 14 lines; two joined points have exactly 1 common neighbour; two points not joined have exactly 2".to_string(),
@@ -1689,6 +1689,12 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph:
         }
     }
     out.push("  every group with 99 elements is Z99 or Z3 x Z33 (99 = 9 x 11, and by Sylow's theorems both parts are normal), so this proves: no difference rule gives the 99-graph".into());
+    // equations searched the way the Goldbach formula was: families, then evolution, then the recheck
+    let settings = crate::equations::Settings { population: fitness.population, generations: fitness.generations, seed: fitness.seed, price_per_node };
+    out.push("  the Goldbach formula's method on the 9-point graph first (3 x 3 grid):".into());
+    out.extend(crate::equations::report(&crate::equations::Target { rows: 3, cols: 3, k: 4, lambda: 1, mu: 2 }, &settings).into_iter().map(|l| format!("  {l}")));
+    out.push("  and on 99 points (9 x 11 grid):".into());
+    out.extend(crate::equations::report(&crate::equations::Target { rows: 9, cols: 11, k: 14, lambda: 1, mu: 2 }, &settings).into_iter().map(|l| format!("  {l}")));
     for (orbits, p) in [(9usize, 11usize), (33, 3)] {
         let (best, history, g) = orbit_rule(orbits, p, 14, 1, 2, fitness);
         let steps: Vec<String> = history.iter().map(|h| h.to_string()).collect();

@@ -1107,6 +1107,8 @@ evolve_population = 120
 evolve_generations = 100
 evolve_seed = 2026
 evolve_climb = 300
+# the equation search (src/equations.rs): fitness price per node of an equation
+evolve_price = 1.0
 # pictures of the best graph found (adjacency matrix, BMP), from the crate root
 pictures = "out"
 # the repair search also starts from Joose Hotari's hand-drawn 7-network graph

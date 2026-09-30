@@ -14,6 +14,7 @@ pub mod checks;
 pub mod config;
 pub mod conway;
 pub mod discover;
+pub mod equations;
 pub mod evidence;
 pub mod evolve;
 pub mod explain;
