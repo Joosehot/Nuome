@@ -144,10 +144,69 @@ impl State {
     /// The undecided pair to branch on: at the vertex with the most sure
     /// edges that still has an undecided pair.
     fn choose(&self) -> Option<(usize, usize)> {
-        let v = (0..self.n).filter(|&v| self.p[v] & !self.e[v] != 0).max_by_key(|&v| (self.e[v].count_ones(), std::cmp::Reverse(v)))?;
+        let v = (0..self.n).filter(|&v| self.p[v] & !self.e[v] != 0).min_by_key(|&v| ((self.p[v] & !self.e[v]).count_ones(), v))?;
         let w = bits(self.p[v] & !self.e[v]).max_by_key(|&w| (self.e[w].count_ones(), std::cmp::Reverse(w)))?;
         Some((v, w))
     }
+}
+
+/// The eigenvalue test. A graph srg(n, k, 1, 2) has eigenvalues k, r and s
+/// (the roots of x^2 + x - (k - 2)) with multiplicities 1, f and g, so
+///   A - sI - ((k - s)/n) J  is positive semidefinite of rank f, and
+///   rI - A + ((k - r)/n) J  is positive semidefinite of rank g
+/// (J all ones). Every principal submatrix of these is then positive
+/// semidefinite of at most that rank: this is checked on the vertices whose
+/// pairs are all decided (the fixed part plus a greedy choice of the rest).
+fn algebra_ok(s: &State) -> bool {
+    let (n, k) = (s.n as f64, s.k as f64);
+    let root = (4.0 * k - 7.0).sqrt();
+    let (r, t) = ((-1.0 + root) / 2.0, (-1.0 - root) / 2.0);
+    let f = ((n - 1.0) - (2.0 * k - (n - 1.0)) / (r - t)) / 2.0;
+    let g = n - 1.0 - f;
+    let fixed = s.k as usize + 1;
+    let decided = |u: usize, v: usize| s.e[u] >> v & 1 == 1 || s.p[u] >> v & 1 == 0;
+    let mut chosen: Vec<usize> = (0..fixed).collect();
+    let mut rest: Vec<usize> = (fixed..s.n).collect();
+    rest.sort_by_key(|&v| (s.p[v] & !s.e[v]).count_ones());
+    for v in rest {
+        if chosen.iter().all(|&u| decided(u, v)) {
+            chosen.push(v);
+        }
+    }
+    let adj = |u: usize, v: usize| if s.e[u] >> v & 1 == 1 { 1.0 } else { 0.0 };
+    let first = |u: usize, v: usize| adj(u, v) - if u == v { t } else { 0.0 } - (k - t) / n;
+    let second = |u: usize, v: usize| if u == v { r } else { 0.0 } - adj(u, v) + (k - r) / n;
+    psd_rank(&chosen, &first).is_some_and(|rank| rank as f64 <= f + 1e-9) && psd_rank(&chosen, &second).is_some_and(|rank| rank as f64 <= g + 1e-9)
+}
+
+/// The rank of the matrix m on these vertices if it is positive
+/// semidefinite (pivoted Cholesky), None if it is not.
+fn psd_rank(vs: &[usize], m: &dyn Fn(usize, usize) -> f64) -> Option<usize> {
+    let size = vs.len();
+    let mut a: Vec<f64> = (0..size * size).map(|i| m(vs[i / size], vs[i % size])).collect();
+    let mut order: Vec<usize> = (0..size).collect();
+    let eps = 1e-8;
+    for step in 0..size {
+        let (best, value) = (step..size).map(|i| (i, a[order[i] * size + order[i]])).fold((step, f64::MIN), |b, x| if x.1 > b.1 { x } else { b });
+        if value < eps {
+            // what is left must be zero, else the matrix is not semidefinite
+            let left = (step..size).all(|i| (step..size).all(|j| a[order[i] * size + order[j]].abs() < 1e-6));
+            return left.then_some(step);
+        }
+        order.swap(step, best);
+        let p = order[step];
+        let pivot = a[p * size + p].sqrt();
+        for i in step..size {
+            a[order[i] * size + p] /= pivot;
+        }
+        for i in step + 1..size {
+            for j in step + 1..size {
+                let (oi, oj) = (order[i], order[j]);
+                a[oi * size + oj] -= a[oi * size + p] * a[oj * size + p];
+            }
+        }
+    }
+    Some(size)
 }
 
 fn bits(mut s: Set) -> impl Iterator<Item = usize> {
@@ -263,7 +322,7 @@ fn run(mut s: State, k: u32, budget: u64) -> Outcome {
                 out.nodes += 1;
                 let mark = s.trail.len();
                 stack.push((mark, (u, v), true));
-                if s.edge(u, v) && s.propagate() {
+                if s.edge(u, v) && s.propagate() && algebra_ok(&s) {
                     continue;
                 }
             }
@@ -278,7 +337,7 @@ fn run(mut s: State, k: u32, budget: u64) -> Outcome {
             s.undo(mark);
             if other {
                 stack.push((mark, (u, v), false));
-                if s.non_edge(u, v) && s.propagate() {
+                if s.non_edge(u, v) && s.propagate() && algebra_ok(&s) {
                     break;
                 }
             }
@@ -408,6 +467,7 @@ pub fn report(budget: u64) -> Vec<String> {
         "step 3, what is left: every line at point 0 and its neighbours is now fixed; open are the lines among the 84 points: 84 * 83 / 2 = 3486 yes/no choices, each of the 84 points needing 12 more lines".into(),
         format!("step 4, split into cases: point 1's 12 neighbours among the 84 must pair up into 6 lines (each line at point 1 lies in one triangle): {total} ways. Renaming the triangles and swapping points inside them turns many ways into each other (46080 renamings), which leaves {} truly different cases", reps.len()),
         "step 5, search each case: pick an open pair, try 'line', and if that fails 'no line'; after every choice apply everything it forces (a point with 14 lines gets no more; two points whose common neighbours are complete get no further shared ones; and the reverse when only just enough are possible); a contradiction rules the branch out".into(),
+        "step 6, algebra: such a graph would have eigenvalues 14, 3 (54 times) and -4 (44 times), so A + 4I - (2/11)J and 3I - A + (1/9)J (J all ones) are positive semidefinite of rank 54 and 44; after every choice the part of the graph whose pairs are all decided is tested against this, and a failure rules the branch out. The search finishes one point at a time so that this part grows".into(),
         "how to read the result: a case is closed when every branch in it ends in a contradiction; all cases closed = no such graph; a completed graph = yes, checked pair by pair before it is reported".into(),
         "warm-ups first: the same search on the smaller members of the family, 1 common neighbour for joined and 2 for others, with 4, 6 and 8 neighbours (9, 19 and 33 points), where the answer is known: it must find the 9-point graph and rule out the other two".into(),
     ];
