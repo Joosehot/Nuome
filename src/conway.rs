@@ -1427,6 +1427,149 @@ pub fn orbit_rule(orbits: usize, p: usize, k: u32, lambda: u32, mu: u32, s: &Evo
     (pop[0].0, history, solved.then_some(g))
 }
 
+/// Joose's grid: `rows` rows of `size` points; a point has `own` neighbours
+/// in its row and `other` in each other row (for 3 x 33 the only split
+/// allowed by the eigenvalues: 2 and 6). Each row starts as a closed ring,
+/// each pair of rows as a band (x joined to x .. x + other - 1 of the next
+/// row, cyclically); moves swap line ends between two points of the same
+/// row whose lines go to the same row, so every count per row stays.
+pub fn grid_rows(rows: usize, size: usize, own: usize, other: usize) -> Vec<Set> {
+    let n = rows * size;
+    let mut g = vec![0 as Set; n];
+    let mut join = |a: usize, b: usize| {
+        g[a] |= 1 << b;
+        g[b] |= 1 << a;
+    };
+    for r in 0..rows {
+        for x in 0..size {
+            for k in 1..=own / 2 {
+                join(r * size + x, r * size + (x + k) % size);
+            }
+        }
+    }
+    for r in 0..rows {
+        for s in r + 1..rows {
+            for x in 0..size {
+                for k in 0..other {
+                    join(r * size + x, s * size + (x + k) % size);
+                }
+            }
+        }
+    }
+    g
+}
+
+fn row_swap(g: &mut [Set], size: usize, r: &mut crate::evolve::Rng) -> Option<[usize; 4]> {
+    let n = g.len();
+    let a = r.below(n);
+    let na: Vec<usize> = bits(g[a]).collect();
+    let b = *na.get(r.below(na.len().max(1)))?;
+    let c = (a / size) * size + r.below(size);
+    let nc: Vec<usize> = bits(g[c]).filter(|&d| d / size == b / size).collect();
+    let d = *nc.get(r.below(nc.len().max(1)))?;
+    if a == c || b == d || a == d || b == c || g[a] >> d & 1 == 1 || g[c] >> b & 1 == 1 {
+        return None;
+    }
+    // a-b, c-d become a-d, c-b
+    for (x, y, on) in [(a, b, false), (c, d, false), (a, d, true), (c, b, true)] {
+        if on {
+            g[x] |= 1 << y;
+            g[y] |= 1 << x;
+        } else {
+            g[x] &= !(1 << y);
+            g[y] &= !(1 << x);
+        }
+    }
+    Some([a, b, c, d])
+}
+
+fn row_unswap(g: &mut [Set], [a, b, c, d]: [usize; 4]) {
+    for (x, y, on) in [(a, d, false), (c, b, false), (a, b, true), (c, d, true)] {
+        if on {
+            g[x] |= 1 << y;
+            g[y] |= 1 << x;
+        } else {
+            g[x] &= !(1 << y);
+            g[y] &= !(1 << x);
+        }
+    }
+}
+
+/// The fitness search inside the grid structure: the Goldbach formula's
+/// genetic search, children made by row-keeping swaps and a climb.
+pub fn evolve_rows(start: &[Set], size: usize, s: &Evolve) -> Evolved {
+    let mut r = crate::evolve::Rng(s.seed.max(1));
+    let child = |parent: &[Set], seed: u64| -> (u32, Vec<Set>) {
+        let mut r = crate::evolve::Rng(seed.max(1));
+        let mut g = parent.to_vec();
+        for _ in 0..1 + r.below(3) {
+            row_swap(&mut g, size, &mut r);
+        }
+        let mut score = violations(&g);
+        for _ in 0..s.climb {
+            if let Some(m) = row_swap(&mut g, size, &mut r) {
+                let now = violations(&g);
+                if now <= score {
+                    score = now;
+                } else {
+                    row_unswap(&mut g, m);
+                }
+            }
+        }
+        (score, g)
+    };
+    // shuffle the start inside the structure, a different way for each member
+    let mut pop: Vec<(u32, Vec<Set>)> = (0..s.population)
+        .map(|_| {
+            let mut g = start.to_vec();
+            for _ in 0..20 * start.len() {
+                row_swap(&mut g, size, &mut r);
+            }
+            (violations(&g), g)
+        })
+        .collect();
+    let threads = std::thread::available_parallelism().map_or(4, |t| t.get());
+    let mut history = Vec::new();
+    for generation in 0..s.generations {
+        pop.sort_by_key(|p| p.0);
+        if pop[0].0 == 0 {
+            break;
+        }
+        if generation % (s.generations / 10).max(1) == 0 {
+            history.push(pop[0].0);
+        }
+        let elite = (s.population / 10).max(1);
+        let mut next: Vec<(u32, Vec<Set>)> = pop.iter().take(elite).cloned().collect();
+        let jobs: Vec<(usize, u64)> = (next.len()..s.population)
+            .map(|_| {
+                let mut best = r.below(pop.len());
+                for _ in 0..2 {
+                    let c = r.below(pop.len());
+                    if pop[c].0 < pop[best].0 {
+                        best = c;
+                    }
+                }
+                (best, r.next())
+            })
+            .collect();
+        let chunk = jobs.len().div_ceil(threads).max(1);
+        let children: Vec<(u32, Vec<Set>)> = std::thread::scope(|sc| {
+            let hs: Vec<_> = jobs.chunks(chunk).map(|part| {
+                let (pop, child) = (&pop, &child);
+                sc.spawn(move || part.iter().map(|&(p, seed)| child(&pop[p].1, seed)).collect::<Vec<_>>())
+            }).collect();
+            hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
+        });
+        next.extend(children);
+        pop = next;
+    }
+    pop.sort_by_key(|p| p.0);
+    let best = pop[0].0;
+    history.push(best);
+    let g = pop[0].1.clone();
+    Evolved { best, history, graph: (best == 0 && is_srg(&g, 14)).then(|| g.clone()), free_points: g.len(), best_graph: g }
+}
+
 /// A graph as text, one "a-b" per line.
 pub fn edge_list(g: &[Set]) -> String {
     let mut out = String::new();
@@ -1775,6 +1918,20 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph:
             }
         ));
     }
+    // Joose's 3 x 33 grid: 2 neighbours in the own row, 6 in each other row
+    {
+        let start = grid_rows(3, 33, 2, 6);
+        let degrees_ok = start.iter().all(|x| x.count_ones() == 14);
+        let e = evolve_rows(&start, 33, fitness);
+        let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
+        out.push(format!(
+            "Joose's 3 x 33 grid: if the 99-graph splits evenly into three rows of 33, the eigenvalues force 2 neighbours in the own row and 6 in each other row (a + 2b = 14 and a - b = -4); start: each row a closed ring, each pair of rows a band ({}), then only swaps that keep those counts: fitness {}; {} wrong pairs in the best graph{}",
+            if degrees_ok { "14 neighbours each" } else { "degrees WRONG" },
+            steps.join(" -> "),
+            wrong_pairs(&e.best_graph),
+            if e.graph.is_some() { ": SOLVED, checked pair by pair" } else { ": not solved inside this structure (a search cannot prove there is none)" }
+        ));
+    }
     // other shapes from the same idea, each repaired with the same budget
     let joose = seed_graph.and_then(|p| std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(p)).ok()).and_then(|t| parse_edges(&t)).filter(|g| g.len() == 99);
     out.push("architectures from the same idea (Start in the middle, levels branching out), each completed at random to 14 neighbours per point and repaired with the same fitness search:".into());
@@ -1876,6 +2033,19 @@ mod tests {
         let (best, _, g) = orbit_rule(3, 3, 4, 1, 2, &Evolve { population: 20, generations: 30, seed: 1, climb: 30 });
         assert_eq!(best, 0);
         assert!(is_srg(&g.expect("found"), 4));
+    }
+
+    #[test]
+    fn row_swaps_keep_the_counts_per_row() {
+        let mut g = grid_rows(3, 33, 2, 6);
+        let counts = |g: &[Set]| -> Vec<[u32; 3]> { (0..99).map(|v| [0, 1, 2].map(|r| bits(g[v]).filter(|&w| w / 33 == r).count() as u32)).collect() };
+        let before = counts(&g);
+        assert!(before.iter().enumerate().all(|(v, c)| c[v / 33] == 2 && c.iter().sum::<u32>() == 14));
+        let mut r = crate::evolve::Rng(9);
+        for _ in 0..2000 {
+            row_swap(&mut g, 33, &mut r);
+        }
+        assert_eq!(counts(&g), before);
     }
 
     #[test]
