@@ -1002,6 +1002,93 @@ pub fn evolve_blocks(shape: &Blocks, s: &Evolve) -> Evolved {
     Evolved { best, history, graph: (best == 0 && regular && violations_with(&g, shape.lambda, shape.mu) == 0).then(|| g.clone()), free_points: m * shape.copies, best_graph: g }
 }
 
+/// The fitness search started from a given graph: every member begins as
+/// that graph, children swap line ends anywhere (a-b, c-d become a-c, b-d,
+/// so every degree stays) and keep the swaps that are not worse. Same
+/// genetic search as the Goldbach formula.
+pub fn evolve_from(start: &[Set], s: &Evolve) -> Evolved {
+    let mut r = crate::evolve::Rng(s.seed.max(1));
+    let first = (violations(start), start.to_vec());
+    let mut pop: Vec<(u32, Vec<Set>)> = vec![first; s.population.max(1)];
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let mut history = vec![pop[0].0];
+    for generation in 0..s.generations {
+        pop.sort_by_key(|p| p.0);
+        if pop[0].0 == 0 {
+            break;
+        }
+        if generation > 0 && generation % (s.generations / 10).max(1) == 0 {
+            history.push(pop[0].0);
+        }
+        let elite = (s.population / 10).max(1);
+        let mut next: Vec<(u32, Vec<Set>)> = pop.iter().take(elite).cloned().collect();
+        let jobs: Vec<(usize, u64)> = (next.len()..s.population)
+            .map(|_| {
+                let mut best = r.below(pop.len());
+                for _ in 0..2 {
+                    let c = r.below(pop.len());
+                    if pop[c].0 < pop[best].0 {
+                        best = c;
+                    }
+                }
+                (best, r.next())
+            })
+            .collect();
+        let size = jobs.len().div_ceil(threads).max(1);
+        let children: Vec<(u32, Vec<Set>)> = std::thread::scope(|sc| {
+            let hs: Vec<_> = jobs.chunks(size).map(|part| {
+                let pop = &pop;
+                sc.spawn(move || part.iter().map(|&(p, seed)| child(&pop[p].1, 0, seed, s.climb)).collect::<Vec<_>>())
+            }).collect();
+            hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
+        });
+        next.extend(children);
+        pop = next;
+    }
+    pop.sort_by_key(|p| p.0);
+    let best = pop[0].0;
+    history.push(best);
+    let g = pop[0].1.clone();
+    let k = g.first().map_or(0, |x| x.count_ones());
+    Evolved { best, history, graph: (best == 0 && is_srg(&g, k)).then(|| g.clone()), free_points: g.len(), best_graph: g }
+}
+
+/// A graph as text, one "a-b" per line.
+pub fn edge_list(g: &[Set]) -> String {
+    let mut out = String::new();
+    for u in 0..g.len() {
+        for v in bits(g[u]).filter(|&v| v > u) {
+            out.push_str(&format!("{u}-{v}\n"));
+        }
+    }
+    out
+}
+
+/// Read "a-b" lines into neighbour sets (at most 128 points).
+pub fn parse_edges(text: &str) -> Option<Vec<Set>> {
+    let mut edges = Vec::new();
+    for line in text.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        let (a, b) = line.split_once('-')?;
+        edges.push((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?));
+    }
+    let n = edges.iter().map(|&(a, b)| a.max(b) + 1).max()?;
+    if n > 128 {
+        return None;
+    }
+    let mut g = vec![0 as Set; n];
+    for (a, b) in edges {
+        if a != b {
+            g[a] |= 1 << b;
+            g[b] |= 1 << a;
+        }
+    }
+    Some(g)
+}
+
 /// Check a graph given as text, one "a-b" per line, against the 99-graph
 /// conditions: 99 points, 14 neighbours each, 1 common neighbour for joined
 /// pairs, 2 for the others. Returns report lines (with pairs anyone can

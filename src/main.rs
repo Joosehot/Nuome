@@ -42,6 +42,10 @@ struct Cli {
     /// Conway's 99-graph conditions, pair by pair, and draw it.
     #[arg(long)]
     graph: Option<PathBuf>,
+    /// With --graph: repair it by the fitness search (line swaps that keep
+    /// every degree), then check and draw the best graph found.
+    #[arg(long, requires = "graph")]
+    repair: bool,
 }
 
 fn main() -> Result<()> {
@@ -58,7 +62,29 @@ fn main() -> Result<()> {
     };
     if let Some(f) = &cli.graph {
         let text = std::fs::read_to_string(f).with_context(|| format!("reading {}", f.display()))?;
-        let pictures = cfg.open.get("conway99").and_then(|p| p.pictures.clone());
+        let problem = cfg.open.get("conway99");
+        let pictures = problem.and_then(|p| p.pictures.clone());
+        let text = if cli.repair {
+            let Some(g) = nuome::conway::parse_edges(&text) else { bail!("{} is not a list of \"a-b\" lines on at most 128 points", f.display()) };
+            let s = nuome::conway::Evolve {
+                population: problem.and_then(|p| p.evolve_population).unwrap_or(120),
+                generations: problem.and_then(|p| p.evolve_generations).unwrap_or(100),
+                seed: problem.and_then(|p| p.evolve_seed).unwrap_or(2026),
+                climb: problem.and_then(|p| p.evolve_climb).unwrap_or(300),
+            };
+            let e = nuome::conway::evolve_from(&g, &s);
+            let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
+            println!("repair by the fitness search ({} graphs, {} generations, seed {}, line swaps that keep every degree)", s.population, s.generations, s.seed);
+            println!("fitness (common-neighbour counts off, summed over all pairs; 0 = solved): {}", steps.join(" -> "));
+            let repaired = nuome::conway::edge_list(&e.best_graph);
+            let saved = f.with_file_name(format!("{}-repaired.txt", f.file_stem().map_or("graph".into(), |s| s.to_string_lossy())));
+            std::fs::write(&saved, &repaired).with_context(|| format!("writing {}", saved.display()))?;
+            println!("the repaired graph: {}", saved.display());
+            println!("its check:");
+            repaired
+        } else {
+            text
+        };
         let (lines, ok) = nuome::conway::check_text(&text, pictures.as_deref());
         for l in lines {
             println!("{l}");
