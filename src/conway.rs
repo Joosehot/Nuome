@@ -470,14 +470,19 @@ pub struct Evolve {
     pub climb: usize,
 }
 
-/// Sum over all pairs of |common neighbours - target|.
+/// Sum over all pairs of |common neighbours - target| (lambda = 1, mu = 2).
 fn violations(g: &[Set]) -> u32 {
+    violations_with(g, 1, 2)
+}
+
+/// The same for any lambda (joined pairs) and mu (the others).
+fn violations_with(g: &[Set], lambda: u32, mu: u32) -> u32 {
     let n = g.len();
     let mut total = 0;
     for u in 0..n {
         for v in u + 1..n {
             let common = (g[u] & g[v]).count_ones() as i32;
-            let target = if g[u] >> v & 1 == 1 { 1 } else { 2 };
+            let target = if g[u] >> v & 1 == 1 { lambda } else { mu } as i32;
             total += (common - target).unsigned_abs();
         }
     }
@@ -618,6 +623,164 @@ pub fn evolve(k: u32, s: &Evolve) -> Option<Evolved> {
     Some(Evolved { best, history, graph: (best == 0 && is_srg(&pop[0].1, k)).then(|| pop[0].1.clone()), free_points: m })
 }
 
+/// The "evolve the small graph" rule: n = t copies of a block graph that
+/// already meets the conditions inside itself (every pair of a block has its
+/// common neighbours complete). Then a point outside a block may touch at
+/// most one point of it, and when every point needs exactly t - 1 more
+/// neighbours, it has exactly one in each other block: every two blocks are
+/// joined by a perfect matching. A member is one permutation per pair of
+/// blocks; a move swaps two entries of one permutation, so every member keeps
+/// the block structure and every degree. Same genetic search as the Goldbach
+/// formula; fitness = the common-neighbour counts off, summed over all pairs.
+pub struct Blocks {
+    /// the block graph, as neighbour sets on 0..size
+    pub block: Vec<Set>,
+    pub copies: usize,
+    /// common neighbours of joined and of other pairs in the graph sought
+    pub lambda: u32,
+    pub mu: u32,
+}
+
+impl Blocks {
+    fn size(&self) -> usize {
+        self.block.len()
+    }
+    fn pairs(&self) -> Vec<(usize, usize)> {
+        (0..self.copies).flat_map(|a| (a + 1..self.copies).map(move |b| (a, b))).collect()
+    }
+    /// The whole graph from one permutation per pair of blocks.
+    fn graph(&self, perms: &[Vec<usize>]) -> Vec<Set> {
+        let m = self.size();
+        let mut g = vec![0 as Set; m * self.copies];
+        for c in 0..self.copies {
+            for v in 0..m {
+                for w in bits(self.block[v]) {
+                    g[c * m + v] |= 1 << (c * m + w);
+                }
+            }
+        }
+        for (p, &(a, b)) in self.pairs().iter().enumerate() {
+            for (x, &y) in perms[p].iter().enumerate() {
+                let (u, v) = (a * m + x, b * m + y);
+                g[u] |= 1 << v;
+                g[v] |= 1 << u;
+            }
+        }
+        g
+    }
+}
+
+/// Complete graph on m points.
+fn complete(m: usize) -> Vec<Set> {
+    (0..m).map(|v| ((1 as Set) << m) - 1 & !(1 << v)).collect()
+}
+
+/// Known strongly regular graphs that the growing rule should rebuild:
+/// (name, block, copies, lambda, mu).
+pub fn known_block_graphs() -> Vec<(&'static str, Vec<Set>, usize, u32, u32)> {
+    vec![
+        ("3 triangles -> srg(9, 4, 1, 2), the 3 x 3 rook's graph", complete(3), 3, 1, 2),
+        ("4 x K4 -> srg(16, 6, 2, 2), the 4 x 4 rook's graph", complete(4), 4, 2, 2),
+        ("5 x K5 -> srg(25, 8, 3, 2), the 5 x 5 rook's graph", complete(5), 5, 3, 2),
+        ("5 triangles -> srg(15, 6, 1, 3), the generalized quadrangle GQ(2, 2)", complete(3), 5, 1, 3),
+        ("9 triangles -> srg(27, 10, 1, 5), the generalized quadrangle GQ(2, 4)", complete(3), 9, 1, 5),
+        // a control: the rule applies, but no such graph exists (its multiplicities are not whole numbers)
+        ("control, 7 triangles -> srg(21, 8, 1, 4), which does NOT exist", complete(3), 7, 1, 4),
+    ]
+}
+
+/// The 3 x 3 rook's graph, srg(9, 4, 1, 2).
+pub fn rook9() -> Vec<Set> {
+    (0..9).map(|v| (0..9).filter(|&w| w != v && (w / 3 == v / 3 || w % 3 == v % 3)).fold(0 as Set, |s, w| s | 1 << w)).collect()
+}
+
+/// Evolve the joining permutations.
+pub fn evolve_blocks(shape: &Blocks, s: &Evolve) -> Evolved {
+    let m = shape.size();
+    let links = shape.pairs().len();
+    let mut r = crate::evolve::Rng(s.seed.max(1));
+    let random_perms = |r: &mut crate::evolve::Rng| -> Vec<Vec<usize>> {
+        (0..links)
+            .map(|_| {
+                let mut p: Vec<usize> = (0..m).collect();
+                for i in (1..m).rev() {
+                    p.swap(i, r.below(i + 1));
+                }
+                p
+            })
+            .collect()
+    };
+    let score = |perms: &[Vec<usize>]| violations_with(&shape.graph(perms), shape.lambda, shape.mu);
+    let child = |parent: &[Vec<usize>], seed: u64| -> (u32, Vec<Vec<usize>>) {
+        let mut r = crate::evolve::Rng(seed.max(1));
+        let mut p = parent.to_vec();
+        for _ in 0..1 + r.below(3) {
+            let l = r.below(links);
+            let (i, j) = (r.below(m), r.below(m));
+            p[l].swap(i, j);
+        }
+        let mut best = score(&p);
+        for _ in 0..s.climb {
+            let l = r.below(links);
+            let (i, j) = (r.below(m), r.below(m));
+            p[l].swap(i, j);
+            let now = score(&p);
+            if now <= best {
+                best = now;
+            } else {
+                p[l].swap(i, j);
+            }
+        }
+        (best, p)
+    };
+    let mut pop: Vec<(u32, Vec<Vec<usize>>)> = (0..s.population).map(|_| {
+        let p = random_perms(&mut r);
+        (score(&p), p)
+    }).collect();
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let mut history = Vec::new();
+    for generation in 0..s.generations {
+        pop.sort_by_key(|p| p.0);
+        if pop[0].0 == 0 {
+            break;
+        }
+        if generation % (s.generations / 10).max(1) == 0 {
+            history.push(pop[0].0);
+        }
+        let elite = (s.population / 10).max(1);
+        let mut next: Vec<(u32, Vec<Vec<usize>>)> = pop.iter().take(elite).cloned().collect();
+        let jobs: Vec<(usize, u64)> = (next.len()..s.population)
+            .map(|_| {
+                let mut best = r.below(pop.len());
+                for _ in 0..2 {
+                    let c = r.below(pop.len());
+                    if pop[c].0 < pop[best].0 {
+                        best = c;
+                    }
+                }
+                (best, r.next())
+            })
+            .collect();
+        let size = jobs.len().div_ceil(threads).max(1);
+        let children: Vec<(u32, Vec<Vec<usize>>)> = std::thread::scope(|sc| {
+            let hs: Vec<_> = jobs.chunks(size).map(|part| {
+                let (pop, child) = (&pop, &child);
+                sc.spawn(move || part.iter().map(|&(p, seed)| child(&pop[p].1, seed)).collect::<Vec<_>>())
+            }).collect();
+            hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
+        });
+        next.extend(children);
+        pop = next;
+    }
+    pop.sort_by_key(|p| p.0);
+    let best = pop[0].0;
+    history.push(best);
+    let g = shape.graph(&pop[0].1);
+    let k = g[0].count_ones();
+    let regular = g.iter().all(|x| x.count_ones() == k);
+    Evolved { best, history, graph: (best == 0 && regular && violations_with(&g, shape.lambda, shape.mu) == 0).then_some(g), free_points: m * shape.copies }
+}
+
 /// The known necessary conditions for a strongly regular graph
 /// srg(n, k, lambda, mu), each as (name, what was computed, holds). A single
 /// failure proves that no such graph exists.
@@ -720,6 +883,26 @@ pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
         }
         None => out.push("the search could not be set up".into()),
     }
+    // the growing rule: 11 copies of the 9-point graph, joined pairwise by matchings
+    let big = evolve_blocks(&Blocks { block: rook9(), copies: 11, lambda: 1, mu: 2 }, fitness);
+    out.push("growing rule: build the 99-graph from 11 copies of the 9-point graph (4 neighbours each, conditions already met inside). A point outside a copy can then touch at most one point of it, and needing 10 more neighbours with 10 other copies it touches exactly one in each: every two copies are joined by a perfect matching of their 9 points. The search chooses these 55 matchings (a permutation of 9 each); a move swaps two entries, so the structure always holds".into());
+    out.push("  the rule tested first on known graphs built the same way (copies of a block, every two joined by a matching):".into());
+    for (name, block, copies, lambda, mu) in known_block_graphs() {
+        let e = evolve_blocks(&Blocks { block, copies, lambda, mu }, fitness);
+        out.push(format!(
+            "    {name}: {}",
+            if e.graph.is_some() { "built, checked pair by pair".to_string() } else { format!("NOT built (best {} off)", e.best) }
+        ));
+    }
+    let steps: Vec<String> = big.history.iter().map(|h| h.to_string()).collect();
+    out.push(format!("  99 points by the rule: best fitness by tenths of the run: {}", steps.join(" -> ")));
+    out.push(match &big.graph {
+        Some(g) => {
+            let edges: Vec<String> = (0..g.len()).flat_map(|u| bits(g[u]).filter(move |&v| v > u).map(move |v| format!("{u}-{v}"))).collect();
+            format!("  FOUND by the growing rule, fitness 0 and checked pair by pair: {}", edges.join(" "))
+        }
+        None => format!("  best graph off by {} in total: not found. The rule assumes the 99-graph contains 11 separate copies of the 9-point graph, which nobody knows; if it does not, this route cannot succeed", big.best),
+    });
     if let Some(e) = evolve(14, fitness) {
         let steps: Vec<String> = e.history.iter().map(|h| h.to_string()).collect();
         out.push(format!(
@@ -783,6 +966,16 @@ mod tests {
         let a = evolve(14, &Evolve { population: 6, generations: 2, seed: 5, climb: 10 }).expect("set up");
         let b = evolve(14, &Evolve { population: 6, generations: 2, seed: 5, climb: 10 }).expect("set up");
         assert_eq!(a.history, b.history); // seeded: the same run twice
+    }
+
+    #[test]
+    fn the_block_rule_rebuilds_the_nine_point_graph() {
+        // three triangles joined pairwise by matchings: the 3 x 3 rook's graph
+        let triangle: Vec<Set> = vec![0b110, 0b101, 0b011];
+        let e = evolve_blocks(&Blocks { block: triangle, copies: 3, lambda: 1, mu: 2 }, &Evolve { population: 10, generations: 20, seed: 3, climb: 20 });
+        assert_eq!(e.best, 0);
+        assert!(is_srg(e.graph.as_ref().expect("found"), 4));
+        assert!(is_srg(&rook9(), 4));
     }
 
     #[test]
