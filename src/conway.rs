@@ -163,7 +163,7 @@ fn bits(mut s: Set) -> impl Iterator<Item = usize> {
 
 /// The fixed part: vertex 0, its k neighbours in k/2 triangles, and the
 /// distance-2 vertices as pairs of neighbours from different triangles.
-fn start(k: u32) -> Option<State> {
+fn start(k: u32) -> Option<(State, Vec<(usize, usize)>)> {
     let k = k as usize;
     let first = 1..=k;
     let partner = |a: usize| if (a - 1) % 2 == 0 { a + 1 } else { a - 1 };
@@ -199,7 +199,7 @@ fn start(k: u32) -> Option<State> {
         }
     }
     s.trail.clear();
-    Some(s)
+    Some((s, pairs))
 }
 
 /// Every pair counted directly: an independent check of a found graph.
@@ -236,18 +236,22 @@ pub struct Outcome {
 
 /// Search srg(n, k, 1, 2) with at most `budget` branch nodes.
 pub fn search(k: u32, budget: u64) -> Option<Outcome> {
-    let mut s = start(k)?;
+    let (s, _) = start(k)?;
+    Some(run(s, k, budget))
+}
+
+/// The search from a set-up state.
+fn run(mut s: State, k: u32, budget: u64) -> Outcome {
     let open_pairs = (0..s.n).map(|v| (s.p[v] & !s.e[v]).count_ones() as usize).sum::<usize>() / 2;
     let mut out = Outcome { n: s.n, k, open_pairs, nodes: 0, deepest: 0, found: 0, example: None, complete: false };
     if !s.propagate() {
         out.complete = true;
-        return Some(out);
+        return out;
     }
     // explicit stack: (trail length before the choice, pair, the non-edge branch still to try)
     let mut stack: Vec<(usize, (usize, usize), bool)> = Vec::new();
-    let decided = |s: &State| s.trail.len();
     loop {
-        out.deepest = out.deepest.max(decided(&s));
+        out.deepest = out.deepest.max(s.trail.len());
         match s.choose() {
             None => {
                 if is_srg(&s.e, k) {
@@ -263,13 +267,13 @@ pub fn search(k: u32, budget: u64) -> Option<Outcome> {
                     continue;
                 }
             }
-            Some(_) => return Some(out),
+            Some(_) => return out,
         }
         // backtrack to the latest choice with its other branch untried
         loop {
             let Some((mark, (u, v), other)) = stack.pop() else {
                 out.complete = true;
-                return Some(out);
+                return out;
             };
             s.undo(mark);
             if other {
@@ -282,7 +286,118 @@ pub fn search(k: u32, budget: u64) -> Option<Outcome> {
     }
 }
 
-/// Report lines for the attempt at the problem.
+/// Every perfect matching of the points 0..points, as partner arrays.
+fn matchings(points: usize) -> Vec<Vec<usize>> {
+    fn go(partner: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        let Some(a) = partner.iter().position(|&p| p == usize::MAX) else {
+            out.push(partner.clone());
+            return;
+        };
+        for b in a + 1..partner.len() {
+            if partner[b] == usize::MAX {
+                partner[a] = b;
+                partner[b] = a;
+                go(partner, out);
+                partner[a] = usize::MAX;
+                partner[b] = usize::MAX;
+            }
+        }
+    }
+    let mut out = Vec::new();
+    go(&mut vec![usize::MAX; points], &mut out);
+    out
+}
+
+/// All permutations of 0..m.
+fn permutations(m: usize) -> Vec<Vec<usize>> {
+    if m == 0 {
+        return vec![vec![]];
+    }
+    let mut out = Vec::new();
+    for p in permutations(m - 1) {
+        for at in 0..=p.len() {
+            let mut q = p.clone();
+            q.insert(at, m - 1);
+            out.push(q);
+        }
+    }
+    out
+}
+
+/// Vertex 1's neighbours at distance 2 from vertex 0 are the pairs {1, b}
+/// with b in the other k/2 - 1 triangles, and lambda = 1 pairs them up (the
+/// edge from 1 to each lies in exactly one triangle). The symmetries of the
+/// fixed part that keep vertex 1 (permute the other triangles, swap the two
+/// sides of any of them) act on these matchings; one matching per orbit is
+/// enough. Returns the representatives, as pairs of points 2t + side over
+/// the other triangles t, and the number of matchings.
+fn matching_orbits(k: u32) -> (Vec<Vec<(usize, usize)>>, usize) {
+    let m = k as usize / 2 - 1;
+    let all = matchings(2 * m);
+    let key = |partner: &[usize]| partner.iter().fold(0u128, |acc, &p| acc * 32 + p as u128);
+    let perms = permutations(m);
+    let mut seen = std::collections::HashSet::new();
+    let mut reps = Vec::new();
+    for partner in &all {
+        if seen.contains(&key(partner)) {
+            continue;
+        }
+        reps.push((0..partner.len()).filter(|&a| a < partner[a]).map(|a| (a, partner[a])).collect());
+        for perm in &perms {
+            for flips in 0..1usize << m {
+                let g = |p: usize| 2 * perm[p / 2] + ((p % 2) ^ (flips >> (p / 2) & 1));
+                let mut image = vec![0; partner.len()];
+                for a in 0..partner.len() {
+                    image[g(a)] = g(partner[a]);
+                }
+                seen.insert(key(&image));
+            }
+        }
+    }
+    (reps, all.len())
+}
+
+/// The search split by vertex 1's matching, one case per orbit, the cases
+/// run in parallel with at most `budget` branch points each. Returns the
+/// number of matchings and each case's outcome.
+pub fn search_split(k: u32, budget: u64) -> Option<(usize, Vec<Outcome>)> {
+    use std::sync::{atomic::AtomicUsize, atomic::Ordering, Mutex};
+    let (base, pairs) = start(k)?;
+    let (reps, total) = matching_orbits(k);
+    let index = |a: usize, b: usize| 1 + k as usize + pairs.iter().position(|&p| p == (a.min(b), a.max(b))).expect("a cross pair");
+    // point 2t + side over the triangles after vertex 1's -> its vertex
+    let vertex = |p: usize| 1 + 2 * (p / 2 + 1) + p % 2;
+    let cases: Vec<Mutex<Option<State>>> = reps
+        .iter()
+        .map(|rep| {
+            let mut s = State { n: base.n, k: base.k, e: base.e.clone(), p: base.p.clone(), trail: Vec::new() };
+            for &(x, y) in rep {
+                s.edge(index(1, vertex(x)), index(1, vertex(y)));
+            }
+            s.trail.clear();
+            Mutex::new(Some(s))
+        })
+        .collect();
+    let slots: Vec<Mutex<Option<Outcome>>> = (0..cases.len()).map(|_| Mutex::new(None)).collect();
+    let next = AtomicUsize::new(0);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    std::thread::scope(|sc| {
+        for _ in 0..threads {
+            sc.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= cases.len() {
+                    break;
+                }
+                let s = cases[i].lock().expect("no panics").take().expect("each case once");
+                let o = run(s, k, budget);
+                *slots[i].lock().expect("no panics") = Some(o);
+            });
+        }
+    });
+    Some((total, slots.into_iter().map(|m| m.into_inner().expect("done").expect("ran")).collect()))
+}
+
+/// Report lines for the attempt at the problem; `budget` branch points in all.
 pub fn report(budget: u64) -> Vec<String> {
     let mut out = Vec::new();
     for k in [4u32, 6, 8] {
@@ -295,24 +410,32 @@ pub fn report(budget: u64) -> Vec<String> {
             out.push(format!("warm-up srg({}, {k}, 1, 2): complete search of {} undecided pairs, {} branch points: {what}", o.n, o.open_pairs, o.nodes));
         }
     }
+    let per_case = (budget / matching_orbits(14).0.len() as u64).max(1);
     let t0 = std::time::Instant::now();
-    match search(14, budget) {
-        Some(o) => {
-            let rate = o.nodes as f64 / t0.elapsed().as_secs_f64().max(1e-9);
-            out.push(format!("srg(99, 14, 1, 2): the structure fixes every edge at vertex 0 and its 14 neighbours; the search decides the {} pairs among the other 84 vertices", o.open_pairs));
-            out.push(if o.complete {
-                if o.found > 0 {
-                    format!("COMPLETE: found {} such graphs, each checked pair by pair", o.found)
-                } else {
-                    "COMPLETE: no such graph exists".to_string()
-                }
+    match search_split(14, per_case) {
+        Some((total, cases)) => {
+            let secs = t0.elapsed().as_secs_f64().max(1e-9);
+            let nodes: u64 = cases.iter().map(|c| c.nodes).sum();
+            let closed = cases.iter().filter(|c| c.complete && c.found == 0).count();
+            let found: u64 = cases.iter().map(|c| c.found).sum();
+            let deepest = cases.iter().map(|c| c.deepest).max().unwrap_or(0);
+            let open: Vec<String> = cases.iter().enumerate().filter(|(_, c)| !c.complete).map(|(i, _)| (i + 1).to_string()).collect();
+            out.push(format!("srg(99, 14, 1, 2): the structure fixes every edge at vertex 0 and its 14 neighbours; {} pairs among the other 84 vertices are left", cases.first().map_or(0, |c| c.open_pairs + 6)));
+            out.push(format!("vertex 1's 12 neighbours among those 84 must pair up into 6 edges: {total} matchings, {} up to the 46080 symmetries of the fixed part; each is a separate case", cases.len()));
+            out.push(format!(
+                "{nodes} branch points in all (at most {per_case} per case, {:.0} per second): {closed} of {} cases closed completely (no graph in them), {found} graphs found, cases still open: {}; at most {deepest} pairs decided at once",
+                nodes as f64 / secs,
+                cases.len(),
+                if open.is_empty() { "none".to_string() } else { open.join(", ") }
+            ));
+            out.push(if found > 0 {
+                "FOUND: such a graph, checked pair by pair (below)".to_string()
+            } else if closed == cases.len() {
+                "COMPLETE: every case is closed, so no such graph exists".to_string()
             } else {
-                format!(
-                    "searched {} branch points (the budget), at most {} of the {} pairs decided at once, {} graphs found; the search is NOT complete: nothing is settled (about {rate:.0} branch points per second)",
-                    o.nodes, o.deepest, o.open_pairs, o.found
-                )
+                "the search is NOT complete: nothing is settled".to_string()
             });
-            if let Some(g) = o.example {
+            if let Some(g) = cases.iter().find_map(|c| c.example.clone()) {
                 let edges: Vec<String> = (0..g.len()).flat_map(|u| bits(g[u]).filter(move |&v| v > u).map(move |v| format!("{u}-{v}"))).collect();
                 out.push(format!("the graph: {}", edges.join(" ")));
             }
@@ -343,6 +466,20 @@ mod tests {
             assert_eq!(o.n, n);
             assert!(o.complete && o.found == 0, "k = {k}");
         }
+    }
+
+    #[test]
+    fn split_search_agrees() {
+        // srg(33, 8, 1, 2) split by vertex 1's matching: every case closes
+        let (total, cases) = search_split(8, u64::MAX).expect("set up");
+        assert_eq!(total, 15); // matchings of 6 points
+        assert!(cases.iter().all(|c| c.complete && c.found == 0));
+        // srg(9, 4, 1, 2) is found again after the split
+        let (_, cases) = search_split(4, u64::MAX).expect("set up");
+        assert!(cases.iter().any(|c| c.found > 0));
+        let (reps, total) = matching_orbits(14);
+        assert_eq!(total, 10395);
+        assert!(reps.len() < 100, "{}", reps.len());
     }
 
     #[test]
