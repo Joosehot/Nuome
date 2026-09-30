@@ -1078,8 +1078,6 @@ known = [
     "checked by computer for every starting number below 2^68",
     "almost all starting numbers reach almost bounded values (Tao, 2019)",
 ]
-
-# ---- Proofs ----------------------------------------------------------------------
 formal = "prove that repeating n/2 for even n and 3n + 1 for odd n reaches 1 from every n"
 check_up_to = 1000000
 
@@ -1090,6 +1088,29 @@ basis = [
     "checked below 2^68, and Nuome checked every start up to 10^6",
     "Tao (2019): almost all orbits reach almost bounded values",
 ]
+
+[open.conway99]
+name = "Conway's 99-graph problem"
+statement = "is there a graph on 99 vertices, each with 14 neighbours, where adjacent vertices have exactly 1 common neighbour and non-adjacent vertices exactly 2 (a strongly regular graph srg(99, 14, 1, 2))?"
+status = "open since Biggs (1971); one of John Conway's five $1000 problems (2014); finite, so a complete search would settle it"
+known = [
+    "the parameters pass every known feasibility test (eigenvalues 3 and -4 with multiplicities 54 and 44)",
+    "if it exists, it can only have very few symmetries (Behbahani and Lam, 2011, restrict them), so searches cannot lean on symmetry",
+]
+formal = "prove that there is a graph on 99 vertices where every vertex has 14 neighbours"
+# branch points the search may use (src/conway.rs); "up to 10^8" asks for more
+check_up_to = 100000
+max_check = 100000000000
+
+[open.conway99.guess]
+answer = "no guess: experts are divided"
+confidence = "none"
+basis = [
+    "the parameters are feasible, and the related srg(9, 4, 1, 2) and srg(243, 22, 1, 2) exist",
+    "decades of searches have found nothing, which says little: the space is huge",
+]
+
+# ---- Proofs ----------------------------------------------------------------------
 
 [proof]
 max_grid = 20000           # exact grid points allowed when confirming a polynomial identity

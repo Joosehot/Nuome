@@ -550,6 +550,12 @@ const PHRASES: &[(&str, Tok)] = &[
     ("the twin prime conjecture", Open("twin_primes")),
     ("collatz conjecture", Open("collatz")),
     ("the collatz conjecture", Open("collatz")),
+    // "99-graph" is spelled out before scanning (see `lex`)
+    ("conway's ninety-nine-graph problem", Open("conway99")),
+    ("the ninety-nine-graph problem", Open("conway99")),
+    ("ninety-nine-graph problem", Open("conway99")),
+    ("the ninety-nine-graph", Open("conway99")),
+    ("ninety-nine-graph", Open("conway99")),
     ("3n + 1 problem", Open("collatz")),
     ("variety", Topic("algebraic geometry")),
     ("varieties", Topic("algebraic geometry")),
@@ -857,7 +863,9 @@ fn scan(s: &str) -> Result<Vec<Raw>, String> {
 /// Turn a sentence into tokens. Unknown words come back as `Unknown` tokens;
 /// the parser decides whether that's an error (it is, unless --lenient).
 pub fn lex(s: &str) -> Result<Vec<Token>, String> {
-    let raw = scan(s)?;
+    // a name with a number in it: Conway's 99-graph problem
+    let s = s.replace("99-graph", "ninety-nine-graph").replace("99-Graph", "ninety-nine-graph").replace("99 graph", "ninety-nine-graph");
+    let raw = scan(&s)?;
     let mut out: Vec<Token> = Vec::new();
     let mut i = 0;
     while i < raw.len() {

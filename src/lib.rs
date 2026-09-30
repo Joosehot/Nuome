@@ -12,6 +12,7 @@ pub mod calls;
 pub mod attempt;
 pub mod checks;
 pub mod config;
+pub mod conway;
 pub mod discover;
 pub mod evidence;
 pub mod evolve;

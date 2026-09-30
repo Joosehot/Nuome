@@ -73,6 +73,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         }),
         ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
+        ("conway99", Some(n)) => crate::conway::report(requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("riemann", Some(n)) => crate::zeta::report(requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))) as f64, &p.tables),
         ("bsd", Some(n)) => crate::bsd::report(requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))), &p.tables),
         _ => vec!["nothing: no finite calculation bears on this statement".into()],
@@ -84,6 +85,8 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
     // 3. the verdict
     out.push(if proved {
         "  result: proved".into()
+    } else if key == "conway99" {
+        "  result: not settled. The problem is finite, so a complete search would settle it either way; this search did not finish".into()
     } else {
         "  result: not proved. No rule set Nuome has, or that anyone has found, derives it; a finite computation can find a counterexample but never proves it for all cases".into()
     });
