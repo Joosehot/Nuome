@@ -15,6 +15,7 @@ pub mod config;
 pub mod conway;
 pub mod discover;
 pub mod equations;
+pub mod abstract_eq;
 pub mod evidence;
 pub mod evolve;
 pub mod explain;

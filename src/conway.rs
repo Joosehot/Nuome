@@ -1697,6 +1697,18 @@ pub fn report(budget: u64, fitness: &Evolve, pictures: Option<&str>, seed_graph:
     out.extend(crate::equations::report(&nine, &settings).into_iter().map(|l| format!("  {l}")));
     out.push("  and the 9-point equation evolved up to 99 points (99 = 3 x 3 x 11: x and y as in the 9-point graph, z new):".into());
     out.extend(crate::equations::chain(&nine, &ninety_nine, &settings).into_iter().map(|l| format!("    {l}")));
+    // abstract formulas: finite rings and fields as coordinates, squares, and logic
+    {
+        use crate::abstract_eq::{chain, search, Ring, Settings, Space};
+        let s = Settings { population: fitness.population, generations: fitness.generations, seed: fitness.seed, price_per_node };
+        let space = |rings: Vec<Ring>, k| Space { rings, k, lambda: 1, mu: 2 };
+        out.push("  abstract formulas: points are elements of products of finite rings and fields, atoms say a term is 0, a nonzero square or a non-square in its own arithmetic, joined by and / or / not; the 9-point graph is 'p - q is a square in GF(9)' (Paley)".into());
+        out.push("  the chain GF(9) -> GF(9) x GF(11):".into());
+        out.extend(chain(&space(vec![Ring::gf9()], 4), &space(vec![Ring::gf9(), Ring::z(11)], 14), &s).into_iter().map(|l| format!("    {l}")));
+        for rings in [vec![Ring::z(3), Ring::z(3), Ring::z(11)], vec![Ring::z(9), Ring::z(11)], vec![Ring::z(3), Ring::z(33)], vec![Ring::z(99)]] {
+            out.extend(search(&space(rings, 14), &s).0.into_iter().map(|l| format!("    {l}")));
+        }
+    }
     for (orbits, p) in [(9usize, 11usize), (33, 3)] {
         let (best, history, g) = orbit_rule(orbits, p, 14, 1, 2, fitness);
         let steps: Vec<String> = history.iter().map(|h| h.to_string()).collect();
