@@ -1110,6 +1110,52 @@ pub fn complete_regular(start: &[Set], k: u32, seed: u64) -> Option<Vec<Set>> {
     None
 }
 
+/// Joose's star: every centre gets short spokes (the chain stops there) and
+/// long ones (a new star starts at the end), 14 lines per centre; with
+/// `triangles`, each short spoke is paired with a long one, so the centre,
+/// the short end and the long end form a triangle.
+pub fn star(n: usize, short: usize, long: usize, triangles: bool) -> Vec<Set> {
+    let mut g = vec![0 as Set; n];
+    let join = |g: &mut Vec<Set>, a: usize, b: usize| {
+        g[a] |= 1 << b;
+        g[b] |= 1 << a;
+    };
+    let mut centres = std::collections::VecDeque::from([0usize]);
+    let mut next = 1;
+    while let Some(c) = centres.pop_front() {
+        // the first centre has no parent; later ones already have it (and,
+        // with triangles, their partner too), so they get fewer new spokes
+        let (s, l) = if c == 0 {
+            (short, long)
+        } else if triangles {
+            (short - 1, long - 1)
+        } else {
+            (short, long - 1)
+        };
+        let mut shorts = Vec::new();
+        let mut longs = Vec::new();
+        for i in 0..s + l {
+            if next >= n {
+                break;
+            }
+            join(&mut g, c, next);
+            if i < s {
+                shorts.push(next);
+            } else {
+                longs.push(next);
+                centres.push_back(next);
+            }
+            next += 1;
+        }
+        if triangles {
+            for (&a, &b) in shorts.iter().zip(&longs) {
+                join(&mut g, a, b);
+            }
+        }
+    }
+    g
+}
+
 /// Starting shapes from the "Start in the middle, branching out" idea, each
 /// completed to 14 neighbours per point: (name, graph).
 pub fn architectures(seed: u64, joose: Option<&[Set]>) -> Vec<(String, Vec<Set>)> {
@@ -1123,6 +1169,14 @@ pub fn architectures(seed: u64, joose: Option<&[Set]>) -> Vec<(String, Vec<Set>)
         ("1-14-6: Start with 14, each of them 6 more (1, 14, 84), the shape the conditions force", vec![14, 6]),
     ] {
         if let Some(g) = complete_regular(&tree(&branching, 99), 14, seed) {
+            out.push((name.to_string(), g));
+        }
+    }
+    for (name, triangles) in [
+        ("Joose's star: 7 short spokes (the chain stops) and 7 long (a new star starts at the end)", false),
+        ("Joose's star with triangles: each short spoke paired with a long one", true),
+    ] {
+        if let Some(g) = complete_regular(&star(99, 7, 7, triangles), 14, seed) {
             out.push((name.to_string(), g));
         }
     }
