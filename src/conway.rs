@@ -1117,6 +1117,7 @@ pub fn architectures(seed: u64, joose: Option<&[Set]>) -> Vec<(String, Vec<Set>)
     for (name, branching) in [
         ("1-3-3: Start with 3, every point after it 3 more (1, 3, 9, 27, 59)", vec![3]),
         ("1-2-2: 2 at every step (1, 2, 4, 8, 16, 32, 36)", vec![2]),
+        ("1-3-2: Start with 3, then 2 at every step (1, 3, 6, 12, 24, 48, 5)", vec![3, 2]),
         ("1-7-7: 7 at every step (1, 7, 49, 42)", vec![7]),
         ("1-14-6: Start with 14, each of them 6 more (1, 14, 84), the shape the conditions force", vec![14, 6]),
     ] {
