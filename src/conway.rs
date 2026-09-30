@@ -22,6 +22,12 @@ type Set = u128;
 struct State {
     n: usize,
     k: u32,
+    /// common neighbours of joined pairs and of the others
+    lambda: u32,
+    mu: u32,
+    /// in the growing rule, the size of a block: every point has exactly
+    /// one neighbour in each other block (0 = not used)
+    block: usize,
     /// sure edges
     e: Vec<Set>,
     /// possible edges (not ruled out), sure ones included
@@ -96,21 +102,25 @@ impl State {
                     let possible = (self.p[u] & self.p[v]).count_ones();
                     let is_edge = self.e[u] >> v & 1 == 1;
                     let may_edge = self.p[u] >> v & 1 == 1;
+                    let (l, m) = (self.lambda, self.mu);
                     if !is_edge && may_edge {
-                        // undecided: an edge needs exactly 1, a non-edge exactly 2
-                        let ok = if sure >= 2 || possible == 0 {
+                        // undecided: an edge needs exactly lambda, a non-edge exactly mu
+                        if sure > l.max(m) || possible < l.min(m) {
+                            return false;
+                        }
+                        let ok = if sure > l || possible < l {
                             self.non_edge(u, v)
-                        } else if possible < 2 {
+                        } else if sure > m || possible < m {
                             self.edge(u, v)
                         } else {
                             true
                         };
-                        if !ok || sure > 2 {
+                        if !ok {
                             return false;
                         }
                         continue;
                     }
-                    let target = if is_edge { 1 } else { 2 };
+                    let target = if is_edge { l } else { m };
                     if sure > target || possible < target {
                         return false;
                     }
@@ -131,6 +141,31 @@ impl State {
                             if !self.edge(u, w) || !self.edge(v, w) {
                                 return false;
                             }
+                        }
+                    }
+                }
+            }
+            if self.block > 0 {
+                // exactly one neighbour in every other block
+                let b = self.block;
+                for v in 0..self.n {
+                    for c in 0..self.n / b {
+                        if c == v / b {
+                            continue;
+                        }
+                        let mask: Set = (((1 as Set) << b) - 1) << (c * b);
+                        let (sure, open) = (self.e[v] & mask, self.p[v] & mask);
+                        if sure.count_ones() > 1 || open == 0 {
+                            return false;
+                        }
+                        if sure.count_ones() == 1 {
+                            for w in bits(open & !sure) {
+                                if !self.non_edge(v, w) {
+                                    return false;
+                                }
+                            }
+                        } else if open.count_ones() == 1 && !self.edge(v, open.trailing_zeros() as usize) {
+                            return false;
                         }
                     }
                 }
@@ -159,14 +194,14 @@ impl State {
 /// pairs are all decided (the fixed part plus a greedy choice of the rest).
 fn algebra_ok(s: &State) -> bool {
     let (n, k) = (s.n as f64, s.k as f64);
-    let root = (4.0 * k - 7.0).sqrt();
-    let (r, t) = ((-1.0 + root) / 2.0, (-1.0 - root) / 2.0);
-    let f = ((n - 1.0) - (2.0 * k - (n - 1.0)) / (r - t)) / 2.0;
+    let d = s.lambda as f64 - s.mu as f64;
+    let root = (d * d + 4.0 * (k - s.mu as f64)).sqrt();
+    let (r, t) = ((d + root) / 2.0, (d - root) / 2.0);
+    let f = ((n - 1.0) - (2.0 * k + (n - 1.0) * d) / (r - t)) / 2.0;
     let g = n - 1.0 - f;
-    let fixed = s.k as usize + 1;
     let decided = |u: usize, v: usize| s.e[u] >> v & 1 == 1 || s.p[u] >> v & 1 == 0;
-    let mut chosen: Vec<usize> = (0..fixed).collect();
-    let mut rest: Vec<usize> = (fixed..s.n).collect();
+    let mut chosen: Vec<usize> = Vec::new();
+    let mut rest: Vec<usize> = (0..s.n).collect();
     rest.sort_by_key(|&v| (s.p[v] & !s.e[v]).count_ones());
     for v in rest {
         if chosen.iter().all(|&u| decided(u, v)) {
@@ -239,7 +274,7 @@ fn start(k: u32) -> Option<(State, Vec<(usize, usize)>)> {
         return None;
     }
     let all: Set = if n == 128 { !0 } else { (1u128 << n) - 1 };
-    let mut s = State { n, k: k as u32, e: vec![0; n], p: (0..n).map(|v| all & !(1 << v)).collect(), trail: Vec::new() };
+    let mut s = State { n, k: k as u32, lambda: 1, mu: 2, block: 0, e: vec![0; n], p: (0..n).map(|v| all & !(1 << v)).collect(), trail: Vec::new() };
     let mut want = vec![vec![false; n]; n];
     for a in first.clone() {
         want[0][a] = true;
@@ -313,7 +348,7 @@ fn run(mut s: State, k: u32, budget: u64) -> Outcome {
         out.deepest = out.deepest.max(s.trail.len());
         match s.choose() {
             None => {
-                if is_srg(&s.e, k) {
+                if s.e.iter().all(|x| x.count_ones() == k) && violations_with(&s.e, s.lambda, s.mu) == 0 {
                     out.found += 1;
                     out.example.get_or_insert_with(|| s.e.clone());
                 }
@@ -429,7 +464,7 @@ pub fn search_split(k: u32, budget: u64) -> Option<(usize, Vec<Outcome>)> {
     let cases: Vec<Mutex<Option<State>>> = reps
         .iter()
         .map(|rep| {
-            let mut s = State { n: base.n, k: base.k, e: base.e.clone(), p: base.p.clone(), trail: Vec::new() };
+            let mut s = State { n: base.n, k: base.k, lambda: 1, mu: 2, block: 0, e: base.e.clone(), p: base.p.clone(), trail: Vec::new() };
             for &(x, y) in rep {
                 s.edge(index(1, vertex(x)), index(1, vertex(y)));
             }
@@ -670,6 +705,123 @@ impl Blocks {
     }
 }
 
+/// The growing rule as a complete search: the blocks' own lines fixed, every
+/// point with exactly one neighbour in each other block, and the choices
+/// that symmetry allows made up front. The blocks are vertex-transitive, so
+/// point 0's neighbour in each other block can be taken to be that block's
+/// first point; with lambda = 1 those neighbours pair up into triangles
+/// through point 0, and renumbering the other blocks makes the pairs
+/// (1, 2), (3, 4), ... A complete search that finds nothing proves that no
+/// such graph is built this way.
+fn search_blocks_state(shape: &Blocks) -> Option<State> {
+    let (m, t) = (shape.size(), shape.copies);
+    let n = m * t;
+    if n > 128 {
+        return None;
+    }
+    let k = shape.block[0].count_ones() + t as u32 - 1;
+    let all: Set = if n == 128 { !0 } else { (1u128 << n) - 1 };
+    let mut s = State { n, k, lambda: shape.lambda, mu: shape.mu, block: m, e: vec![0; n], p: (0..n).map(|v| all & !(1 << v)).collect(), trail: Vec::new() };
+    for c in 0..t {
+        for x in 0..m {
+            for y in x + 1..m {
+                let ok = if shape.block[x] >> y & 1 == 1 { s.edge(c * m + x, c * m + y) } else { s.non_edge(c * m + x, c * m + y) };
+                if !ok {
+                    return None;
+                }
+            }
+        }
+    }
+    for c in 1..t {
+        s.edge(0, c * m);
+    }
+    if shape.lambda == 1 && (t - 1) % 2 == 0 {
+        for c in (1..t).step_by(2) {
+            s.edge(c * m, (c + 1) * m);
+        }
+    }
+    s.trail.clear();
+    let _ = k;
+    Some(s)
+}
+
+pub fn search_blocks(shape: &Blocks, budget: u64) -> Option<Outcome> {
+    let s = search_blocks_state(shape)?;
+    let k = s.k;
+    Some(run(s, k, budget))
+}
+
+/// Automorphisms of a block that fix its point 0.
+fn stabiliser(block: &[Set]) -> Vec<Vec<usize>> {
+    let m = block.len();
+    permutations(m)
+        .into_iter()
+        .filter(|g| g[0] == 0 && (0..m).all(|x| (0..m).all(|y| (block[x] >> y & 1) == (block[g[x]] >> g[y] & 1))))
+        .collect()
+}
+
+/// The growing rule's complete search split into cases by the matching
+/// between blocks 0 and 1 (point 0 to point 0 already fixed): one matching
+/// per orbit under the automorphisms of the two blocks that fix point 0.
+/// Cases run in parallel, `budget` branch points each. Returns (number of
+/// matchings, outcomes).
+pub fn search_blocks_split(shape: &Blocks, budget: u64) -> Option<(usize, Vec<Outcome>)> {
+    use std::sync::{atomic::AtomicUsize, atomic::Ordering, Mutex};
+    let m = shape.size();
+    let stab = stabiliser(&shape.block);
+    let mut seen = std::collections::HashSet::new();
+    let mut reps: Vec<Vec<usize>> = Vec::new();
+    let mut total = 0;
+    for rest in permutations(m - 1) {
+        let pi: Vec<usize> = std::iter::once(0).chain(rest.iter().map(|&x| x + 1)).collect();
+        total += 1;
+        if seen.contains(&pi) {
+            continue;
+        }
+        for a in &stab {
+            for b in &stab {
+                // pi' = b . pi . a^-1
+                let mut image = vec![0; m];
+                for x in 0..m {
+                    image[a[x]] = b[pi[x]];
+                }
+                seen.insert(image);
+            }
+        }
+        reps.push(pi);
+    }
+    let base = search_blocks_state(shape)?;
+    let cases: Vec<Mutex<Option<State>>> = reps
+        .iter()
+        .map(|pi| {
+            let mut s = State { n: base.n, k: base.k, lambda: base.lambda, mu: base.mu, block: base.block, e: base.e.clone(), p: base.p.clone(), trail: Vec::new() };
+            let ok = (0..m).all(|x| s.edge(x, m + pi[x]));
+            s.trail.clear();
+            Mutex::new(ok.then_some(s))
+        })
+        .collect();
+    let k = base.k;
+    let slots: Vec<Mutex<Option<Outcome>>> = (0..cases.len()).map(|_| Mutex::new(None)).collect();
+    let next = AtomicUsize::new(0);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    std::thread::scope(|sc| {
+        for _ in 0..threads {
+            sc.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= cases.len() {
+                    break;
+                }
+                let o = match cases[i].lock().expect("no panics").take() {
+                    Some(s) => run(s, k, budget),
+                    None => Outcome { n: base.n, k, open_pairs: 0, nodes: 0, deepest: 0, found: 0, example: None, complete: true },
+                };
+                *slots[i].lock().expect("no panics") = Some(o);
+            });
+        }
+    });
+    Some((total, slots.into_iter().map(|x| x.into_inner().expect("done").expect("ran")).collect()))
+}
+
 /// Complete graph on m points.
 fn complete(m: usize) -> Vec<Set> {
     (0..m).map(|v| ((1 as Set) << m) - 1 & !(1 << v)).collect()
@@ -894,8 +1046,25 @@ pub fn report(budget: u64, fitness: &Evolve) -> Vec<String> {
             if e.graph.is_some() { "built, checked pair by pair".to_string() } else { format!("NOT built (best {} off)", e.best) }
         ));
     }
+    out.push("  the same rule as a complete search (it can prove, not only find): the blocks' own lines fixed, one neighbour in each other block, the matching between blocks 0 and 1 split into cases up to the blocks' symmetries:".into());
+    for (name, block, copies, lambda, mu) in known_block_graphs() {
+        if let Some((_, cases)) = search_blocks_split(&Blocks { block, copies, lambda, mu }, u64::MAX) {
+            let found: u64 = cases.iter().map(|c| c.found).sum();
+            out.push(format!("    {name}: {}", if found > 0 { format!("found ({found} labelled copies), search complete") } else { "none, search complete: proved that no such graph is built this way".to_string() }));
+        }
+    }
+    let per_case = (budget / 662).max(1);
+    if let Some((total, cases)) = search_blocks_split(&Blocks { block: rook9(), copies: 11, lambda: 1, mu: 2 }, per_case) {
+        let closed = cases.iter().filter(|c| c.complete && c.found == 0).count();
+        let found: u64 = cases.iter().map(|c| c.found).sum();
+        out.push(format!(
+            "    99 points (11 copies of the 9-point graph): {total} matchings, {} cases; {closed} closed, {found} graphs found, at most {per_case} branch points per case{}",
+            cases.len(),
+            if closed == cases.len() { ": ALL closed, so the 99-graph is not 11 copies of the 9-point graph joined this way" } else { ": not complete, nothing is settled" }
+        ));
+    }
     let steps: Vec<String> = big.history.iter().map(|h| h.to_string()).collect();
-    out.push(format!("  99 points by the rule: best fitness by tenths of the run: {}", steps.join(" -> ")));
+    out.push(format!("  99 points by the rule, fitness search: best fitness by tenths of the run: {}", steps.join(" -> ")));
     out.push(match &big.graph {
         Some(g) => {
             let edges: Vec<String> = (0..g.len()).flat_map(|u| bits(g[u]).filter(move |&v| v > u).map(move |v| format!("{u}-{v}"))).collect();
@@ -976,6 +1145,14 @@ mod tests {
         assert_eq!(e.best, 0);
         assert!(is_srg(e.graph.as_ref().expect("found"), 4));
         assert!(is_srg(&rook9(), 4));
+    }
+
+    #[test]
+    fn the_complete_block_search_proves_both_ways() {
+        let (_, cases) = search_blocks_split(&Blocks { block: complete(3), copies: 5, lambda: 1, mu: 3 }, u64::MAX).expect("set up");
+        assert!(cases.iter().all(|c| c.complete) && cases.iter().any(|c| c.found > 0)); // GQ(2, 2) exists
+        let (_, cases) = search_blocks_split(&Blocks { block: complete(3), copies: 7, lambda: 1, mu: 4 }, u64::MAX).expect("set up");
+        assert!(cases.iter().all(|c| c.complete && c.found == 0)); // srg(21, 8, 1, 4) does not
     }
 
     #[test]
