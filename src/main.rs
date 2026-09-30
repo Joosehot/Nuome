@@ -38,6 +38,10 @@ struct Cli {
     /// List every word and phrase Nuome knows.
     #[arg(long)]
     vocabulary: bool,
+    /// Check a graph (one line "a-b" per edge, # starts a comment) against
+    /// Conway's 99-graph conditions, pair by pair, and draw it.
+    #[arg(long)]
+    graph: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -52,6 +56,18 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(f) = &cli.graph {
+        let text = std::fs::read_to_string(f).with_context(|| format!("reading {}", f.display()))?;
+        let pictures = cfg.open.get("conway99").and_then(|p| p.pictures.clone());
+        let (lines, ok) = nuome::conway::check_text(&text, pictures.as_deref());
+        for l in lines {
+            println!("{l}");
+        }
+        if !ok {
+            bail!("not a solution");
+        }
+        return Ok(());
+    }
     let style = if cli.latex {
         Style::Latex
     } else if cli.unicode {

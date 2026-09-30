@@ -1002,6 +1002,94 @@ pub fn evolve_blocks(shape: &Blocks, s: &Evolve) -> Evolved {
     Evolved { best, history, graph: (best == 0 && regular && violations_with(&g, shape.lambda, shape.mu) == 0).then(|| g.clone()), free_points: m * shape.copies, best_graph: g }
 }
 
+/// Check a graph given as text, one "a-b" per line, against the 99-graph
+/// conditions: 99 points, 14 neighbours each, 1 common neighbour for joined
+/// pairs, 2 for the others. Returns report lines (with pairs anyone can
+/// check by hand) and whether it is a solution; draws it when `pictures`.
+pub fn check_text(text: &str, pictures: Option<&str>) -> (Vec<String>, bool) {
+    let mut out = Vec::new();
+    let mut edges = Vec::new();
+    for (i, line) in text.lines().enumerate() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        match line.split_once('-').and_then(|(a, b)| Some((a.trim().parse::<usize>().ok()?, b.trim().parse::<usize>().ok()?))) {
+            Some(e) => edges.push(e),
+            None => out.push(format!("line {} is not \"a-b\": {line}", i + 1)),
+        }
+    }
+    let n = edges.iter().map(|&(a, b)| a.max(b) + 1).max().unwrap_or(0);
+    if n > 128 {
+        out.push(format!("{n} points: this checker handles at most 128"));
+        return (out, false);
+    }
+    let mut g = vec![0 as Set; n];
+    let (mut repeated, mut loops) = (0, 0);
+    for &(a, b) in &edges {
+        if a == b {
+            loops += 1;
+        } else if g[a] >> b & 1 == 1 {
+            repeated += 1;
+        } else {
+            g[a] |= 1 << b;
+            g[b] |= 1 << a;
+        }
+    }
+    let lines = edges.len() - repeated - loops;
+    out.push(format!("points: {n} (needs 99); lines: {lines} (needs 693){}", if repeated + loops > 0 { format!("; {repeated} repeated and {loops} from a point to itself, ignored") } else { String::new() }));
+    let wrong_degree: Vec<String> = (0..n).filter(|&v| g[v].count_ones() != 14).map(|v| format!("{v} has {}", g[v].count_ones())).collect();
+    out.push(if wrong_degree.is_empty() { "neighbours: every point has 14: right".to_string() } else { format!("neighbours: {} points do not have 14: {}", wrong_degree.len(), wrong_degree.iter().take(10).cloned().collect::<Vec<_>>().join(", ")) });
+    let list = |s: Set| bits(s).map(|x| x.to_string()).collect::<Vec<_>>().join(" ");
+    let (mut joined_ok, mut joined_bad, mut other_ok, mut other_bad) = (0, 0, 0, 0);
+    let mut shown = Vec::new();
+    for u in 0..n {
+        for v in u + 1..n {
+            let common = g[u] & g[v];
+            let joined = g[u] >> v & 1 == 1;
+            let right = common.count_ones() == if joined { 1 } else { 2 };
+            match (joined, right) {
+                (true, true) => joined_ok += 1,
+                (true, false) => joined_bad += 1,
+                (false, true) => other_ok += 1,
+                (false, false) => other_bad += 1,
+            }
+            if !right && shown.len() < 8 {
+                shown.push(format!(
+                    "  {u} and {v} ({}): {u}'s neighbours are {}; {v}'s neighbours are {}; in both: {} = {} common, needs {}",
+                    if joined { "joined" } else { "not joined" },
+                    list(g[u]),
+                    list(g[v]),
+                    if common == 0 { "none".to_string() } else { list(common) },
+                    common.count_ones(),
+                    if joined { 1 } else { 2 }
+                ));
+            }
+        }
+    }
+    out.push(format!("joined pairs: {joined_ok} right, {joined_bad} wrong (each needs exactly 1 common neighbour)"));
+    out.push(format!("pairs not joined: {other_ok} right, {other_bad} wrong (each needs exactly 2 common neighbours)"));
+    if !shown.is_empty() {
+        out.push("the first wrong pairs, with both neighbour lists so they can be checked by hand:".into());
+        out.extend(shown);
+    }
+    let solved = n == 99 && wrong_degree.is_empty() && joined_bad == 0 && other_bad == 0;
+    out.push(if solved {
+        "ALL 4851 PAIRS ARE RIGHT: this is a graph srg(99, 14, 1, 2), a solution to Conway's 99-graph problem".to_string()
+    } else {
+        "not a solution yet".to_string()
+    });
+    if let Some(dir) = pictures {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir);
+        let (image, _, _) = picture(&g, 1, 2, 0, 6);
+        let path = dir.join("your-graph.bmp");
+        if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&path, image).is_ok() {
+            out.push(format!("picture: {} (black = line, white = no line where right; red = too many common neighbours, blue = too few)", path.display()));
+        }
+    }
+    (out, solved)
+}
+
 /// The known necessary conditions for a strongly regular graph
 /// srg(n, k, lambda, mu), each as (name, what was computed, holds). A single
 /// failure proves that no such graph exists.
