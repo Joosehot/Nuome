@@ -148,6 +148,241 @@ fn ideas() -> Vec<Idea> {
     v
 }
 
+/// A shape Nuome builds itself, from the features of n.
+#[derive(Clone, Debug)]
+enum G {
+    /// n, ln n, ln ln n, S(n), the number of distinct odd primes of n, the power of 2 in n
+    Feat(u8),
+    Num(f64),
+    Add(Box<G>, Box<G>),
+    Mul(Box<G>, Box<G>),
+    Div(Box<G>, Box<G>),
+    Pow(Box<G>, f64),
+}
+
+const FEATURES: [&str; 6] = ["n", "ln n", "ln ln n", "S(n)", "w(n)", "v2(n)"];
+
+impl G {
+    fn eval(&self, f: &[f64; 6]) -> f64 {
+        match self {
+            G::Feat(i) => f[*i as usize],
+            G::Num(c) => *c,
+            G::Add(a, b) => a.eval(f) + b.eval(f),
+            G::Mul(a, b) => a.eval(f) * b.eval(f),
+            G::Div(a, b) => a.eval(f) / b.eval(f),
+            G::Pow(a, e) => a.eval(f).powf(*e),
+        }
+    }
+    fn size(&self) -> usize {
+        match self {
+            G::Feat(_) | G::Num(_) => 1,
+            G::Add(a, b) | G::Mul(a, b) | G::Div(a, b) => 1 + a.size() + b.size(),
+            G::Pow(a, _) => 1 + a.size(),
+        }
+    }
+    fn show(&self) -> String {
+        match self {
+            G::Feat(i) => FEATURES[*i as usize].into(),
+            G::Num(c) => format!("{c:.3}"),
+            G::Add(a, b) => format!("({} + {})", a.show(), b.show()),
+            G::Mul(a, b) => format!("{} * {}", a.show(), b.show()),
+            G::Div(a, b) => format!("{} / ({})", a.show(), b.show()),
+            G::Pow(a, e) => format!("({})^{e:.3}", a.show()),
+        }
+    }
+    fn at(&mut self, k: usize) -> &mut G {
+        if k == 0 {
+            return self;
+        }
+        match self {
+            G::Add(a, b) | G::Mul(a, b) | G::Div(a, b) => {
+                let s = a.size();
+                if k <= s {
+                    a.at(k - 1)
+                } else {
+                    b.at(k - 1 - s)
+                }
+            }
+            G::Pow(a, _) => a.at(k - 1),
+            _ => self,
+        }
+    }
+    fn get(&self, k: usize) -> &G {
+        if k == 0 {
+            return self;
+        }
+        match self {
+            G::Add(a, b) | G::Mul(a, b) | G::Div(a, b) => {
+                let s = a.size();
+                if k <= s {
+                    a.get(k - 1)
+                } else {
+                    b.get(k - 1 - s)
+                }
+            }
+            G::Pow(a, _) => a.get(k - 1),
+            _ => self,
+        }
+    }
+}
+
+fn random_g(r: &mut crate::evolve::Rng, depth: usize) -> G {
+    if depth == 0 || r.below(3) == 0 {
+        return if r.below(4) == 0 { G::Num((0.5 + r.unit() * 3.0 * 100.0).round() / 100.0) } else { G::Feat(r.below(6) as u8) };
+    }
+    match r.below(4) {
+        0 => G::Add(Box::new(random_g(r, depth - 1)), Box::new(random_g(r, depth - 1))),
+        1 => G::Mul(Box::new(random_g(r, depth - 1)), Box::new(random_g(r, depth - 1))),
+        2 => G::Div(Box::new(random_g(r, depth - 1)), Box::new(random_g(r, depth - 1))),
+        _ => G::Pow(Box::new(random_g(r, depth - 1)), (r.unit() * 3.0 * 100.0).round() / 100.0),
+    }
+}
+
+/// The features of the i-th even number.
+fn features(d: &Data, i: usize) -> [f64; 6] {
+    let n = d.n[i];
+    let mut m = n;
+    let mut v2 = 0.0;
+    while m % 2 == 0 {
+        m /= 2;
+        v2 += 1.0;
+    }
+    let mut w = 0.0;
+    let mut q = 3;
+    while q * q <= m {
+        if m % q == 0 {
+            w += 1.0;
+            while m % q == 0 {
+                m /= q;
+            }
+        }
+        q += 2;
+    }
+    if m > 1 {
+        w += 1.0;
+    }
+    [n as f64, ln(n), ln(n).ln(), d.s[i], w, v2]
+}
+
+/// For a shape g: the constant c = min r/g, and how tight c g is (the mean of
+/// c g / r, 1 = exact), over the given points; None when g is not positive.
+fn tightness(g: &G, pts: &[(f64, [f64; 6])]) -> Option<(f64, f64)> {
+    let vals: Vec<(f64, f64)> = pts.iter().map(|(r, f)| (*r, g.eval(f))).collect();
+    if vals.iter().any(|(_, v)| !(v.is_finite() && *v > 0.0)) {
+        return None;
+    }
+    let c = vals.iter().map(|(r, v)| r / v).fold(f64::INFINITY, f64::min);
+    if !(c.is_finite() && c > 0.0) {
+        return None;
+    }
+    Some((c, vals.iter().map(|(r, v)| c * v / r).sum::<f64>() / vals.len() as f64))
+}
+
+/// Nuome builds shapes g itself (no shape given), for "r(n) >= c g(n)": the
+/// genetic search of the Goldbach formula, fitness = how loose the bound is
+/// plus a price per node. Each winner is tested on the unseen half and
+/// compared with the known shapes.
+fn invent(d: &Data, start: usize, half: usize, generations: usize) -> Vec<String> {
+    let mut r = crate::evolve::Rng(2026);
+    // a sample of the first half to learn on, all of the second half to test on
+    let step = ((half - start) / 4000).max(1);
+    let train: Vec<(f64, [f64; 6])> = (start..half).step_by(step).map(|i| (d.r[i], features(d, i))).collect();
+    let test: Vec<(f64, [f64; 6])> = (half..d.n.len()).step_by(((d.n.len() - half) / 20000).max(1)).map(|i| (d.r[i], features(d, i))).collect();
+    let price = 0.002;
+    // forward prediction, as for the Goldbach formula: the constant from the
+    // earlier two thirds must still hold on the later third, or pay heavily
+    let cut = train.len() * 2 / 3;
+    let fit = |g: &G| {
+        let Some((c, t)) = tightness(g, &train[..cut]) else { return f64::INFINITY };
+        let late = train[cut..].iter().map(|(rr, f)| rr / g.eval(f)).fold(f64::INFINITY, f64::min);
+        let broken = (1.0 - late / c).max(0.0);
+        1.0 - t + 20.0 * broken + price * g.size() as f64
+    };
+    let mut pop: Vec<G> = (0..300).map(|_| random_g(&mut r, 4)).collect();
+    for _ in 0..generations {
+        let mut scored: Vec<(f64, G)> = pop.drain(..).map(|g| (fit(&g), g)).collect();
+        scored.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut next: Vec<G> = scored.iter().take(30).map(|x| x.1.clone()).collect();
+        let pick = |r: &mut crate::evolve::Rng| -> G {
+            let mut best = r.below(scored.len());
+            for _ in 0..2 {
+                let c = r.below(scored.len());
+                if scored[c].0 < scored[best].0 {
+                    best = c;
+                }
+            }
+            scored[best].1.clone()
+        };
+        while next.len() < 300 {
+            let mut child = pick(&mut r);
+            match r.below(4) {
+                0 => {
+                    let donor = pick(&mut r);
+                    let piece = donor.get(r.below(donor.size())).clone();
+                    let k = r.below(child.size());
+                    *child.at(k) = piece;
+                }
+                1 => {
+                    let k = r.below(child.size());
+                    *child.at(k) = random_g(&mut r, 2);
+                }
+                _ => {
+                    let k = r.below(child.size());
+                    let f = 1.0 + (r.unit() - 0.5) * 0.2;
+                    match child.at(k) {
+                        G::Num(c) => *c *= f,
+                        G::Pow(_, e) => *e *= f,
+                        _ => {}
+                    }
+                }
+            }
+            if child.size() <= 15 {
+                next.push(child);
+            }
+        }
+        pop = next;
+    }
+    let mut scored: Vec<(f64, G)> = pop.into_iter().map(|g| (fit(&g), g)).filter(|x| x.0.is_finite()).collect();
+    scored.sort_by(|a, b| a.0.total_cmp(&b.0));
+    // known shapes, to tell a rediscovery from something new
+    let known: Vec<(&str, Box<dyn Fn(&[f64; 6]) -> f64>)> = vec![
+        ("n / (ln n)^2", Box::new(|f| f[0] / f[1].powi(2))),
+        ("S(n) n / (ln n)^2 (Hardy-Littlewood)", Box::new(|f| f[3] * f[0] / f[1].powi(2))),
+        ("S(n) n / ((ln n)^2 ln ln n)", Box::new(|f| f[3] * f[0] / (f[1].powi(2) * f[2]))),
+    ];
+    let mut out = Vec::new();
+    let mut shown: Vec<String> = Vec::new();
+    for (_, g) in scored.iter() {
+        if out.len() >= 5 * 3 {
+            break;
+        }
+        let text = g.show();
+        // the same shape with nudged constants counts once
+        let key: String = text.chars().filter(|ch| !ch.is_ascii_digit() && *ch != '.').collect();
+        if shown.contains(&key) {
+            continue;
+        }
+        shown.push(key);
+        let Some((c, train_t)) = tightness(g, &train) else { continue };
+        let test_ratio = test.iter().map(|(rr, f)| rr / g.eval(f)).fold(f64::INFINITY, f64::min);
+        let holds = test_ratio >= c;
+        let test_t = test.iter().map(|(rr, f)| c * g.eval(f) / rr).sum::<f64>() / test.len() as f64;
+        // proportional to a known shape: log(g / known) nearly constant
+        let same_as = known.iter().find(|(_, k)| {
+            let diffs: Vec<f64> = train.iter().map(|(_, f)| (g.eval(f) / k(f)).ln()).collect();
+            let mean = diffs.iter().sum::<f64>() / diffs.len() as f64;
+            (diffs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / diffs.len() as f64).sqrt() < 0.003
+        });
+        let label = match same_as {
+            Some((name, _)) => format!("a rediscovery of the known shape {name}"),
+            None => "NEW: not proportional to any known shape Nuome compared".to_string(),
+        };
+        out.push(format!("  {} r(n) >= {c:.4} * {text}", if holds { "KEPT  " } else { "FAILED" }));
+        out.push(format!("         tightness {:.1}% on the first half, {:.1}% on the unseen half{}; {label}", train_t * 100.0, test_t * 100.0, if holds { "" } else { " (it fails there)" }));
+    }
+    out
+}
+
 pub struct Settings {
     pub limit: usize,
     pub from: u64,
@@ -163,6 +398,10 @@ pub fn report(s: &Settings) -> String {
         format!("data: the number of ways r(n), the smallest prime p(n) and S(n) for every even n up to {} ({:.1} s)", s.limit, t0.elapsed().as_secs_f64()),
         String::new(),
     ];
+    out.push("NUOME'S OWN SHAPES (built by the genetic search from n, ln n, ln ln n, S(n), w(n), v2(n) and constants; no shape given to it): lower bounds r(n) >= c g(n), tightness = how close c g(n) stays to the true count".into());
+    out.extend(invent(&d, start, half, 150));
+    out.push(String::new());
+    out.push("for comparison, shapes given to it (known forms), each with its best constant:".into());
     let mut kept = 0;
     for idea in ideas() {
         let vals = |range: std::ops::Range<usize>| -> Vec<f64> { range.map(|i| (idea.ratio)(i, &d)).filter(|x| x.is_finite()).collect() };
