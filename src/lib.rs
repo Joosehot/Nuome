@@ -36,6 +36,7 @@ pub mod navier_stokes;
 pub mod p_vs_np;
 pub mod parser;
 pub mod poly;
+pub mod prime_formula;
 pub mod print;
 pub mod proof;
 pub mod q;

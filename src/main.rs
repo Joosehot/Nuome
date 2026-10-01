@@ -166,6 +166,17 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "prime-formula" {
+            let p = cfg.open.get("eff_prime");
+            println!(
+                "{}",
+                nuome::prime_formula::report(&nuome::prime_formula::Settings {
+                    generations: p.and_then(|p| p.evolve_generations).unwrap_or(300),
+                    seed: p.and_then(|p| p.evolve_seed).unwrap_or(2026),
+                })
+            );
+            return Ok(());
+        }
         if which == "mersenne" {
             let p = cfg.open.get("eff_prime");
             println!(
