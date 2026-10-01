@@ -383,6 +383,43 @@ fn invent(d: &Data, start: usize, half: usize, generations: usize) -> Vec<String
     out
 }
 
+/// The same idea machine for Conway's 99-graph: Nuome builds the joining
+/// rule itself, from nothing (no family given), in several settings of
+/// rings and fields; then it compares each winner with the known families.
+pub fn conway99(population: usize, generations: usize, seed: u64) -> String {
+    use crate::abstract_eq::{evolve, families, Ring, Settings as S, Space};
+    let s = S { population, generations, seed, price_per_node: 1.0 };
+    let mut out = vec![
+        format!("Nuome's idea machine for Conway's 99-graph: in each setting it builds the rule 'join p and q when ...' itself, from atoms (a term is 0, a square or a non-square) joined by and / or / not, by the genetic search with no family given ({population} rules, {generations} generations, seed {seed}); errors = pairs of points with the wrong number of common neighbours, 0 = the graph"),
+        String::new(),
+    ];
+    for rings in [vec![Ring::z(9), Ring::z(11)], vec![Ring::gf9(), Ring::z(11)], vec![Ring::z(3), Ring::z(3), Ring::z(11)], vec![Ring::z(3), Ring::z(33)], vec![Ring::z(99)]] {
+        let space = Space { rings, k: 14, lambda: 1, mu: 2 };
+        let own = evolve(&space, &[], &s);
+        let (common, degree) = space.errors(&own.best);
+        // the known families, for comparison and to tell a rediscovery
+        let known = families(&space);
+        let best_known = known.iter().map(|(name, f)| (space.errors(f), name)).min_by_key(|((c, d), _)| c + 10 * d);
+        let rediscovered = known.iter().find(|(_, f)| space.build(f) == space.build(&own.best)).map(|(name, _)| name.clone());
+        out.push(format!("{} (99 points):", space.name()));
+        out.push(format!("  Nuome's own rule: join p and q when {}", own.best.show(&space.rings)));
+        out.push(format!(
+            "  {common} common-neighbour errors, {degree} neighbour errors{}; {}",
+            if common == 0 && degree == 0 { ": IT IS THE GRAPH, checked pair by pair" } else { ": not the graph" },
+            match &rediscovered {
+                Some(name) => format!("the same graph as the known family '{name}'"),
+                None => "NEW: a different graph from every known family Nuome compared".into(),
+            }
+        ));
+        if let Some(((kc, kd), name)) = best_known {
+            out.push(format!("  the best known family there, '{name}': {kc} common-neighbour errors, {kd} neighbour errors; Nuome's own rule is {}", if common + 10 * degree < kc + 10 * kd { "closer" } else { "not closer" }));
+        }
+        out.push(String::new());
+    }
+    out.push("a rule with 0 errors would be the graph and solve Conway's problem; anything above 0 is not the graph, however close".into());
+    out.join("\n")
+}
+
 pub struct Settings {
     pub limit: usize,
     pub from: u64,

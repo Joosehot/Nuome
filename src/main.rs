@@ -76,8 +76,20 @@ fn main() -> Result<()> {
         None => Config::builtin(),
     };
     if let Some(which) = &cli.ideas {
+        if which == "conway99" {
+            let p = cfg.open.get("conway99");
+            println!(
+                "{}",
+                nuome::ideas::conway99(
+                    p.and_then(|p| p.evolve_population).unwrap_or(120),
+                    p.and_then(|p| p.evolve_generations).unwrap_or(100),
+                    p.and_then(|p| p.evolve_seed).unwrap_or(2026)
+                )
+            );
+            return Ok(());
+        }
         if which != "goldbach" {
-            bail!("no idea machine for \"{which}\"; try --ideas goldbach");
+            bail!("no idea machine for \"{which}\"; try --ideas goldbach or --ideas conway99");
         }
         let limit = nuome::attempt::requested_limit(&cli.words.join(" ")).unwrap_or(400_000) as usize;
         println!("{}", nuome::ideas::report(&nuome::ideas::Settings { limit, from: 1_000 }));
