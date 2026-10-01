@@ -88,8 +88,20 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "mersenne" {
+            let p = cfg.open.get("eff_prime");
+            println!(
+                "{}",
+                nuome::mersenne_ideas::report(&nuome::mersenne_ideas::Settings {
+                    generations: p.and_then(|p| p.evolve_generations).unwrap_or(150),
+                    seed: p.and_then(|p| p.evolve_seed).unwrap_or(2026),
+                    limit: 10_000_000,
+                })
+            );
+            return Ok(());
+        }
         if which != "goldbach" {
-            bail!("no idea machine for \"{which}\"; try --ideas goldbach or --ideas conway99");
+            bail!("no idea machine for \"{which}\"; try --ideas goldbach, --ideas conway99 or --ideas mersenne");
         }
         let limit = nuome::attempt::requested_limit(&cli.words.join(" ")).unwrap_or(400_000) as usize;
         println!("{}", nuome::ideas::report(&nuome::ideas::Settings { limit, from: 1_000 }));

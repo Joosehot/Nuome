@@ -266,7 +266,7 @@ pub struct Settings {
 }
 
 /// 2^e mod q, square-and-multiply from the top bit (q < 2^63).
-fn pow2_mod(e: u64, q: u64) -> u64 {
+pub(crate) fn pow2_mod(e: u64, q: u64) -> u64 {
     let mut r = 1u64;
     for i in (0..64 - e.leading_zeros()).rev() {
         r = ((r as u128 * r as u128) % q as u128) as u64;

@@ -30,6 +30,7 @@ pub mod lexicon;
 // logic and sets (agent L)
 pub mod logic;
 pub mod mersenne;
+pub mod mersenne_ideas;
 pub mod model;
 pub mod navier_stokes;
 pub mod p_vs_np;
