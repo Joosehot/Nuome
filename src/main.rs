@@ -50,6 +50,10 @@ struct Cli {
     /// Joose's 3 x 33 grid and his 7-network graph; progress in out/overnight.log.
     #[arg(long)]
     overnight: Option<f64>,
+    /// Print a whole proof as an answer: "goldbach" (the Goldbach bound, with
+    /// what is proved and what is open). The words, if any, may say "up to 10^10".
+    #[arg(long)]
+    proof: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -64,6 +68,15 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(which) = &cli.proof {
+        if which != "goldbach" {
+            bail!("no whole proof called \"{which}\"; try --proof goldbach");
+        }
+        let limit = nuome::attempt::requested_limit(&cli.words.join(" "));
+        let text = nuome::attempt::goldbach_proof(&cfg, limit).context("rules.toml has no Goldbach bound (simple_c)")?;
+        println!("{text}");
+        return Ok(());
+    }
     if let Some(hours) = cli.overnight {
         let problem = cfg.open.get("conway99");
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));

@@ -264,6 +264,52 @@ fn formula_meaning(p: &OpenProblem, records: &[(u64, u64)]) -> Vec<String> {
     out
 }
 
+/// The whole proof of the Goldbach bound in one piece, as an answer (not a
+/// refusal): what it means, the derivation proved inside the model, the
+/// general proofs, the computed range, and what is proved and what is open.
+pub fn goldbach_proof(cfg: &Config, limit: Option<u64>) -> Option<String> {
+    let p = cfg.open.get("goldbach")?;
+    let c = p.simple_c?;
+    let limit = limit.unwrap_or(p.check_up_to.unwrap_or(1_000_000_000)).min(p.max_check.unwrap_or(u64::MAX));
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let run = crate::goldbach::run(limit, threads);
+    let mut out = vec![
+        format!("The Goldbach bound: p(n) <= {c} (ln n)^2 ln ln n for every even n >= {}", thousands(p.bound_from.unwrap_or(1000))),
+        "where p(n) is the smallest prime p with n - p prime".into(),
+        String::new(),
+        "PART 1. What the formula means".into(),
+    ];
+    out.extend(formula_meaning(p, &run.records));
+    out.push(String::new());
+    out.push("PART 2. The derivation, proved".into());
+    out.extend(model_proof(p, cfg));
+    out.push(String::new());
+    out.push("PART 3. What the bound gives".into());
+    out.extend(general_proofs(p, cfg));
+    out.push(String::new());
+    out.push(format!("PART 4. Computed (every even n up to {}, {:.1} s on {} threads)", thousands(limit), run.seconds, run.threads));
+    if let Some(n) = run.counterexample {
+        out.push(format!("COUNTEREXAMPLE: {n} is not a sum of two primes"));
+    } else {
+        out.push(format!("every even number from 4 to {} is a sum of two primes", thousands(limit)));
+    }
+    let only_simple = OpenProblem { bound_c: None, ..p.clone() };
+    out.extend(bound_proof(&only_simple, cfg, limit, &run.records));
+    out.push(String::new());
+    out.push("SUMMARY".into());
+    for (part, status) in [
+        ("ln n: the chance per try", "proved (prime number theorem)"),
+        ("ln ln n: the m-th prime is m ln m", "proved (prime number theorem)"),
+        ("(ln n)^2 and the constant 1/C2 = 1.5148, inside the model", "proved (lemma A, theorem B, theorem C)"),
+        ("the bound gives Goldbach and the three-prime statement", "proved (definitions and Nuome's logic rules)"),
+        ("the bound for every even n from 1 000 to the limit", "computed (records lemma and every record)"),
+        ("the actual primes obey the model, so the bound holds for every n", "OPEN: proving it would prove Goldbach"),
+    ] {
+        out.push(format!("  {part:<66} {status}"));
+    }
+    Some(out.join("\n"))
+}
+
 /// The derivation made rigorous inside the model: for independent tries the
 /// worst of N even numbers needs (1 + o(1)) ln N / q tries, with probability
 /// tending to 1 (a theorem about random variables, proved in full), and the
@@ -492,4 +538,17 @@ fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
     ));
     out.push("the score is evidence about a statement, not a proof of it".into());
     out
+}
+
+#[cfg(test)]
+mod proof_tests {
+    #[test]
+    fn the_goldbach_proof_is_whole() {
+        let cfg = crate::config::Config::builtin();
+        let text = super::goldbach_proof(&cfg, Some(1_000_000)).expect("a proof");
+        for part in ["PART 1", "PART 2", "lemma A", "theorem B", "PART 3", "PART 4", "SUMMARY", "OPEN"] {
+            assert!(text.contains(part), "{part}");
+        }
+        assert!(!text.contains("FAILS"));
+    }
 }
