@@ -54,6 +54,9 @@ struct Cli {
     /// what is proved and what is open). The words, if any, may say "up to 10^10".
     #[arg(long)]
     proof: Option<String>,
+    /// Language of a whole proof: en (default) or fi.
+    #[arg(long, default_value = "en")]
+    lang: String,
 }
 
 fn main() -> Result<()> {
@@ -73,7 +76,12 @@ fn main() -> Result<()> {
             bail!("no whole proof called \"{which}\"; try --proof goldbach");
         }
         let limit = nuome::attempt::requested_limit(&cli.words.join(" "));
-        let text = nuome::attempt::goldbach_proof(&cfg, limit).context("rules.toml does not turn on the Goldbach bound (simple_bound)")?;
+        let text = match cli.lang.as_str() {
+            "fi" => nuome::goldbach_fi::goldbach_proof(&cfg, limit),
+            "en" => nuome::attempt::goldbach_proof(&cfg, limit),
+            other => bail!("no language \"{other}\"; try --lang en or --lang fi"),
+        }
+        .context("rules.toml does not turn on the Goldbach bound (simple_bound)")?;
         println!("{text}");
         return Ok(());
     }

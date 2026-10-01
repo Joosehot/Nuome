@@ -272,13 +272,29 @@ const TOP50: &str = include_str!("../data/goldbach_top50.tsv");
 /// has, its own (computed up to `limit`, from `bound_from`) and the published
 /// ones it was given (OEIS records and the Top 50 table). With the
 /// sentence that says how it was found.
-fn find_simple_c(p: &OpenProblem, limit: u64, own: &[(u64, u64)]) -> Option<(f64, String)> {
+/// How Nuome found the simple bound's constant (shared by every language).
+pub(crate) struct SimpleC {
+    pub c: f64,
+    pub worst: f64,
+    /// the record that sets it, and whether Nuome computed it itself
+    pub at: (u64, u64, bool),
+    pub own: usize,
+    pub published: usize,
+    /// the published records above the computed range
+    pub above: Vec<(u64, u64)>,
+}
+
+/// p / ((ln n)^2 ln ln n)
+pub(crate) fn simple_ratio(n: u64, q: u64) -> f64 {
+    q as f64 / ((n as f64).ln().powi(2) * (n as f64).ln().ln())
+}
+
+pub(crate) fn simple_c_data(p: &OpenProblem, limit: u64, own: &[(u64, u64)]) -> Option<SimpleC> {
     if p.simple_bound != Some(true) {
         return None;
     }
     let from = p.bound_from.unwrap_or(1000);
-    let ratio = |n: u64, q: u64| q as f64 / ((n as f64).ln().powi(2) * (n as f64).ln().ln());
-    let published: Vec<(u64, u64)> = crate::discover::RECORDS
+    let above: Vec<(u64, u64)> = crate::discover::RECORDS
         .lines()
         .filter_map(|l| {
             let f: Vec<&str> = l.split_whitespace().collect();
@@ -290,21 +306,67 @@ fn find_simple_c(p: &OpenProblem, limit: u64, own: &[(u64, u64)]) -> Option<(f64
         }))
         .filter(|&(n, _)| n > limit)
         .collect();
-    let all: Vec<(u64, u64, bool)> = own.iter().map(|&(n, q)| (n, q, true)).chain(published.iter().map(|&(n, q)| (n, q, false))).filter(|r| r.0 >= from).collect();
-    let &(wn, wq, mine) = all.iter().max_by(|a, b| ratio(a.0, a.1).total_cmp(&ratio(b.0, b.1)))?;
-    let worst = ratio(wn, wq);
-    let c = (worst * 1000.0).ceil() / 1000.0;
+    let all: Vec<(u64, u64, bool)> = own.iter().map(|&(n, q)| (n, q, true)).chain(above.iter().map(|&(n, q)| (n, q, false))).filter(|r| r.0 >= from).collect();
+    let &at = all.iter().max_by(|a, b| simple_ratio(a.0, a.1).total_cmp(&simple_ratio(b.0, b.1)))?;
+    let worst = simple_ratio(at.0, at.1);
+    Some(SimpleC {
+        c: (worst * 1000.0).ceil() / 1000.0,
+        worst,
+        at,
+        own: all.iter().filter(|r| r.2).count(),
+        published: all.iter().filter(|r| !r.2).count(),
+        above,
+    })
+}
+
+fn find_simple_c(p: &OpenProblem, limit: u64, own: &[(u64, u64)]) -> Option<(f64, String)> {
+    let d = simple_c_data(p, limit, own)?;
+    let (c, worst, (wn, wq, mine)) = (d.c, d.worst, d.at);
     let how = format!(
         "the constant {c} was found by Nuome: the largest p / ((ln n)^2 ln ln n) over the {} records it has ({} computed by itself up to {}, {} published ones above that) is {worst:.4}, at n = {} (p = {wq}, {}), rounded up to three decimals; the model predicts 1 / C2 = {:.4}",
-        all.len(),
-        all.iter().filter(|r| r.2).count(),
+        d.own + d.published,
+        d.own,
         thousands(limit),
-        all.iter().filter(|r| !r.2).count(),
+        d.published,
         thousands(wn),
         if mine { "computed by Nuome" } else { "a published record" },
         1.0 / crate::goldbach::C2
     );
     Some((c, how))
+}
+
+/// The computed part of a range proof (shared by every language).
+pub(crate) struct RangeCheck {
+    pub segment_end: u64,
+    pub start_max: u64,
+    pub checked: usize,
+    /// (n, p, bound) where the bound is tightest
+    pub tightest: (u64, u64, f64),
+    pub failed: Vec<(u64, u64, f64)>,
+}
+
+pub(crate) fn range_check(f: &dyn Fn(u64) -> f64, from: u64, limit: u64, records: &[(u64, u64)]) -> Option<RangeCheck> {
+    // from `from` to the first record above it, the largest p(n) is computed
+    // directly (the record before `from` may be larger than anything after it);
+    // from that record on, the records themselves
+    let first_after = records.iter().position(|&(n, _)| n > from).unwrap_or(records.len());
+    let segment_end = records.get(first_after).map_or(limit, |r| r.0 - 1).min(limit);
+    let smallest = |n: u64| (2..=n / 2).find(|&q| crate::goldbach::is_prime(q) && crate::goldbach::is_prime(n - q)).unwrap_or(0);
+    let start_max = (from + from % 2..=segment_end).step_by(2).map(smallest).max().unwrap_or(0);
+    let in_force: Vec<(u64, u64)> = std::iter::once((from, start_max)).chain(records[first_after..].iter().copied()).collect();
+    let mut tightest: Option<(u64, u64, f64)> = None;
+    let mut failed = Vec::new();
+    for &(n, q) in &in_force {
+        let bound = f(n.max(from));
+        // a margin of 1e-9 relative covers every rounding of the logarithms
+        if (q as f64) > bound * (1.0 - 1e-9) {
+            failed.push((n, q, bound));
+        }
+        if tightest.is_none_or(|t| (q as f64) / bound > t.1 as f64 / t.2) {
+            tightest = Some((n, q, bound));
+        }
+    }
+    Some(RangeCheck { segment_end, start_max, checked: in_force.len(), tightest: tightest?, failed })
 }
 
 /// The whole proof of the Goldbach bound in one piece, as an answer (not a
@@ -426,36 +488,15 @@ fn prove_bound(shown: &str, f: &dyn Fn(u64) -> f64, lemma1: Vec<String>, from: u
     // lemma 2, abstractly: holds for any sequence whatever
     out.push("  lemma 2 (records, for ANY sequence p on the even numbers): call r a record when p(r) > p(m) for every even m < r, and let R(n) be the last record <= n; then p(n) <= p(R(n)). Proof by induction on n: the first even number is a record; if n is a record, R(n) = n; if not, some m < n has p(m) >= p(n), and p(m) <= p(R(m)) <= p(R(n)) by induction and because records only grow. QED".into());
     out.push(format!("  step 2: every even n from 4 to {} was computed (above), giving every record up to {}", thousands(limit), thousands(limit)));
-    // from `from` to the first record above it, the largest p(n) is computed
-    // directly (the record before `from` may be larger than anything after it);
-    // from that record on, the records themselves
-    let first_after = records.iter().position(|&(n, _)| n > from).unwrap_or(records.len());
-    let segment_end = records.get(first_after).map_or(limit, |r| r.0 - 1).min(limit);
-    let smallest = |n: u64| (2..=n / 2).find(|&q| crate::goldbach::is_prime(q) && crate::goldbach::is_prime(n - q)).unwrap_or(0);
-    let start_max = (from + from % 2..=segment_end).step_by(2).map(smallest).max().unwrap_or(0);
-    out.push(format!("  (from {} to {}, before the next record, every p(n) was computed directly: the largest is {start_max})", thousands(from), thousands(segment_end)));
-    let in_force: Vec<(u64, u64)> = std::iter::once((from, start_max)).chain(records[first_after..].iter().copied()).collect();
-    let start = 0;
-    let records = &in_force;
-    let mut tightest: Option<(u64, u64, f64)> = None;
-    let mut failed = Vec::new();
-    for &(n, q) in &records[start..] {
-        let at = n.max(from);
-        let bound = f(at);
-        // a margin of 1e-9 relative covers every rounding of the logarithms
-        if (q as f64) > bound * (1.0 - 1e-9) {
-            failed.push(format!("{} (p = {q}, f = {bound:.2})", thousands(n)));
-        }
-        if tightest.is_none_or(|t| (q as f64) / bound > t.1 as f64 / t.2) {
-            tightest = Some((n, q, bound));
-        }
-    }
-    let checked = records.len() - start;
-    if !failed.is_empty() {
+    let Some(rc) = range_check(f, from, limit, records) else { return out };
+    out.push(format!("  (from {} to {}, before the next record, every p(n) was computed directly: the largest is {})", thousands(from), thousands(rc.segment_end), rc.start_max));
+    let checked = rc.checked;
+    if !rc.failed.is_empty() {
+        let failed: Vec<String> = rc.failed.iter().map(|(n, q, b)| format!("{} (p = {q}, f = {b:.2})", thousands(*n))).collect();
         out.push(format!("  step 3 FAILS at: {}; the bound is not proved on this range", failed.join(", ")));
         return out;
     }
-    let (tn, tq, tb) = tightest.expect("at least one record");
+    let (tn, tq, tb) = rc.tightest;
     out.push(format!(
         "  step 3: all {checked} records in force between {} and {} satisfy p(r) <= f(max(r, {})); tightest at r = {}: p = {tq}, f = {tb:.2}, so {:.2}% to spare (rounding of the logarithms is below 0.0000001%)",
         thousands(from),

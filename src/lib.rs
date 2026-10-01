@@ -21,6 +21,7 @@ pub mod evolve;
 pub mod explain;
 pub mod expr;
 pub mod goldbach;
+pub mod goldbach_fi;
 pub mod hodge;
 pub mod lexicon;
 // logic and sets (agent L)
