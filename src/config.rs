@@ -208,6 +208,9 @@ pub struct OpenProblem {
     pub bound_outer: Option<f64>,
     #[serde(default)]
     pub bound_from: Option<u64>,
+    /// The simple bound p(n) <= c (ln n)^2 ln ln n.
+    #[serde(default)]
+    pub simple_c: Option<f64>,
     #[serde(default)]
     pub fourfold_degrees: Vec<usize>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths

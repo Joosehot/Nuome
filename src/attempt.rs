@@ -181,29 +181,64 @@ fn thousands(n: u64) -> String {
 ///    p(r) <= f(max(r, from)), with a margin far above rounding;
 /// 4. so p(n) <= p(r) <= f(max(r, from)) <= f(n) for every even n in range.
 fn bound_proof(p: &OpenProblem, cfg: &Config, limit: u64, records: &[(u64, u64)]) -> Vec<String> {
-    let (Some(c), Some(inner), Some(outer)) = (p.bound_c, p.bound_inner, p.bound_outer) else {
-        return Vec::new();
-    };
     let from = p.bound_from.unwrap_or(1000).max(16);
-    let f = |n: u64| c * (n as f64).ln().ln().powf(inner).powf(outer);
-    let shown = format!("{c} ((ln ln n)^{inner})^{outer}");
-    let mut out = vec![format!("theorem (proved here): for every even n with {} <= n <= {}, the smallest prime p with n - p prime satisfies p <= {shown}", thousands(from), thousands(limit))];
+    let mut out = Vec::new();
+    // the simple bound, the shape the model of the primes gives (see the "why" below)
+    if let Some(c) = p.simple_c {
+        let lemma = vec![format!(
+            "  lemma 1 (f grows for every real x > e): f(x) = {c} (ln x)^2 ln ln x. For x > e, ln x > 1 > 0 and ln x grows, so (ln x)^2 grows; ln ln x > 0 and grows; a product of positive growing functions grows, and {c} > 0. QED (no derivative needed)"
+        )];
+        out.extend(prove_bound(&format!("{c} (ln n)^2 ln ln n"), &|n: u64| c * (n as f64).ln().powi(2) * (n as f64).ln().ln(), lemma, from, limit, records));
+        // and where the proof does not reach: the published records, checked
+        let published: Vec<(u64, u64)> = crate::discover::RECORDS
+            .lines()
+            .filter_map(|l| {
+                let f: Vec<&str> = l.split_whitespace().collect();
+                Some((f.get(1)?.parse().ok()?, f.get(2)?.parse().ok()?))
+            })
+            .filter(|&(n, _)| n > limit)
+            .collect();
+        if let Some(&(wn, wq)) = published.iter().max_by(|a, b| (a.1 as f64 / (c * (a.0 as f64).ln().powi(2) * (a.0 as f64).ln().ln())).total_cmp(&(b.1 as f64 / (c * (b.0 as f64).ln().powi(2) * (b.0 as f64).ln().ln())))) {
+            let fw = c * (wn as f64).ln().powi(2) * (wn as f64).ln().ln();
+            out.push(format!(
+                "  beyond the proof, checked against the {} published records above {} (OEIS A025018/A025019, up to {:.1e}): {}; tightest at n = {}: p = {wq}, bound {fw:.1} (checked, not proved: those records were computed by others)",
+                published.len(),
+                thousands(limit),
+                published.iter().map(|r| r.0).max().unwrap_or(0) as f64,
+                if published.iter().all(|&(n, q)| (q as f64) <= c * (n as f64).ln().powi(2) * (n as f64).ln().ln()) { "every one holds" } else { "SOME FAIL" },
+                thousands(wn)
+            ));
+        }
+    }
+    let (Some(c), Some(inner), Some(outer)) = (p.bound_c, p.bound_inner, p.bound_outer) else {
+        return out;
+    };
+    out.push("the evolved bound, the one the genetic search found:".into());
     // lemma 1, abstractly: f grows for x > e, by a derivative Nuome works out with its own rules
-    out.push(format!("  lemma 1 (f grows for every real x > e): f(x) = {c} g(x) with g(x) = ((ln ln x)^{inner})^{outer}; Nuome's own rules differentiate g:"));
+    let mut lemma = vec![format!("  lemma 1 (f grows for every real x > e): f(x) = {c} g(x) with g(x) = ((ln ln x)^{inner})^{outer}; Nuome's own rules differentiate g:")];
     let opts = crate::Options { lenient: false, style: crate::print::Style::Ascii };
     match crate::solve(&format!("differentiate ((ln(ln x))^{inner})^{outer}"), cfg, &opts) {
         Ok(s) => {
             for line in s.text.lines().filter(|l| !l.trim().is_empty()) {
-                out.push(format!("      {line}"));
+                lemma.push(format!("      {line}"));
             }
-            out.push(format!(
+            lemma.push(format!(
                 "    for x > e: ln x > 1, so ln ln x > 0 (and (u^a)^b = u^(ab) holds for u > 0); then {:.5} > 0, (ln ln x)^({:.5}) > 0, x > 0 and ln x > 0, so g'(x) > 0; with {c} > 0, f' = {c} g' > 0, so f grows on (e, oo). QED",
                 inner * outer,
                 inner * outer - 1.0
             ));
         }
-        Err(_) => out.push("    (the derivative could not be worked out by the rules; lemma 1 is not proved, so neither is the theorem)".into()),
+        Err(_) => lemma.push("    (the derivative could not be worked out by the rules; lemma 1 is not proved, so neither is the theorem)".into()),
     }
+    out.extend(prove_bound(&format!("{c} ((ln ln n)^{inner})^{outer}"), &|n: u64| c * (n as f64).ln().ln().powf(inner).powf(outer), lemma, from, limit, records));
+    out
+}
+
+/// The proof of p(n) <= f(n) for every even n in [from, limit], given a
+/// proof that f grows (lemma 1): the records lemma, the records, the start.
+fn prove_bound(shown: &str, f: &dyn Fn(u64) -> f64, lemma1: Vec<String>, from: u64, limit: u64, records: &[(u64, u64)]) -> Vec<String> {
+    let mut out = vec![format!("theorem (proved here): for every even n with {} <= n <= {}, the smallest prime p with n - p prime satisfies p <= {shown}", thousands(from), thousands(limit))];
+    out.extend(lemma1);
     // lemma 2, abstractly: holds for any sequence whatever
     out.push("  lemma 2 (records, for ANY sequence p on the even numbers): call r a record when p(r) > p(m) for every even m < r, and let R(n) be the last record <= n; then p(n) <= p(R(n)). Proof by induction on n: the first even number is a record; if n is a record, R(n) = n; if not, some m < n has p(m) >= p(n), and p(m) <= p(R(m)) <= p(R(n)) by induction and because records only grow. QED".into());
     out.push(format!("  step 2: every even n from 4 to {} was computed (above), giving every record up to {}", thousands(limit), thousands(limit)));
