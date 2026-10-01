@@ -271,6 +271,80 @@ pub fn report(s: &Settings) -> String {
     out.join("\n")
 }
 
+/// How much likelier than chance n^2 + n + a is prime, from no prime test at
+/// all (the Bateman-Horn constant): a prime p divides n^2 + n + a for nu(p)
+/// residues n mod p, nu = 1 + (D/p) with D = 1 - 4a, and
+/// C = prod (1 - nu(p)/p) / (1 - 1/p) over the given primes (p = 2: nu = 0 for odd a).
+fn hl_constant(a: u64, odd_primes: &[u64]) -> f64 {
+    if a % 2 == 0 {
+        return 0.0;
+    }
+    let mut c = 2.0; // p = 2: (1 - 0) / (1 - 1/2)
+    for &p in odd_primes {
+        let d = ((1i128 - 4 * a as i128).rem_euclid(p as i128)) as u64;
+        let nu = if d == 0 {
+            1.0
+        } else {
+            // Euler's criterion: d^((p-1)/2) = 1 for a square, p - 1 for a non-square
+            let (mut x, mut b, mut e) = (1u64, d, (p - 1) / 2);
+            while e > 0 {
+                if e & 1 == 1 {
+                    x = mulmod(x, b, p);
+                }
+                b = mulmod(b, b, p);
+                e >>= 1;
+            }
+            if x == 1 { 2.0 } else { 0.0 }
+        };
+        c *= (1.0 - nu / p as f64) / (1.0 - 1.0 / p as f64);
+    }
+    c
+}
+
+/// The search for a narrower window: every odd a up to `max_a` scored by
+/// its constant over the primes below 200, the best 40 rescored over the
+/// primes below 10^6, the best 3 measured on real primes. Returns
+/// (a, constant, measured k), best measured first.
+fn best_quadratics(max_a: u64) -> Vec<(u64, f64, f64)> {
+    let small: Vec<u64> = (3..200u64).filter(|&p| is_prime(p)).collect();
+    let big: Vec<u64> = (3..1_000_000u64).filter(|&p| is_prime(p)).collect();
+    let threads = std::thread::available_parallelism().map_or(4, |t| t.get()) as u64;
+    let mut top: Vec<(f64, u64)> = std::thread::scope(|sc| {
+        let hs: Vec<_> = (0..threads)
+            .map(|t| {
+                let small = &small;
+                sc.spawn(move || {
+                    let mut best: Vec<(f64, u64)> = Vec::new();
+                    let mut a = 1 + 2 * t;
+                    while a <= max_a {
+                        let c = hl_constant(a, small);
+                        if best.len() < 40 || c > best[best.len() - 1].0 {
+                            best.push((c, a));
+                            best.sort_by(|x, y| y.0.total_cmp(&x.0));
+                            best.truncate(40);
+                        }
+                        a += 2 * threads;
+                    }
+                    best
+                })
+            })
+            .collect();
+        hs.into_iter().flat_map(|h| h.join().expect("no panics")).collect()
+    });
+    top.sort_by(|x, y| y.0.total_cmp(&x.0));
+    top.truncate(40);
+    let mut fine: Vec<(f64, u64)> = top.iter().map(|&(_, a)| (hl_constant(a, &big), a)).collect();
+    fine.sort_by(|x, y| y.0.total_cmp(&x.0));
+    fine.iter()
+        .take(3)
+        .map(|&(c, a)| {
+            let f = F::Add(Box::new(F::Add(Box::new(F::Sq(Box::new(F::N))), Box::new(F::N))), Box::new(F::C(a as i64)));
+            let ks: Vec<f64> = [1_000_000i128, 10_000_000, 100_000_000].iter().filter_map(|&s| primes_in(&f, s, 20_000)).map(|(p, ch)| p as f64 / ch).collect();
+            (a, c, ks.iter().sum::<f64>() / ks.len() as f64)
+        })
+        .collect()
+}
+
 /// Primes among f(n), n in from..from+len, and the chance sum (1 / ln f).
 fn primes_in(f: &F, from: i128, len: i128) -> Option<(usize, f64)> {
     let (mut p, mut c) = (0, 0.0);
@@ -346,6 +420,29 @@ pub fn range(s: &Settings, digits: u64) -> String {
     out.push(format!("the range for a prime with {digits} digits: f(n) has {digits} digits from n = 10^{exp10:.0} on (a {:.0}-digit n); there a value is prime with chance about 1 in {:.3e}", exp10.floor() + 1.0, ln_f / k));
     for conf in [0.5, 0.95, 0.99] {
         out.push(format!("   n from 10^{exp10:.0} to 10^{exp10:.0} + {:.3e}: at least one prime with chance {:.0}%", window(dg, conf), conf * 100.0));
+    }
+    // 5. narrow the window: a formula whose values are prime more often
+    let t0 = std::time::Instant::now();
+    let max_a = 20_000_000;
+    let odd: Vec<u64> = (3..1_000_000u64).filter(|&p| is_prime(p)).collect();
+    let euler_c = hl_constant(41, &odd);
+    let best = best_quadratics(max_a);
+    out.push(format!(
+        "narrowing: the window shrinks as k grows, so Nuome searched every n^2 + n + A with odd A up to {max_a} for the largest constant (computed from residues, no prime test: Euler's A = 41 gives {euler_c:.3}, against k = {k:.2} measured), then measured the best on real primes ({:.0} s):",
+        t0.elapsed().as_secs_f64()
+    ));
+    for (a, c, km) in &best {
+        out.push(format!("   n^2 + n + {a}: constant {c:.3}, measured k = {km:.2} ({:.2}x Euler's)", km / k));
+    }
+    if let Some(&(a, _, kb)) = best.first() {
+        if kb > k {
+            let narrow = |conf: f64| -(1.0f64 - conf).ln() / (kb / (dg * 10f64.ln()));
+            out.push(format!("the narrower range with n^2 + n + {a} (same start, since it also grows like n^2), one value in {:.3e} prime:", ln_f / kb));
+            for conf in [0.5, 0.95, 0.99] {
+                out.push(format!("   n from 10^{exp10:.0} to 10^{exp10:.0} + {:.3e}: at least one prime with chance {:.0}% (was + {:.3e})", narrow(conf), conf * 100.0, window(dg, conf)));
+            }
+            out.push("   for comparison, the record found by Jacobson and Williams (2003) with far larger A has constant about 10.7 in this measure; every such formula narrows the window only by its constant, which grows very slowly with A".into());
+        }
     }
     out.push("not proved: that f gives infinitely many primes is open (Landau 1912); the windows rest on the measured k and the Bateman-Horn picture, which the check above supports at the tested sizes. The window says how many values to test, not which one is prime; each value still needs a primality test, and for a number of this form and size no proof method fast enough is known".into());
     out.join("\n")
