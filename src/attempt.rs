@@ -264,6 +264,41 @@ fn formula_meaning(p: &OpenProblem, records: &[(u64, u64)]) -> Vec<String> {
     out
 }
 
+/// The derivation made rigorous inside the model: for independent tries the
+/// worst of N even numbers needs (1 + o(1)) ln N / q tries, with probability
+/// tending to 1 (a theorem about random variables, proved in full), and the
+/// prime number theorem turns tries into the size of the prime. The one step
+/// not proved is the bridge from the model to the actual primes.
+fn model_proof(p: &OpenProblem, cfg: &Config) -> Vec<String> {
+    let Some(c) = p.simple_c else { return Vec::new() };
+    let opts = crate::Options { lenient: false, style: crate::print::Style::Ascii };
+    let mut out = vec!["the derivation proved, inside the model (general proofs; no number is checked):".into()];
+    out.push("  the model: for each of N even numbers, the tries succeed independently, each with chance q (0 < q <= 1/2); X_i is the number of tries the i-th number needs, so P(X_i > m) = (1 - q)^m; M = max of X_1 .. X_N is the worst case".into());
+    out.push("  lemma A (an inequality): ln(1 - q) >= -q - q^2 for 0 <= q <= 1/2. Let f(q) = ln(1 - q) + q + q^2, so f(0) = 0; Nuome's rules differentiate and simplify f':".into());
+    for sentence in ["differentiate ln(1 - x) + x + x^2", "simplify -1/(1 - x) + 1 + 2x"] {
+        match crate::solve(sentence, cfg, &opts) {
+            Ok(s) => {
+                if let Some(a) = s.text.lines().find(|l| l.starts_with("Answer:")) {
+                    let checks: Vec<&str> = s.text.lines().filter(|l| l.trim_start().starts_with("ok ")).map(|l| l.trim()).collect();
+                    out.push(format!("      {sentence}: {}  [{}]", a.trim(), checks.join("; ")));
+                }
+            }
+            Err(_) => out.push(format!("      {sentence}: the rules could not do it, so lemma A is not proved")),
+        }
+    }
+    out.push("    so f'(q) = (-q + 2q^2)/(q - 1) = q (1 - 2q)/(1 - q), and for 0 <= q <= 1/2 every factor is >= 0 (with 1 - q > 0), so f' >= 0; f grows from f(0) = 0, so f(q) >= 0. QED".into());
+    out.push("  theorem B (the worst case is ln N / q tries): for every e > 0, P(M > (1 + e) ln N / q) <= N^(-e), and P(M <= (1 - e) ln N / q) <= exp(-N^(e/2)) once q (1 - e) <= e/2; both tend to 0 as N grows, so M = (1 + o(1)) ln N / q with probability tending to 1".into());
+    out.push("    upper: P(M > m) <= N (1 - q)^m (the union bound: one of N events) <= N e^(-qm) (since 1 - q <= e^(-q)); at m = (1 + e) ln N / q this is N * N^(-(1 + e)) = N^(-e). QED".into());
+    out.push("    lower: by independence P(M <= m) = (1 - (1 - q)^m)^N <= exp(-N (1 - q)^m) (since 1 - x <= e^(-x)); by lemma A, (1 - q)^m >= e^(-m (q + q^2)); at m = (1 - e) ln N / q this is N^(-(1 - e)(1 + q)) >= N^(-(1 - e/2)) when q (1 - e) <= e/2, so P(M <= m) <= exp(-N^(e/2)). QED".into());
+    out.push("  theorem C (the size of the prime, a theorem about the actual primes): the m-th prime p_m satisfies p_m = (1 + o(1)) m ln m (from the prime number theorem, Hadamard and de la Vallee Poussin 1896)".into());
+    out.push(format!(
+        "  together: with N = n/2 and q = 2 C2 / ln n (the chance for the hardest n), theorem B gives M = (1 + o(1)) (ln n)^2 / (2 C2), and theorem C gives the prime p_M = (1 + o(1)) (1 / C2) (ln n)^2 ln ln n = (1 + o(1)) {:.4} (ln n)^2 ln ln n; the formula's {c} sits just above that, as a bound should",
+        1.0 / crate::goldbach::C2
+    ));
+    out.push("  the one step NOT proved: that the actual primes obey the model, that is, that whether n - p is prime behaves like an independent chance 2 C2 S(n) / ln n uniformly for every n. Lemma A and theorems B and C are proved; this bridge is not, and a proof of it would prove Goldbach, so no one can supply it today".into());
+    out
+}
+
 /// What can be proved about the bound for EVERY n, with no number checked:
 /// two implications from the definitions, and the chains of reasoning, done
 /// by Nuome's logic rules; then what stays open.
@@ -431,6 +466,7 @@ fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
     out.extend(formula_meaning(p, &run.records));
+    out.extend(model_proof(p, cfg));
     out.extend(general_proofs(p, cfg));
     out.extend(bound_proof(p, cfg, limit, &run.records));
     out.extend(bound_why(p, cfg, &run.records));
