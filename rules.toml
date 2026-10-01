@@ -1062,9 +1062,9 @@ bound_c = 0.473
 bound_inner = 2.889
 bound_outer = 2.610
 bound_from = 1000
-# the simple bound p(n) <= simple_c (ln n)^2 ln ln n, the shape the model of the primes gives;
-# 1.53 = the largest p / ((ln n)^2 ln ln n) over every known record up to 4*10^18 (1.5263), rounded up
-simple_c = 1.53
+# the simple bound p(n) <= c (ln n)^2 ln ln n, the shape the model of the primes gives;
+# Nuome finds c itself on every run, from its own records and the published ones (src/attempt.rs, find_simple_c)
+simple_bound = true
 formula_min_n = 1000          # "find a formula": fit on record cases from here...
 formula_split = 100000000000  # ...up to here (what Nuome computed itself), then predict the published ones above
 formula_price = 0.02          # added to the training error per parameter, so a simpler formula wins a tie

@@ -208,7 +208,10 @@ pub struct OpenProblem {
     pub bound_outer: Option<f64>,
     #[serde(default)]
     pub bound_from: Option<u64>,
-    /// The simple bound p(n) <= c (ln n)^2 ln ln n.
+    /// The simple bound p(n) <= c (ln n)^2 ln ln n: when on, Nuome finds c
+    /// itself from the records (simple_c is filled in at run time).
+    #[serde(default)]
+    pub simple_bound: Option<bool>,
     #[serde(default)]
     pub simple_c: Option<f64>,
     #[serde(default)]

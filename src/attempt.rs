@@ -264,18 +264,64 @@ fn formula_meaning(p: &OpenProblem, records: &[(u64, u64)]) -> Vec<String> {
     out
 }
 
+/// The published Top 50 table (p, n), up to 4 * 10^18.
+const TOP50: &str = include_str!("../data/goldbach_top50.tsv");
+
+/// The constant of the simple bound, found by Nuome: the smallest c, to three
+/// decimals and rounded up, with p <= c (ln n)^2 ln ln n at every record it
+/// has, its own (computed up to `limit`, from `bound_from`) and the published
+/// ones it was given (OEIS records and the Top 50 table). With the
+/// sentence that says how it was found.
+fn find_simple_c(p: &OpenProblem, limit: u64, own: &[(u64, u64)]) -> Option<(f64, String)> {
+    if p.simple_bound != Some(true) {
+        return None;
+    }
+    let from = p.bound_from.unwrap_or(1000);
+    let ratio = |n: u64, q: u64| q as f64 / ((n as f64).ln().powi(2) * (n as f64).ln().ln());
+    let published: Vec<(u64, u64)> = crate::discover::RECORDS
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            Some((f.get(1)?.parse().ok()?, f.get(2)?.parse().ok()?))
+        })
+        .chain(TOP50.lines().filter(|l| !l.starts_with('#')).filter_map(|l| {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            Some((f.get(1)?.parse().ok()?, f.first()?.parse().ok()?))
+        }))
+        .filter(|&(n, _)| n > limit)
+        .collect();
+    let all: Vec<(u64, u64, bool)> = own.iter().map(|&(n, q)| (n, q, true)).chain(published.iter().map(|&(n, q)| (n, q, false))).filter(|r| r.0 >= from).collect();
+    let &(wn, wq, mine) = all.iter().max_by(|a, b| ratio(a.0, a.1).total_cmp(&ratio(b.0, b.1)))?;
+    let worst = ratio(wn, wq);
+    let c = (worst * 1000.0).ceil() / 1000.0;
+    let how = format!(
+        "the constant {c} was found by Nuome: the largest p / ((ln n)^2 ln ln n) over the {} records it has ({} computed by itself up to {}, {} published ones above that) is {worst:.4}, at n = {} (p = {wq}, {}), rounded up to three decimals; the model predicts 1 / C2 = {:.4}",
+        all.len(),
+        all.iter().filter(|r| r.2).count(),
+        thousands(limit),
+        all.iter().filter(|r| !r.2).count(),
+        thousands(wn),
+        if mine { "computed by Nuome" } else { "a published record" },
+        1.0 / crate::goldbach::C2
+    );
+    Some((c, how))
+}
+
 /// The whole proof of the Goldbach bound in one piece, as an answer (not a
 /// refusal): what it means, the derivation proved inside the model, the
 /// general proofs, the computed range, and what is proved and what is open.
 pub fn goldbach_proof(cfg: &Config, limit: Option<u64>) -> Option<String> {
-    let p = cfg.open.get("goldbach")?;
-    let c = p.simple_c?;
-    let limit = limit.unwrap_or(p.check_up_to.unwrap_or(1_000_000_000)).min(p.max_check.unwrap_or(u64::MAX));
+    let rules = cfg.open.get("goldbach")?;
+    let limit = limit.unwrap_or(rules.check_up_to.unwrap_or(1_000_000_000)).min(rules.max_check.unwrap_or(u64::MAX));
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let run = crate::goldbach::run(limit, threads);
+    let (found, how) = find_simple_c(rules, limit, &run.records)?;
+    let p = &OpenProblem { simple_c: Some(found), ..rules.clone() };
+    let c = found;
     let mut out = vec![
         format!("The Goldbach bound: p(n) <= {c} (ln n)^2 ln ln n for every even n >= {}", thousands(p.bound_from.unwrap_or(1000))),
         "where p(n) is the smallest prime p with n - p prime".into(),
+        how,
         String::new(),
         "PART 1. What the formula means".into(),
     ];
@@ -511,6 +557,17 @@ fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
         out.push(format!("  {:>17} = {:>4} + {}{}", thousands(*n), q, thousands(n - q), if ok { "" } else { "   (FAILED the Miller-Rabin recheck)" }));
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
+    // the simple bound's constant, found by Nuome from the records it has
+    let found = find_simple_c(p, limit, &run.records);
+    let with_c;
+    let p = match &found {
+        Some((c, how)) => {
+            out.push(how.clone());
+            with_c = OpenProblem { simple_c: Some(*c), ..p.clone() };
+            &with_c
+        }
+        None => p,
+    };
     out.extend(formula_meaning(p, &run.records));
     out.extend(model_proof(p, cfg));
     out.extend(general_proofs(p, cfg));

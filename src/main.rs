@@ -73,7 +73,7 @@ fn main() -> Result<()> {
             bail!("no whole proof called \"{which}\"; try --proof goldbach");
         }
         let limit = nuome::attempt::requested_limit(&cli.words.join(" "));
-        let text = nuome::attempt::goldbach_proof(&cfg, limit).context("rules.toml has no Goldbach bound (simple_c)")?;
+        let text = nuome::attempt::goldbach_proof(&cfg, limit).context("rules.toml does not turn on the Goldbach bound (simple_bound)")?;
         println!("{text}");
         return Ok(());
     }
