@@ -234,6 +234,36 @@ fn bound_proof(p: &OpenProblem, cfg: &Config, limit: u64, records: &[(u64, u64)]
     out
 }
 
+/// What the simple bound means and where each part comes from: ln n from the
+/// prime number theorem, the square from the number of even numbers that
+/// could be the hardest, ln ln n from how primes thin out, and the constant
+/// from the twin prime constant. Each step says whether it is a theorem or
+/// the model's assumption (that the tries behave like independent chances).
+fn formula_meaning(p: &OpenProblem, records: &[(u64, u64)]) -> Vec<String> {
+    let Some(c) = p.simple_c else { return Vec::new() };
+    let c2 = crate::goldbach::C2;
+    let two_c2 = 2.0 * c2;
+    let predicted = 1.0 / c2;
+    let from = p.bound_from.unwrap_or(1000);
+    let ratio = |n: u64, q: u64| q as f64 / ((n as f64).ln().powi(2) * (n as f64).ln().ln());
+    let measured = records.iter().filter(|r| r.0 >= from).map(|&(n, q)| ratio(n, q)).fold(0.0, f64::max);
+    let mut out = vec![format!("what the formula p(n) <= {c} (ln n)^2 ln ln n means, and why each part is there:")];
+    out.push("  meaning: p(n) is how far you must search: try the primes p = 3, 5, 7, ... in order until n - p is prime too. The formula says the search always ends within the primes below this size".into());
+    out.push("  1. the chance per try, 1/ln n (THEOREM: the prime number theorem, 1896, says about 1 number in ln n near n is prime). For n - p to be prime when p is, the Hardy-Littlewood count gives the chance about 2 C2 S(n) / ln n, where C2 = 0.66016 is the twin prime constant and S(n) >= 1 is larger when n has small odd factors".into());
+    out.push(format!("     the hardest n are those with S(n) = 1 (no small odd factors, like powers of 2), where the chance per try is {two_c2:.4} / ln n"));
+    out.push("  2. why (ln n)^2: one ln n from the chance per try, one from how many even numbers there are (MODEL: tries behave like independent chances). The first m tries all fail with chance about e^(-m * chance); among the about n/2 even numbers up to n, the worst one fails about ln(n/2) / chance tries, so m = ln n * ln n / (2 C2): the number of primes the hardest n needs grows like (ln n)^2".into());
+    out.push("  3. why ln ln n: the formula bounds the prime, not the count of primes. The m-th prime is about m ln m (THEOREM: from the prime number theorem). With m = (ln n)^2 / (2 C2): ln m = 2 ln ln n - ln(2 C2), so p = m ln m is about (2 / (2 C2)) (ln n)^2 ln ln n. The ln ln n is the thinning of the primes: the m-th prime is larger than m by the factor ln m".into());
+    out.push(format!(
+        "  4. why {c}: the derivation gives the constant 2 / (2 C2) = 1 / C2 = {predicted:.4}. Nuome's records from {} up: the largest p / ((ln n)^2 ln ln n) is {measured:.4}, and every published record up to 4*10^18 stays at most 1.5263; {c} is that, rounded up. So the constant is the reciprocal of the twin prime constant, plus {:.1}% for the luck of the hardest cases",
+        thousands(from),
+        (c / predicted - 1.0) * 100.0
+    ));
+    out.push(format!(
+        "  so: p(n) <= {c} (ln n)^2 ln ln n reads 'the hardest n needs about (ln n)^2 / (2 C2) tries, and that many primes reach up to about that size'. The prime number theorem parts are proved; the independence of the tries is the model's assumption, and proving it would prove Goldbach"
+    ));
+    out
+}
+
 /// What can be proved about the bound for EVERY n, with no number checked:
 /// two implications from the definitions, and the chains of reasoning, done
 /// by Nuome's logic rules; then what stays open.
@@ -400,6 +430,7 @@ fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
         out.push(format!("  {:>17} = {:>4} + {}{}", thousands(*n), q, thousands(n - q), if ok { "" } else { "   (FAILED the Miller-Rabin recheck)" }));
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
+    out.extend(formula_meaning(p, &run.records));
     out.extend(general_proofs(p, cfg));
     out.extend(bound_proof(p, cfg, limit, &run.records));
     out.extend(bound_why(p, cfg, &run.records));

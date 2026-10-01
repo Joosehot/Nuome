@@ -250,7 +250,7 @@ pub fn run(limit: u64, threads: usize) -> Run {
 }
 
 /// The twin prime constant.
-const C2: f64 = 0.660_161_815_846_869_6;
+pub const C2: f64 = 0.660_161_815_846_869_6;
 
 /// Hardy-Littlewood: the expected number of ways to write n as p + q with
 /// p <= q, C2 * S(n) * integral_2^(n-2) dx / (ln x ln(n - x)).
