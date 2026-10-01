@@ -234,10 +234,37 @@ fn bound_proof(p: &OpenProblem, cfg: &Config, limit: u64, records: &[(u64, u64)]
     out
 }
 
+/// What can be proved about the bound for EVERY n, with no number checked:
+/// two implications from the definitions, and the chains of reasoning, done
+/// by Nuome's logic rules; then what stays open.
+fn general_proofs(p: &OpenProblem, cfg: &Config) -> Vec<String> {
+    let Some(c) = p.simple_c else { return Vec::new() };
+    let from = p.bound_from.unwrap_or(1000);
+    let mut out = vec!["general proofs (for every n; no number is checked):".into()];
+    out.push(format!("  for an even n >= {from}, let b = 'some prime p <= {c} (ln n)^2 ln ln n has n - p prime' (the bound), g = 'n is a sum of two primes' (Goldbach for n), w = 'n + 3 is a sum of three primes' (weak Goldbach for n + 3)"));
+    out.push("  b implies g, by definition: if p and n - p are prime, then n = p + (n - p) is a sum of two primes. QED".into());
+    out.push("  g implies w: if n = p + q with p, q prime, then n + 3 = 3 + p + q, and 3 is prime. QED".into());
+    let opts = crate::Options { lenient: false, style: crate::print::Style::Ascii };
+    for (what, sentence) in [
+        ("so the bound gives Goldbach for n", "prove that (b and (b implies g)) implies g"),
+        ("and it gives the three-prime statement for n + 3", "prove that ((b implies g) and (g implies w)) implies (b implies w)"),
+    ] {
+        out.push(format!("  {what}; Nuome's logic rules prove the step:"));
+        match crate::solve(sentence, cfg, &opts) {
+            Ok(s) => out.extend(s.text.lines().filter(|l| !l.trim().is_empty()).map(|l| format!("      {l}"))),
+            Err(_) => out.push("      (the logic rules could not prove it)".into()),
+        }
+    }
+    out.push(format!(
+        "  what stays open: b itself for every n. It cannot be proved here, or anywhere yet: b for every even n >= {from} gives Goldbach for every such n (above), so a proof of the bound would be a proof of Goldbach, open since 1742. The best proved result in this direction is Chen (1973): every large even n is a prime plus a number with at most two prime factors"
+    ));
+    out
+}
+
 /// The proof of p(n) <= f(n) for every even n in [from, limit], given a
 /// proof that f grows (lemma 1): the records lemma, the records, the start.
 fn prove_bound(shown: &str, f: &dyn Fn(u64) -> f64, lemma1: Vec<String>, from: u64, limit: u64, records: &[(u64, u64)]) -> Vec<String> {
-    let mut out = vec![format!("theorem (proved here): for every even n with {} <= n <= {}, the smallest prime p with n - p prime satisfies p <= {shown}", thousands(from), thousands(limit))];
+    let mut out = vec![format!("on a finite range, by computation (not a general proof): for every even n with {} <= n <= {}, the smallest prime p with n - p prime satisfies p <= {shown}", thousands(from), thousands(limit))];
     out.extend(lemma1);
     // lemma 2, abstractly: holds for any sequence whatever
     out.push("  lemma 2 (records, for ANY sequence p on the even numbers): call r a record when p(r) > p(m) for every even m < r, and let R(n) be the last record <= n; then p(n) <= p(R(n)). Proof by induction on n: the first even number is a record; if n is a record, R(n) = n; if not, some m < n has p(m) >= p(n), and p(m) <= p(R(m)) <= p(R(n)) by induction and because records only grow. QED".into());
@@ -373,6 +400,7 @@ fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
         out.push(format!("  {:>17} = {:>4} + {}{}", thousands(*n), q, thousands(n - q), if ok { "" } else { "   (FAILED the Miller-Rabin recheck)" }));
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
+    out.extend(general_proofs(p, cfg));
     out.extend(bound_proof(p, cfg, limit, &run.records));
     out.extend(bound_why(p, cfg, &run.records));
     // the model against exact counts
