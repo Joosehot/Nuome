@@ -23,6 +23,7 @@ pub mod expr;
 pub mod goldbach;
 pub mod goldbach_fi;
 pub mod hodge;
+pub mod ideas;
 pub mod lexicon;
 // logic and sets (agent L)
 pub mod logic;

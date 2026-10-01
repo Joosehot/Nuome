@@ -57,6 +57,10 @@ struct Cli {
     /// Language of a whole proof: en (default) or fi.
     #[arg(long, default_value = "en")]
     lang: String,
+    /// Make up new statements about a problem, test them on unseen numbers,
+    /// keep the survivors: "goldbach".
+    #[arg(long)]
+    ideas: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -71,6 +75,14 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(which) = &cli.ideas {
+        if which != "goldbach" {
+            bail!("no idea machine for \"{which}\"; try --ideas goldbach");
+        }
+        let limit = nuome::attempt::requested_limit(&cli.words.join(" ")).unwrap_or(400_000) as usize;
+        println!("{}", nuome::ideas::report(&nuome::ideas::Settings { limit, from: 1_000 }));
+        return Ok(());
+    }
     if let Some(which) = &cli.proof {
         if which != "goldbach" {
             bail!("no whole proof called \"{which}\"; try --proof goldbach");
