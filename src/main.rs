@@ -61,6 +61,11 @@ struct Cli {
     /// keep the survivors: "goldbach".
     #[arg(long)]
     ideas: Option<String>,
+    /// List the first N prime exponents p with 2^p - 1 of 100 million digits,
+    /// each with a factor found by trial factoring or as a survivor; written
+    /// to out/eff-candidates.tsv (factor depth: factor_bits in rules.toml).
+    #[arg(long)]
+    eff_list: Option<usize>,
 }
 
 fn main() -> Result<()> {
@@ -75,6 +80,25 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(count) = cli.eff_list {
+        let bits = cfg.open.get("eff_prime").and_then(|p| p.factor_bits).unwrap_or(50);
+        let t0 = std::time::Instant::now();
+        let list = nuome::mersenne::candidates(count, bits);
+        let mut tsv = format!("# the first {count} prime exponents p with 2^p - 1 of 100 million digits; factor = smallest factor below 2^{bits} (2^p - 1 composite), survivor = none below 2^{bits} (needs a full test)\nexponent\tdigits\tstatus\tfactor\n");
+        for (p, f) in &list {
+            let digits = (*p as f64 * std::f64::consts::LOG10_2).floor() as u64 + 1;
+            match f {
+                Some(q) => tsv.push_str(&format!("{p}\t{digits}\tcomposite\t{q}\n")),
+                None => tsv.push_str(&format!("{p}\t{digits}\tsurvivor\t\n")),
+            }
+        }
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("out").join("eff-candidates.tsv");
+        std::fs::create_dir_all(path.parent().expect("out"))?;
+        std::fs::write(&path, tsv)?;
+        let survivors = list.iter().filter(|x| x.1.is_none()).count();
+        println!("{} candidates, {} composite, {survivors} survivors ({:.1} s); written to {}", list.len(), list.len() - survivors, t0.elapsed().as_secs_f64(), path.display());
+        return Ok(());
+    }
     if let Some(which) = &cli.ideas {
         if which == "conway99" {
             let p = cfg.open.get("conway99");

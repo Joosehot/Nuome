@@ -314,6 +314,29 @@ pub fn trial_factor(p: u64, bits: u32) -> Option<u64> {
     }
 }
 
+/// The first `count` prime exponents with 100 million digits, each with its
+/// smallest factor below 2^bits if trial factoring finds one (rechecked).
+pub fn candidates(count: usize, bits: u32) -> Vec<(u64, Option<u64>)> {
+    let log2 = std::f64::consts::LOG10_2;
+    let first = ((1e8 - 1.0) / log2).ceil() as u64;
+    let exps: Vec<u64> = (first..).filter(|&q| is_prime(q) && ((q as f64 * log2).floor() as u64 + 1) >= 100_000_000).take(count).collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let slots = std::sync::Mutex::new(vec![None; exps.len()]);
+    std::thread::scope(|sc| {
+        for _ in 0..std::thread::available_parallelism().map_or(4, |t| t.get()) {
+            sc.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if i >= exps.len() {
+                    break;
+                }
+                let f = trial_factor(exps[i], bits).filter(|&q| pow2_mod_check(exps[i], q) == 1);
+                slots.lock().expect("no panics")[i] = f;
+            });
+        }
+    });
+    exps.into_iter().zip(slots.into_inner().expect("done")).collect()
+}
+
 pub fn report(s: &Settings) -> Vec<String> {
     let mut out = Vec::new();
     // 1. find every Mersenne prime exponent below the limit
