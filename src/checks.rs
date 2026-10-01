@@ -50,7 +50,11 @@ fn agree(a: &Expr, b: &Expr, req: &Request, cfg: &Config) -> Result<usize, Strin
     // calculus and trig (agent B): when too few samples lie in the domain
     // (arcsin, sqrt(1 - x^2)), try them again scaled towards 0
     match agree_scaled(a, b, req, cfg, 1.0) {
-        Err(e) if e.starts_with("undefined") => agree_scaled(a, b, req, cfg, cfg.calculus.narrow),
+        Err(e) if e.starts_with("undefined") => match agree_scaled(a, b, req, cfg, cfg.calculus.narrow) {
+            // and when the domain lies further out (ln ln x needs x > e), scaled up
+            Err(e) if e.starts_with("undefined") => agree_scaled(a, b, req, cfg, cfg.calculus.widen),
+            r => r,
+        },
         r => r,
     }
 }

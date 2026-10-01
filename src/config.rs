@@ -5,6 +5,10 @@ use crate::model::{Modifier, Task};
 use crate::rules;
 use anyhow::{bail, Context as _, Result};
 use serde::Deserialize;
+
+fn default_widen() -> f64 {
+    10.0
+}
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -262,6 +266,9 @@ pub struct CalcCfg {
     /// When too few sample points lie in an expression's domain (arcsin x),
     /// the samples are scaled by this and tried again.
     pub narrow: f64,
+    /// Still too few (ln ln x needs x > e): scaled by this and tried again.
+    #[serde(default = "default_widen")]
+    pub widen: f64,
 }
 
 #[derive(Clone, Debug, Deserialize)]

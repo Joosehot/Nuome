@@ -409,6 +409,7 @@ zero = 1e-12               # smaller counts as 0 when a rule reads a value
 trig_scan = 400            # grid points per unit length when counting trig solutions
 k_range = 3                # general solutions are checked for k = -3..3
 narrow = 0.1               # too few samples in the domain (arcsin x): scale them by this, try again
+widen = 10.0               # still too few (ln ln x needs x > e): scale them by this, try again
 
 # ---- Algebra: polynomial division and the factor theorem ----
 

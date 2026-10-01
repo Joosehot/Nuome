@@ -71,7 +71,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
             price_per_parameter: p.formula_price.unwrap_or(0.02),
             check_up_to: requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))),
         }),
-        ("goldbach", Some(n)) => goldbach(p, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
+        ("goldbach", Some(n)) => goldbach(p, cfg, requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n)))),
         ("collatz", Some(n)) => crate::evidence::collatz(n),
         ("eff_prime", Some(n)) => crate::mersenne::report(&crate::mersenne::Settings { check_below: n as usize, timed_steps: p.measure.unwrap_or(2) }),
         ("hodge", _) => crate::hodge::report(&crate::hodge::Settings {
@@ -180,7 +180,7 @@ fn thousands(n: u64) -> String {
 /// 3. each record that is in force somewhere in the range satisfies
 ///    p(r) <= f(max(r, from)), with a margin far above rounding;
 /// 4. so p(n) <= p(r) <= f(max(r, from)) <= f(n) for every even n in range.
-fn bound_proof(p: &OpenProblem, limit: u64, records: &[(u64, u64)]) -> Vec<String> {
+fn bound_proof(p: &OpenProblem, cfg: &Config, limit: u64, records: &[(u64, u64)]) -> Vec<String> {
     let (Some(c), Some(inner), Some(outer)) = (p.bound_c, p.bound_inner, p.bound_outer) else {
         return Vec::new();
     };
@@ -188,8 +188,25 @@ fn bound_proof(p: &OpenProblem, limit: u64, records: &[(u64, u64)]) -> Vec<Strin
     let f = |n: u64| c * (n as f64).ln().ln().powf(inner).powf(outer);
     let shown = format!("{c} ((ln ln n)^{inner})^{outer}");
     let mut out = vec![format!("theorem (proved here): for every even n with {} <= n <= {}, the smallest prime p with n - p prime satisfies p <= {shown}", thousands(from), thousands(limit))];
-    out.push(format!("  proof, step 1: for n >= 16, ln ln n > 0 and grows, so f(n) = {shown} grows with n"));
-    out.push(format!("  step 2: every even n from 4 to {} was computed (above), and the records list every n whose smallest prime beats all smaller n; so for any n, p(n) <= p(r) for the last record r <= n", thousands(limit)));
+    // lemma 1, abstractly: f grows for x > e, by a derivative Nuome works out with its own rules
+    out.push(format!("  lemma 1 (f grows for every real x > e): f(x) = {c} g(x) with g(x) = ((ln ln x)^{inner})^{outer}; Nuome's own rules differentiate g:"));
+    let opts = crate::Options { lenient: false, style: crate::print::Style::Ascii };
+    match crate::solve(&format!("differentiate ((ln(ln x))^{inner})^{outer}"), cfg, &opts) {
+        Ok(s) => {
+            for line in s.text.lines().filter(|l| !l.trim().is_empty()) {
+                out.push(format!("      {line}"));
+            }
+            out.push(format!(
+                "    for x > e: ln x > 1, so ln ln x > 0 (and (u^a)^b = u^(ab) holds for u > 0); then {:.5} > 0, (ln ln x)^({:.5}) > 0, x > 0 and ln x > 0, so g'(x) > 0; with {c} > 0, f' = {c} g' > 0, so f grows on (e, oo). QED",
+                inner * outer,
+                inner * outer - 1.0
+            ));
+        }
+        Err(_) => out.push("    (the derivative could not be worked out by the rules; lemma 1 is not proved, so neither is the theorem)".into()),
+    }
+    // lemma 2, abstractly: holds for any sequence whatever
+    out.push("  lemma 2 (records, for ANY sequence p on the even numbers): call r a record when p(r) > p(m) for every even m < r, and let R(n) be the last record <= n; then p(n) <= p(R(n)). Proof by induction on n: the first even number is a record; if n is a record, R(n) = n; if not, some m < n has p(m) >= p(n), and p(m) <= p(R(m)) <= p(R(n)) by induction and because records only grow. QED".into());
+    out.push(format!("  step 2: every even n from 4 to {} was computed (above), giving every record up to {}", thousands(limit), thousands(limit)));
     // from `from` to the first record above it, the largest p(n) is computed
     // directly (the record before `from` may be larger than anything after it);
     // from that record on, the records themselves
@@ -228,14 +245,14 @@ fn bound_proof(p: &OpenProblem, limit: u64, records: &[(u64, u64)]) -> Vec<Strin
         thousands(tn),
         (1.0 - tq as f64 / tb) * 100.0
     ));
-    out.push("  step 4: for each even n in the range, with r the last record <= n (or the directly computed start): p(n) <= p(r) <= f(max(r, from)) <= f(n), using step 2, step 3 and step 1. QED".into());
+    out.push("  step 4: for each even n in the range, with r the last record <= n (or the directly computed start): p(n) <= p(r) by lemma 2, p(r) <= f(max(r, from)) by step 3, and f(max(r, from)) <= f(n) by lemma 1 (from > e). QED".into());
     out.push(format!("  (a proof for this range only: above {} it is a conjecture, like Goldbach itself)", thousands(limit)));
     out
 }
 
 /// Goldbach: every even number up to the limit, the record hardest cases,
 /// the Hardy-Littlewood model against exact counts, and a confidence score.
-fn goldbach(p: &OpenProblem, limit: u64) -> Vec<String> {
+fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
     use crate::goldbach as g;
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let run = g::run(limit, threads);
@@ -251,7 +268,7 @@ fn goldbach(p: &OpenProblem, limit: u64) -> Vec<String> {
         out.push(format!("  {:>17} = {:>4} + {}{}", thousands(*n), q, thousands(n - q), if ok { "" } else { "   (FAILED the Miller-Rabin recheck)" }));
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
-    out.extend(bound_proof(p, limit, &run.records));
+    out.extend(bound_proof(p, cfg, limit, &run.records));
     // the model against exact counts
     out.push("the Hardy-Littlewood prediction of the number of ways against exact counts:".into());
     let mut worst: f64 = 0.0;
