@@ -77,7 +77,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
             max_base: requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))),
             max_exp: p.max_exponent.unwrap_or(12),
         }, cfg),
-        ("eff_prime", Some(n)) => crate::mersenne::report(&crate::mersenne::Settings { check_below: n as usize, timed_steps: p.measure.unwrap_or(2) }),
+        ("eff_prime", Some(n)) => crate::mersenne::report(&crate::mersenne::Settings { check_below: n as usize, timed_steps: p.measure.unwrap_or(2), factor_exponents: p.factor_exponents.unwrap_or(0), factor_bits: p.factor_bits.unwrap_or(40) }),
         ("hodge", _) => crate::hodge::report(&crate::hodge::Settings {
             surface_degrees: if p.surface_degrees.is_empty() { (3..=12).collect() } else { p.surface_degrees.clone() },
             fourfold_degrees: if p.fourfold_degrees.is_empty() { (3..=10).collect() } else { p.fourfold_degrees.clone() },

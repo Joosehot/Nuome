@@ -1152,6 +1152,9 @@ formal = "find a prime with at least 100000000 digits"
 # Lucas-Lehmer on every prime exponent below this (src/mersenne.rs); squarings timed for the estimate
 check_up_to = 4500
 measure = 2
+# trial factoring of the first prize-size prime exponents: factors 2kp + 1 below 2^factor_bits
+factor_exponents = 200
+factor_bits = 50
 
 [open.eff_prime.guess]
 answer = "such a prime exists (there are infinitely many primes), and GIMPS will likely find one, but not on one machine"

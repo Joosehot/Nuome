@@ -215,6 +215,11 @@ pub struct OpenProblem {
     /// Largest exponent in a search over powers.
     #[serde(default)]
     pub max_exponent: Option<u32>,
+    /// Trial factoring: how many candidate exponents, and factors below 2^bits.
+    #[serde(default)]
+    pub factor_exponents: Option<usize>,
+    #[serde(default)]
+    pub factor_bits: Option<u32>,
     #[serde(default)]
     pub simple_c: Option<f64>,
     #[serde(default)]

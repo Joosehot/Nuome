@@ -261,6 +261,57 @@ pub const KNOWN: [usize; 20] = [2, 3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127, 52
 pub struct Settings {
     pub check_below: usize,
     pub timed_steps: usize,
+    pub factor_exponents: usize,
+    pub factor_bits: u32,
+}
+
+/// 2^e mod q, square-and-multiply from the top bit (q < 2^63).
+fn pow2_mod(e: u64, q: u64) -> u64 {
+    let mut r = 1u64;
+    for i in (0..64 - e.leading_zeros()).rev() {
+        r = ((r as u128 * r as u128) % q as u128) as u64;
+        if e >> i & 1 == 1 {
+            r = if r >= q - r { r - (q - r) } else { 2 * r };
+        }
+    }
+    r
+}
+
+/// 2^e mod q again, from the bottom bit with a separate running power (an
+/// independent recheck of a factor).
+fn pow2_mod_check(mut e: u64, q: u64) -> u64 {
+    let (mut r, mut b) = (1u128, 2u128 % q as u128);
+    while e > 0 {
+        if e & 1 == 1 {
+            r = r * b % q as u128;
+        }
+        b = b * b % q as u128;
+        e >>= 1;
+    }
+    r as u64
+}
+
+/// The smallest factor q < 2^bits of 2^p - 1 (p an odd prime), if any. Every
+/// factor has the form q = 2kp + 1 with q = 1 or 7 mod 8 (proved in the
+/// general part), so only those q are tried; q with a small prime factor are
+/// skipped, since that prime would be a smaller factor of the same form.
+pub fn trial_factor(p: u64, bits: u32) -> Option<u64> {
+    const SMALL: [u64; 24] = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+    let limit = 1u64 << bits;
+    let mut k = 1u64;
+    loop {
+        let q = 2 * k * p + 1;
+        if q >= limit {
+            return None;
+        }
+        k += 1;
+        if (q % 8 != 1 && q % 8 != 7) || SMALL.iter().any(|&s| q % s == 0 && q != s) {
+            continue;
+        }
+        if pow2_mod(p, q) == 1 {
+            return Some(q);
+        }
+    }
 }
 
 pub fn report(s: &Settings) -> Vec<String> {
@@ -305,6 +356,55 @@ pub fn report(s: &Settings) -> Vec<String> {
         "the EFF prize ($150,000, a prime with at least 100 million digits): 2^p - 1 has 100 million digits from p = {first}; the first prime exponent is p = {p} ({} digits)",
         (p as f64 * log2).floor() as u64 + 1
     ));
+    // 2b. trial factoring of the first prize-size prime exponents: a factor
+    // settles 2^p - 1 as composite in a fraction of a second
+    if s.factor_exponents > 0 {
+        let t0 = std::time::Instant::now();
+        let exps: Vec<u64> = (p..).filter(|&q| is_prime(q)).take(s.factor_exponents).collect();
+        let results: Vec<Option<u64>> = {
+            let next = std::sync::atomic::AtomicUsize::new(0);
+            let slots = std::sync::Mutex::new(vec![None; exps.len()]);
+            std::thread::scope(|sc| {
+                for _ in 0..std::thread::available_parallelism().map_or(4, |t| t.get()) {
+                    sc.spawn(|| loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        if i >= exps.len() {
+                            break;
+                        }
+                        let f = trial_factor(exps[i], s.factor_bits);
+                        slots.lock().expect("no panics")[i] = f;
+                    });
+                }
+            });
+            slots.into_inner().expect("done")
+        };
+        let factored: Vec<(u64, u64)> = exps.iter().zip(&results).filter_map(|(&e, f)| f.map(|q| (e, q))).collect();
+        let rechecked = factored.iter().all(|&(e, q)| pow2_mod_check(e, q) == 1 && (q - 1) % (2 * e) == 0);
+        let survivors: Vec<u64> = exps.iter().zip(&results).filter(|(_, f)| f.is_none()).map(|(&e, _)| e).collect();
+        // heuristic (Wagstaff): the chance of a factor between 2^a and 2^b is about 1 - a/b, with 2^a = 2p the smallest possible
+        let a = ((2 * p + 1) as f64).log2();
+        let expected = 1.0 - a / s.factor_bits as f64;
+        out.push(format!(
+            "trial factoring, the first {} prime exponents from p = {p}, every factor 2kp + 1 below 2^{} ({:.1} s): {} of the {} numbers 2^p - 1 have a factor, so they are proved composite (each factor rechecked by a second power routine: {}); expected about {:.0}% by the 1 - a/b heuristic, found {:.0}%",
+            exps.len(),
+            s.factor_bits,
+            t0.elapsed().as_secs_f64(),
+            factored.len(),
+            exps.len(),
+            if rechecked { "all agree" } else { "DISAGREE" },
+            100.0 * expected,
+            100.0 * factored.len() as f64 / exps.len() as f64
+        ));
+        out.push(format!(
+            "  first factors found: {}",
+            factored.iter().take(6).map(|(e, q)| format!("2^{e} - 1 = {q} * ...")).collect::<Vec<_>>().join("; ")
+        ));
+        out.push(format!(
+            "  {} survive, each needs a full Lucas-Lehmer test; the first: {}",
+            survivors.len(),
+            survivors.iter().take(8).map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
+        ));
+    }
     // 3. time squarings at a sixteenth of that size (a full-size transform
     // needs over a gigabyte) and scale by n log n
     let small = ((p / 16)..).find(|&q| is_prime(q)).expect("a prime") as usize;
