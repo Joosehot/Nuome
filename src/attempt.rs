@@ -76,7 +76,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         ("beal", Some(n)) => crate::beal::report(&crate::beal::Settings {
             max_base: requested_limit(sentence).map_or(n, |r| r.min(p.max_check.unwrap_or(n))),
             max_exp: p.max_exponent.unwrap_or(12),
-        }),
+        }, cfg),
         ("eff_prime", Some(n)) => crate::mersenne::report(&crate::mersenne::Settings { check_below: n as usize, timed_steps: p.measure.unwrap_or(2) }),
         ("hodge", _) => crate::hodge::report(&crate::hodge::Settings {
             surface_degrees: if p.surface_degrees.is_empty() { (3..=12).collect() } else { p.surface_degrees.clone() },

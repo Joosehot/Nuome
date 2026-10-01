@@ -165,7 +165,26 @@ pub fn search(s: &Settings, coprime: bool) -> (Vec<Found>, u64) {
     (f, tried.into_inner())
 }
 
-pub fn report(s: &Settings) -> Vec<String> {
+/// What can be proved about Beal for every case, with no number checked.
+pub fn general_proofs(cfg: &crate::config::Config) -> Vec<String> {
+    let mut out = vec!["general proofs (for every A, B, C, x, y, z; no number is checked):".into()];
+    out.push("  lemma 1 (no common factor means pairwise coprime): if A^x + B^y = C^z and gcd(A, B) = 1, then gcd(A, C) = gcd(B, C) = 1. Proof: if a prime p divides A and C, it divides C^z - A^x = B^y, so p divides B (p is prime), and p divides gcd(A, B) = 1, impossible; the same with A and B swapped. So 'A, B, C have no common prime factor' is exactly gcd(A, B) = 1, and a counterexample may be sought among coprime A, B, as the search does. QED".into());
+    out.push("  lemma 2 (parity): in a counterexample exactly one of A, B, C is even. Proof: by lemma 1 they are pairwise coprime, so at most one is even; if all three were odd, A^x + B^y would be odd + odd = even while C^z is odd, impossible. QED".into());
+    out.push("  lemma 3 (the condition is needed): with a common factor there are solutions for every exponent: 2^n + 2^n = 2 * 2^n = 2^(n+1) for every n >= 3, and if a^x + b^y = c^z then (a k^(yz))^x + (b k^(xz))^y = (c k^(xy))^z for every k (each term gains the factor k^(xyz)). QED".into());
+    out.push("  theorem 4 (Beal gives Fermat's last theorem for exponents >= 3): if a^n + b^n = c^n with n >= 3 had a solution, divide by d = gcd(a, b) (d^n divides c^n, so d divides c): the result has gcd = 1 and is a counterexample to Beal by lemma 1. So with s = 'Fermat fails for some n >= 3' and c = 'Beal has a counterexample', s implies c, and Beal (not c) gives not s; Nuome's logic rules prove the step:".into());
+    let opts = crate::Options { lenient: false, style: crate::print::Style::Ascii };
+    match crate::solve("prove that ((s implies c) and (not c)) implies (not s)", cfg, &opts) {
+        Ok(sol) => out.extend(sol.text.lines().filter(|l| !l.trim().is_empty()).map(|l| format!("      {l}"))),
+        Err(_) => out.push("      (the logic rules could not prove it)".into()),
+    }
+    out.push("    (Fermat's last theorem itself is proved, by Wiles 1995, so this direction gives no new information; it shows Beal is at least as strong)".into());
+    out.push("  what stays open: that no coprime A, B give A^x + B^y = C^z with x, y, z >= 3. Known in general: Darmon and Granville (1995) proved that for each fixed x, y, z with 1/x + 1/y + 1/z < 1 there are only finitely many such coprime solutions, but not that there are none; a counterexample would also go against the abc conjecture for large values".into());
+    out
+}
+
+pub fn report(s: &Settings, cfg: &crate::config::Config) -> Vec<String> {
+    let mut out_general = general_proofs(cfg);
+    out_general.push(String::new());
     let t0 = std::time::Instant::now();
     let (all, _) = search(&Settings { max_base: s.max_base.min(60), max_exp: s.max_exp.min(8) }, false);
     let shown: Vec<String> = all
@@ -192,7 +211,9 @@ pub fn report(s: &Settings) -> Vec<String> {
         Some(h) => format!("  COUNTEREXAMPLE FOUND: {}^{} + {}^{} = {}^{}, checked exactly; it would disprove the Beal conjecture", h.a, h.x, h.b, h.y, h.c, h.z),
         None => "  none: no counterexample in this range (larger searches by others found none either)".into(),
     });
-    out
+    out_general.push("computed (not a general proof):".into());
+    out_general.extend(out);
+    out_general
 }
 
 #[cfg(test)]
