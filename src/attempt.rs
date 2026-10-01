@@ -171,6 +171,68 @@ fn thousands(n: u64) -> String {
     out
 }
 
+/// A proof, for the finite range that was computed, that the smallest prime
+/// p(n) with n - p(n) prime never exceeds f(n) = c ((ln ln n)^inner)^outer
+/// (the constants from rules.toml). The steps:
+/// 1. f increases for n >= 16, where ln ln n > 0;
+/// 2. records: p(n) is at most p(r) for the last record r <= n (by the
+///    definition of a record, from the exhaustive run);
+/// 3. each record that is in force somewhere in the range satisfies
+///    p(r) <= f(max(r, from)), with a margin far above rounding;
+/// 4. so p(n) <= p(r) <= f(max(r, from)) <= f(n) for every even n in range.
+fn bound_proof(p: &OpenProblem, limit: u64, records: &[(u64, u64)]) -> Vec<String> {
+    let (Some(c), Some(inner), Some(outer)) = (p.bound_c, p.bound_inner, p.bound_outer) else {
+        return Vec::new();
+    };
+    let from = p.bound_from.unwrap_or(1000).max(16);
+    let f = |n: u64| c * (n as f64).ln().ln().powf(inner).powf(outer);
+    let shown = format!("{c} ((ln ln n)^{inner})^{outer}");
+    let mut out = vec![format!("theorem (proved here): for every even n with {} <= n <= {}, the smallest prime p with n - p prime satisfies p <= {shown}", thousands(from), thousands(limit))];
+    out.push(format!("  proof, step 1: for n >= 16, ln ln n > 0 and grows, so f(n) = {shown} grows with n"));
+    out.push(format!("  step 2: every even n from 4 to {} was computed (above), and the records list every n whose smallest prime beats all smaller n; so for any n, p(n) <= p(r) for the last record r <= n", thousands(limit)));
+    // from `from` to the first record above it, the largest p(n) is computed
+    // directly (the record before `from` may be larger than anything after it);
+    // from that record on, the records themselves
+    let first_after = records.iter().position(|&(n, _)| n > from).unwrap_or(records.len());
+    let segment_end = records.get(first_after).map_or(limit, |r| r.0 - 1).min(limit);
+    let smallest = |n: u64| (2..=n / 2).find(|&q| crate::goldbach::is_prime(q) && crate::goldbach::is_prime(n - q)).unwrap_or(0);
+    let start_max = (from + from % 2..=segment_end).step_by(2).map(smallest).max().unwrap_or(0);
+    out.push(format!("  (from {} to {}, before the next record, every p(n) was computed directly: the largest is {start_max})", thousands(from), thousands(segment_end)));
+    let in_force: Vec<(u64, u64)> = std::iter::once((from, start_max)).chain(records[first_after..].iter().copied()).collect();
+    let start = 0;
+    let records = &in_force;
+    let mut tightest: Option<(u64, u64, f64)> = None;
+    let mut failed = Vec::new();
+    for &(n, q) in &records[start..] {
+        let at = n.max(from);
+        let bound = f(at);
+        // a margin of 1e-9 relative covers every rounding of the logarithms
+        if (q as f64) > bound * (1.0 - 1e-9) {
+            failed.push(format!("{} (p = {q}, f = {bound:.2})", thousands(n)));
+        }
+        if tightest.is_none_or(|t| (q as f64) / bound > t.1 as f64 / t.2) {
+            tightest = Some((n, q, bound));
+        }
+    }
+    let checked = records.len() - start;
+    if !failed.is_empty() {
+        out.push(format!("  step 3 FAILS at: {}; the bound is not proved on this range", failed.join(", ")));
+        return out;
+    }
+    let (tn, tq, tb) = tightest.expect("at least one record");
+    out.push(format!(
+        "  step 3: all {checked} records in force between {} and {} satisfy p(r) <= f(max(r, {})); tightest at r = {}: p = {tq}, f = {tb:.2}, so {:.2}% to spare (rounding of the logarithms is below 0.0000001%)",
+        thousands(from),
+        thousands(limit),
+        thousands(from),
+        thousands(tn),
+        (1.0 - tq as f64 / tb) * 100.0
+    ));
+    out.push("  step 4: for each even n in the range, with r the last record <= n (or the directly computed start): p(n) <= p(r) <= f(max(r, from)) <= f(n), using step 2, step 3 and step 1. QED".into());
+    out.push(format!("  (a proof for this range only: above {} it is a conjecture, like Goldbach itself)", thousands(limit)));
+    out
+}
+
 /// Goldbach: every even number up to the limit, the record hardest cases,
 /// the Hardy-Littlewood model against exact counts, and a confidence score.
 fn goldbach(p: &OpenProblem, limit: u64) -> Vec<String> {
@@ -189,6 +251,7 @@ fn goldbach(p: &OpenProblem, limit: u64) -> Vec<String> {
         out.push(format!("  {:>17} = {:>4} + {}{}", thousands(*n), q, thousands(n - q), if ok { "" } else { "   (FAILED the Miller-Rabin recheck)" }));
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
+    out.extend(bound_proof(p, limit, &run.records));
     // the model against exact counts
     out.push("the Hardy-Littlewood prediction of the number of ways against exact counts:".into());
     let mut worst: f64 = 0.0;

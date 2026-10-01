@@ -1055,6 +1055,12 @@ formal = "prove that every even number greater than 2 is a sum of two primes"
 check_up_to = 1000000000      # every even number up to this, unless the sentence asks ("up to 10^10")
 max_check = 1000000000000     # the most a sentence may ask for
 model_doubt = 0.001           # doubt in the Hardy-Littlewood model itself: a stated assumption, not a measurement
+# the bound Nuome evolved, p(n) <= 0.473 ((ln ln n)^2.889)^2.610, exactly as printed;
+# every run proves it for each even n from bound_from up to the checked limit (src/attempt.rs, bound_proof)
+bound_c = 0.473
+bound_inner = 2.889
+bound_outer = 2.610
+bound_from = 1000
 formula_min_n = 1000          # "find a formula": fit on record cases from here...
 formula_split = 100000000000  # ...up to here (what Nuome computed itself), then predict the published ones above
 formula_price = 0.02          # added to the training error per parameter, so a simpler formula wins a tie

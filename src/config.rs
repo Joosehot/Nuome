@@ -194,6 +194,16 @@ pub struct OpenProblem {
     /// Degrees of the varieties to check (surfaces, fourfolds).
     #[serde(default)]
     pub surface_degrees: Vec<usize>,
+    /// Goldbach: the bound p(n) <= c ((ln ln n)^inner)^outer, proved for
+    /// every even n from `bound_from` up to the checked limit.
+    #[serde(default)]
+    pub bound_c: Option<f64>,
+    #[serde(default)]
+    pub bound_inner: Option<f64>,
+    #[serde(default)]
+    pub bound_outer: Option<f64>,
+    #[serde(default)]
+    pub bound_from: Option<u64>,
     #[serde(default)]
     pub fourfold_degrees: Vec<usize>,
     /// Published tables to compare with (zeta zeros, elliptic curves; paths
