@@ -118,6 +118,7 @@ pub fn report(key: &str, p: &OpenProblem, cfg: &Config, recognised_from_statemen
         _ => vec!["nothing: no finite calculation bears on this statement".into()],
     };
     out.push("  attempt 2, compute:".into());
+    let computed: Vec<String> = crate::general::lines(key, cfg).into_iter().chain(computed).collect();
     for c in computed {
         out.push(format!("    {c}"));
     }

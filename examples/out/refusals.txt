@@ -121,6 +121,11 @@ error: The Hodge conjecture: an attempt
       "non-singular", "projective variety", "hodge class", "rational linear combination", "classes", "algebraic cycles": algebraic geometry has no rules in Nuome
     so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
   attempt 2, compute:
+    general proofs (for every case; no number is checked):
+      theorems used, proved by others: Lefschetz (1,1) (1924): every Hodge class in degree 2 is algebraic, so the conjecture holds for p = 1; hard Lefschetz then gives p = dim X - 1, so every variety of dimension at most 3 satisfies it; Shioda and Ran: on a Fermat variety, a Hodge class whose index pairs up (a_i + a_j = 0 mod d) is spanned by linear subspaces, hence algebraic
+      lemma (what the computation proves): if every Hodge class of a Fermat fourfold pairs up, every Hodge class is algebraic, so the conjecture holds for that variety. QED from the theorems above; the computation below finds which degrees have this property
+    
+    computed (not a general proof):
     Hodge numbers of hypersurfaces by Griffiths' Jacobian ring (one line per variety, h^(n,0) .. h^(0,n) of the primitive part): K3 surface (quartic in P^3): primitive [1, 19, 1] = known; cubic surface: primitive [0, 6, 0] = known; quintic threefold (the Calabi-Yau of string theory): primitive [1, 101, 101, 1] = known; cubic fourfold: primitive [0, 1, 20, 1, 0] = known
     Fermat surfaces (the Hodge conjecture holds there by the Lefschetz (1,1) theorem, so this checks the counting): d=3: Picard number 7, formula 3(d-1)(d-2)+1 = 7; d=4: Picard number 20; d=5: Picard number 37, formula 3(d-1)(d-2)+1 = 37; d=6: Picard number 86; d=7: Picard number 91, formula 3(d-1)(d-2)+1 = 91; d=8: Picard number 176; d=9: Picard number 217; d=10: Picard number 362; d=11: Picard number 271, formula 3(d-1)(d-2)+1 = 271; d=12: Picard number 644
     Fermat fourfolds, every Hodge class checked: the Hodge conjecture HOLDS for these, each Hodge class being a combination of linear subspaces lying on X: d=3: 20 of the 20 primitive (2,2) classes are Hodge classes, 20 of them spanned by linear subspaces; d=4: 141 of the 141 primitive (2,2) classes are Hodge classes, 141 of them spanned by linear subspaces; d=5: 400 of the 580 primitive (2,2) classes are Hodge classes, 400 of them spanned by linear subspaces; d=7: 1860 of the 4332 primitive (2,2) classes are Hodge classes, 1860 of them spanned by linear subspaces
@@ -143,6 +148,11 @@ error: The Hodge conjecture (recognised from its statement): an attempt
       "non-singular", "projective variety", "hodge class", "rational linear combination", "classes", "algebraic cycles": algebraic geometry has no rules in Nuome
     so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
   attempt 2, compute:
+    general proofs (for every case; no number is checked):
+      theorems used, proved by others: Lefschetz (1,1) (1924): every Hodge class in degree 2 is algebraic, so the conjecture holds for p = 1; hard Lefschetz then gives p = dim X - 1, so every variety of dimension at most 3 satisfies it; Shioda and Ran: on a Fermat variety, a Hodge class whose index pairs up (a_i + a_j = 0 mod d) is spanned by linear subspaces, hence algebraic
+      lemma (what the computation proves): if every Hodge class of a Fermat fourfold pairs up, every Hodge class is algebraic, so the conjecture holds for that variety. QED from the theorems above; the computation below finds which degrees have this property
+    
+    computed (not a general proof):
     Hodge numbers of hypersurfaces by Griffiths' Jacobian ring (one line per variety, h^(n,0) .. h^(0,n) of the primitive part): K3 surface (quartic in P^3): primitive [1, 19, 1] = known; cubic surface: primitive [0, 6, 0] = known; quintic threefold (the Calabi-Yau of string theory): primitive [1, 101, 101, 1] = known; cubic fourfold: primitive [0, 1, 20, 1, 0] = known
     Fermat surfaces (the Hodge conjecture holds there by the Lefschetz (1,1) theorem, so this checks the counting): d=3: Picard number 7, formula 3(d-1)(d-2)+1 = 7; d=4: Picard number 20; d=5: Picard number 37, formula 3(d-1)(d-2)+1 = 37; d=6: Picard number 86; d=7: Picard number 91, formula 3(d-1)(d-2)+1 = 91; d=8: Picard number 176; d=9: Picard number 217; d=10: Picard number 362; d=11: Picard number 271, formula 3(d-1)(d-2)+1 = 271; d=12: Picard number 644
     Fermat fourfolds, every Hodge class checked: the Hodge conjecture HOLDS for these, each Hodge class being a combination of linear subspaces lying on X: d=3: 20 of the 20 primitive (2,2) classes are Hodge classes, 20 of them spanned by linear subspaces; d=4: 141 of the 141 primitive (2,2) classes are Hodge classes, 141 of them spanned by linear subspaces; d=5: 400 of the 580 primitive (2,2) classes are Hodge classes, 400 of them spanned by linear subspaces; d=7: 1860 of the 4332 primitive (2,2) classes are Hodge classes, 1860 of them spanned by linear subspaces
@@ -166,6 +176,12 @@ error: The Riemann hypothesis: an attempt
       "0 <": one side of < is empty
     so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
   attempt 2, compute:
+    general proofs (for every case; no number is checked):
+      lemma 1 (a sign change is a zero on the line): Z(t) = e^(i theta(t)) zeta(1/2 + it) with theta real is real for real t and |Z(t)| = |zeta(1/2 + it)|; Z is continuous, so between two points where Z has opposite signs it is 0 somewhere (intermediate value theorem), and there zeta(1/2 + it) = 0, exactly on the line. QED
+      theorem used, proved by others: the functional equation (Riemann 1859): the zeros in the strip are symmetric about the line Re(s) = 1/2, so a zero off the line would come with a mirror zero; and Turing's method (Turing 1953, Brent 1979) bounds ALL zeros up to a Gram point by the sign changes counted, which is how the computation below closes the count
+      what this gives: the line count equals the strip count up to the height checked, which is a proof for that height; nothing about larger heights
+    
+    computed (not a general proof):
     verified the hypothesis up to height 1000.48 (the Gram point g_648) by Turing's method, the standard way it is checked
     found 649 sign changes of Z(t): 649 zeros of zeta exactly on the line Re(s) = 1/2 (first: t = 14.134725, 21.022040, 25.010858, 30.424876, 32.935062)
     Rosser's rule held in all 629 Gram blocks (22 bad Gram points, longest block 2 intervals)
@@ -301,6 +317,11 @@ error: The Hodge conjecture: an attempt
       "non-singular", "projective variety", "hodge class", "rational linear combination", "classes", "algebraic cycles": algebraic geometry has no rules in Nuome
     so the proof search has no statement to start from: Nuome has no words, and no rules, for these notions
   attempt 2, compute:
+    general proofs (for every case; no number is checked):
+      theorems used, proved by others: Lefschetz (1,1) (1924): every Hodge class in degree 2 is algebraic, so the conjecture holds for p = 1; hard Lefschetz then gives p = dim X - 1, so every variety of dimension at most 3 satisfies it; Shioda and Ran: on a Fermat variety, a Hodge class whose index pairs up (a_i + a_j = 0 mod d) is spanned by linear subspaces, hence algebraic
+      lemma (what the computation proves): if every Hodge class of a Fermat fourfold pairs up, every Hodge class is algebraic, so the conjecture holds for that variety. QED from the theorems above; the computation below finds which degrees have this property
+    
+    computed (not a general proof):
     Hodge numbers of hypersurfaces by Griffiths' Jacobian ring (one line per variety, h^(n,0) .. h^(0,n) of the primitive part): K3 surface (quartic in P^3): primitive [1, 19, 1] = known; cubic surface: primitive [0, 6, 0] = known; quintic threefold (the Calabi-Yau of string theory): primitive [1, 101, 101, 1] = known; cubic fourfold: primitive [0, 1, 20, 1, 0] = known
     Fermat surfaces (the Hodge conjecture holds there by the Lefschetz (1,1) theorem, so this checks the counting): d=3: Picard number 7, formula 3(d-1)(d-2)+1 = 7; d=4: Picard number 20; d=5: Picard number 37, formula 3(d-1)(d-2)+1 = 37; d=6: Picard number 86; d=7: Picard number 91, formula 3(d-1)(d-2)+1 = 91; d=8: Picard number 176; d=9: Picard number 217; d=10: Picard number 362; d=11: Picard number 271, formula 3(d-1)(d-2)+1 = 271; d=12: Picard number 644
     Fermat fourfolds, every Hodge class checked: the Hodge conjecture HOLDS for these, each Hodge class being a combination of linear subspaces lying on X: d=3: 20 of the 20 primitive (2,2) classes are Hodge classes, 20 of them spanned by linear subspaces; d=4: 141 of the 141 primitive (2,2) classes are Hodge classes, 141 of them spanned by linear subspaces; d=5: 400 of the 580 primitive (2,2) classes are Hodge classes, 400 of them spanned by linear subspaces; d=7: 1860 of the 4332 primitive (2,2) classes are Hodge classes, 1860 of them spanned by linear subspaces

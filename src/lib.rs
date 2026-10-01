@@ -22,6 +22,7 @@ pub mod evolve;
 pub mod explain;
 pub mod expr;
 pub mod goldbach;
+pub mod general;
 pub mod goldbach_fi;
 pub mod hodge;
 pub mod ideas;
