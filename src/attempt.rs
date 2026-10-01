@@ -250,6 +250,76 @@ fn bound_proof(p: &OpenProblem, cfg: &Config, limit: u64, records: &[(u64, u64)]
     out
 }
 
+/// Why the bound has this shape and these constants: derived from the
+/// probabilistic (Cramer-Granville) model of the primes, with every
+/// mathematical step worked out; the model itself is an assumption.
+fn bound_why(p: &OpenProblem, cfg: &Config, records: &[(u64, u64)]) -> Vec<String> {
+    let (Some(c), Some(inner), Some(outer)) = (p.bound_c, p.bound_inner, p.bound_outer) else {
+        return Vec::new();
+    };
+    let from = p.bound_from.unwrap_or(1000);
+    let k = inner * outer;
+    let mut out = vec!["why this rule, and why these numbers (derived from a model of the primes; the model is an assumption, so this explains the rule, it does not prove it for all n):".into()];
+    out.push("  1. the model: each prime p tried is a trial that n - p is prime, succeeding with chance about 1/ln n. For the first m trials all to fail somewhere among the even numbers up to n takes m of about (ln n)^2, and the m-th prime is about m ln m; so the records grow like h(n) = C (ln n)^2 ln ln n (the shape Granville derived)".into());
+    // C measured from Nuome's own records
+    let ratio = |n: u64, q: u64| q as f64 / ((n as f64).ln().powi(2) * (n as f64).ln().ln());
+    let Some(&(cn, cq)) = records.iter().filter(|r| r.0 >= from).max_by(|a, b| ratio(a.0, a.1).total_cmp(&ratio(b.0, b.1))) else {
+        return out;
+    };
+    let big_c = ratio(cn, cq);
+    out.push(format!("  2. C, measured: the largest p / ((ln n)^2 ln ln n) over Nuome's records is {big_c:.3} (at n = {}, p = {cq})", thousands(cn)));
+    // the slope of h in the coordinate L = ln ln n, worked out by the rules
+    out.push("  3. write L = ln ln n, so ln n = e^L and h = C e^(2L) L. Its growth exponent in L is L times the derivative of ln(e^(2L) L); Nuome's rules give that derivative:".into());
+    let opts = crate::Options { lenient: false, style: crate::print::Style::Ascii };
+    match crate::solve("differentiate ln(e^(2x) * x)", cfg, &opts) {
+        Ok(s) => {
+            if let Some(ans) = s.text.lines().find(|l| l.starts_with("Answer:")) {
+                out.push(format!("       {}  (= 2 + 1/x)", ans.trim()));
+            }
+            for l in s.text.lines().filter(|l| l.trim_start().starts_with("ok ")) {
+                out.push(format!("       {}", l.trim()));
+            }
+        }
+        Err(_) => out.push("       (the rules could not work it out)".into()),
+    }
+    out.push("     so the exponent of the record curve at L is L (2 + 1/L) = 2L + 1: a power L^k matches the curve where 2L + 1 = k".into());
+    // where Nuome's exponent touches the curve, and the constant it implies
+    let l_star = (k - 1.0) / 2.0;
+    let n_star = l_star.exp().exp();
+    let (lo, hi) = (p.formula_min_n.unwrap_or(1000) as f64, p.formula_split.unwrap_or(100_000_000_000) as f64);
+    let (l_lo, l_hi) = (lo.ln().ln(), hi.ln().ln());
+    let place = if l_star < l_lo {
+        "below the range the formula was fitted on".to_string()
+    } else if l_star <= l_hi {
+        format!("inside the range the formula was fitted on ({:.1}% of the way up it in L)", (l_star - l_lo) / (l_hi - l_lo) * 100.0)
+    } else {
+        format!("just past the top of the range the formula was fitted on (it ends at L = {l_hi:.3}), where it was scored on predicting the larger records")
+    };
+    out.push(format!(
+        "  4. Nuome's exponent is {inner} x {outer} = {k:.3}, which is 2L + 1 at L = {l_star:.3}, that is n = e^(e^L) = {n_star:.1e}: {place} (fitted on L = {l_lo:.3} .. {l_hi:.3}). So the evolved rule is the tangent of the record curve there: the exponent is not a chance number but 2 ln ln n + 1 at that point"
+    ));
+    let c_pred = big_c * (2.0 * l_star).exp() * l_star.powf(1.0 - k);
+    out.push(format!(
+        "  5. the tangent's height: c = C e^(2L) L^(1-k) at L = {l_star:.3} gives c = {c_pred:.3}; Nuome's c is {c}: {}",
+        if (c_pred / c - 1.0).abs() < 0.15 { format!("within {:.0}%, so the constant follows from the model too", (c_pred / c - 1.0).abs() * 100.0) } else { "not close: the constant is not explained by the model".into() }
+    ));
+    // the model's records against the bound, away from the tangent point
+    let rows: Vec<String> = [1e10f64, 1e18, 1e30, 1e60, 1e100]
+        .iter()
+        .map(|&n| {
+            let l = n.ln().ln();
+            let f = c * l.powf(k);
+            let h = big_c * n.ln().powi(2) * l;
+            format!("n = {n:.0e}: bound / model record = {:.2}", f / h)
+        })
+        .collect();
+    out.push(format!(
+        "  6. so why it holds, and where it would stop: in the coordinate ln L the record curve bends upwards (its slope 2L + 1 keeps growing) while the bound is a straight line, so the bound stays close to the curve near the tangent point and falls behind it far away. {}. A ratio below 1 is where the model expects records above the bound (a prediction of the model, not something checked)",
+        rows.join("; ")
+    ));
+    out
+}
+
 /// Goldbach: every even number up to the limit, the record hardest cases,
 /// the Hardy-Littlewood model against exact counts, and a confidence score.
 fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
@@ -269,6 +339,7 @@ fn goldbach(p: &OpenProblem, cfg: &Config, limit: u64) -> Vec<String> {
     }
     out.push(format!("  every record rechecked independently with Miller-Rabin; {} records in all", run.records.len()));
     out.extend(bound_proof(p, cfg, limit, &run.records));
+    out.extend(bound_why(p, cfg, &run.records));
     // the model against exact counts
     out.push("the Hardy-Littlewood prediction of the number of ways against exact counts:".into());
     let mut worst: f64 = 0.0;
