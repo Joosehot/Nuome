@@ -27,6 +27,7 @@ enum E {
     Add(Box<E>, Box<E>),
     Mul(Box<E>, Box<E>),
     Div(Box<E>, Box<E>),
+    Pow(Box<E>, f64),
 }
 
 impl E {
@@ -37,12 +38,14 @@ impl E {
             E::Add(a, b) => a.eval(f) + b.eval(f),
             E::Mul(a, b) => a.eval(f) * b.eval(f),
             E::Div(a, b) => a.eval(f) / b.eval(f),
+            E::Pow(a, e) => a.eval(f).powf(*e),
         }
     }
     fn size(&self) -> usize {
         match self {
             E::Feat(_) | E::Num(_) => 1,
             E::Add(a, b) | E::Mul(a, b) | E::Div(a, b) => 1 + a.size() + b.size(),
+            E::Pow(a, _) => 1 + a.size(),
         }
     }
     fn show(&self, names: &[&str]) -> String {
@@ -52,6 +55,7 @@ impl E {
             E::Add(a, b) => format!("({} + {})", a.show(names), b.show(names)),
             E::Mul(a, b) => format!("{} * {}", a.show(names), b.show(names)),
             E::Div(a, b) => format!("{} / ({})", a.show(names), b.show(names)),
+            E::Pow(a, e) => format!("({})^{e:.3}", a.show(names)),
         }
     }
     /// The k-th node in prefix order.
@@ -68,6 +72,7 @@ impl E {
                     b.at(k - 1 - s)
                 }
             }
+            E::Pow(a, _) => a.at(k - 1),
             _ => self,
         }
     }
@@ -78,15 +83,21 @@ fn random_e(r: &mut Rng, depth: usize, feats: usize) -> E {
         return if r.below(3) == 0 { E::Num((r.unit() * 4.0 - 1.0) * 100.0 / 100.0) } else { E::Feat(r.below(feats)) };
     }
     let (a, b) = (Box::new(random_e(r, depth - 1, feats)), Box::new(random_e(r, depth - 1, feats)));
-    match r.below(3) {
+    match r.below(4) {
         0 => E::Add(a, b),
         1 => E::Mul(a, b),
-        _ => E::Div(a, b),
+        2 => E::Div(a, b),
+        _ => E::Pow(a, ((0.25 + r.unit() * 2.25) * 100.0).round() / 100.0),
     }
 }
 
 /// The genetic search shared by A and B: lower fitness is better.
 fn evolve(feats: usize, generations: usize, seed: u64, fit: &dyn Fn(&E) -> f64) -> E {
+    evolve_all(feats, generations, seed, fit).swap_remove(0).1
+}
+
+/// The whole last generation, best first (finite fitness only).
+fn evolve_all(feats: usize, generations: usize, seed: u64, fit: &dyn Fn(&E) -> f64) -> Vec<(f64, E)> {
     let mut r = Rng(seed);
     let mut pop: Vec<E> = (0..300).map(|_| random_e(&mut r, 3, feats)).collect();
     for _ in 0..generations {
@@ -106,11 +117,13 @@ fn evolve(feats: usize, generations: usize, seed: u64, fit: &dyn Fn(&E) -> f64) 
             match r.below(3) {
                 0 => *child.at(k) = random_e(&mut r, 2, feats),
                 _ => {
-                    if let E::Num(c) = child.at(k) {
-                        *c *= 1.0 + (r.unit() - 0.5) * 0.1;
-                        *c += (r.unit() - 0.5) * 0.01;
-                    } else {
-                        *child.at(k) = random_e(&mut r, 1, feats);
+                    match child.at(k) {
+                        E::Num(c) => {
+                            *c *= 1.0 + (r.unit() - 0.5) * 0.1;
+                            *c += (r.unit() - 0.5) * 0.01;
+                        }
+                        E::Pow(_, e) => *e *= 1.0 + (r.unit() - 0.5) * 0.1,
+                        node => *node = random_e(&mut r, 1, feats),
                     }
                 }
             }
@@ -120,7 +133,9 @@ fn evolve(feats: usize, generations: usize, seed: u64, fit: &dyn Fn(&E) -> f64) 
         }
         pop = next;
     }
-    pop.into_iter().map(|e| (fit(&e), e)).filter(|x| x.0.is_finite()).min_by(|a, b| a.0.total_cmp(&b.0)).expect("a finite one").1
+    let mut last: Vec<(f64, E)> = pop.into_iter().map(|e| (fit(&e), e)).filter(|x| x.0.is_finite()).collect();
+    last.sort_by(|a, b| a.0.total_cmp(&b.0));
+    last
 }
 
 fn sieve(limit: usize) -> Vec<bool> {
@@ -264,8 +279,145 @@ pub fn report(s: &Settings) -> String {
     let (fd, hf, _) = enrich(&sieve_only, decade);
     out.push(format!("   inside one decade only (10^6 to 10^7, where ln p hardly changes, as in the prize window): Nuome's score {hd}/{pd}, {ed:.1}x; the flag alone {hf}/{pd}, {fd:.1}x"));
     out.push(String::new());
+    out.extend(bound(s));
+    out.push(String::new());
     out.push("what this shows: neither function finds a Mersenne prime at once. A narrows where the next one lies to a window of millions of candidates; B can only reorder the candidates, by a factor of a few, and what carries the signal is whether 2^p - 1 has a small factor, which is the trial factoring GIMPS already does. A function that names the prime directly would need errors near 0 in A or an enrichment near the number of candidates in B; nothing here comes close, and none is known in mathematics".into());
     out.join("\n")
+}
+
+/// For a shape g: c = max next / g(p) (so next <= c g(p) on these pairs) and
+/// how tight c g is (the mean of next / (c g), 1 = exact); None when g is not positive.
+fn upper(g: &E, pairs: &[(f64, [f64; 3])]) -> Option<(f64, f64)> {
+    let vals: Vec<(f64, f64)> = pairs.iter().map(|(nx, f)| (*nx, g.eval(f))).collect();
+    if vals.iter().any(|(_, v)| !(v.is_finite() && *v > 0.0)) {
+        return None;
+    }
+    let c = vals.iter().map(|(nx, v)| nx / v).fold(0.0, f64::max);
+    if !(c.is_finite() && c > 0.0) {
+        return None;
+    }
+    Some((c, vals.iter().map(|(nx, v)| nx / (c * v)).sum::<f64>() / vals.len() as f64))
+}
+
+/// C. The Goldbach way: not the exact next exponent but a bound that always
+/// holds and is as tight as possible, p_(n+1) <= c g(p_n), with the shape g
+/// built by the genetic search, c found from the data, forward prediction in
+/// the fitness, the unseen half as the test and the known shape to compare.
+fn bound(s: &Settings) -> Vec<String> {
+    let names = ["p", "ln p", "ln ln p"];
+    let feat = |p: u64| {
+        let x = p as f64;
+        [x, x.ln(), x.ln().ln()]
+    };
+    // pairs (next exponent, features of this one), from p = 3 (ln ln 2 < 0)
+    let pairs: Vec<(f64, [f64; 3])> = EXPONENTS.windows(2).skip(1).map(|w| (w[1] as f64, feat(w[0]))).collect();
+    let half = pairs.len() / 2;
+    let (train, test) = pairs.split_at(half);
+    let cut = train.len() * 2 / 3;
+    let fit = |g: &E| {
+        // c from the early steps; then how tight and how unbroken c g stays on
+        // the later steps, which the bound has to predict
+        let Some((c, t_early)) = upper(g, &train[..cut]) else { return f64::INFINITY };
+        let late: Vec<f64> = train[cut..].iter().map(|(nx, f)| nx / (c * g.eval(f))).collect();
+        let broken = (late.iter().copied().fold(0.0, f64::max) - 1.0).max(0.0);
+        let t_late = late.iter().sum::<f64>() / late.len() as f64;
+        1.0 - (t_early + 2.0 * t_late) / 3.0 + 20.0 * broken + 0.002 * g.size() as f64
+    };
+    let scored = evolve_all(3, s.generations, s.seed + 2, &fit);
+    let mut out = vec![format!(
+        "C. the Goldbach way: a bound for the next exponent, p_(n+1) <= c g(p_n), with the shape g built by the genetic search (from {}; no shape given), c from the data, scored by tightness and forward prediction; learned on the first {} steps (3 -> {}), tested on the unseen {} steps (to {})",
+        names.join(", "),
+        train.len(),
+        train[train.len() - 1].0,
+        test.len(),
+        test[test.len() - 1].0
+    )];
+    let known = |f: &[f64; 3]| f[0]; // c p: a constant ratio, the Wagstaff picture
+    let mut shown: Vec<String> = Vec::new();
+    let mut best_kept: Option<(f64, E)> = None;
+    for (_, g) in &scored {
+        if shown.len() >= 5 {
+            break;
+        }
+        let text = g.show(&names);
+        let key: String = text.chars().filter(|ch| !ch.is_ascii_digit() && *ch != '.').collect();
+        if shown.contains(&key) {
+            continue;
+        }
+        let Some((c, t_train)) = upper(g, train) else { continue };
+        shown.push(key);
+        let worst = test.iter().map(|(nx, f)| nx / (c * g.eval(f))).fold(0.0, f64::max);
+        let holds = worst <= 1.0;
+        let t_test = test.iter().map(|(nx, f)| nx / (c * g.eval(f))).sum::<f64>() / test.len() as f64;
+        let diffs: Vec<f64> = train.iter().map(|(_, f)| (g.eval(f) / known(f)).ln()).collect();
+        let mean = diffs.iter().sum::<f64>() / diffs.len() as f64;
+        let same = (diffs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / diffs.len() as f64).sqrt() < 0.003;
+        out.push(format!("   {} p_(n+1) <= {c:.4} * {text}", if holds { "KEPT  " } else { "FAILED" }));
+        out.push(format!(
+            "          tightness {:.1}% learned, {:.1}% unseen{}; {}",
+            100.0 * t_train,
+            100.0 * t_test,
+            if holds { String::new() } else { format!(" (broken on the unseen, by a factor {worst:.2})") },
+            if same { "a rediscovery of the known shape c p (constant ratio)" } else { "NEW: not proportional to c p" }
+        ));
+        if holds && best_kept.is_none() {
+            best_kept = Some((c, g.clone()));
+        }
+    }
+    // the known shape itself, the same way
+    let cp = E::Feat(0);
+    if let Some((c, t)) = upper(&cp, train) {
+        let worst = test.iter().map(|(nx, f)| nx / (c * f[0])).fold(0.0, f64::max);
+        let holds = worst <= 1.0;
+        out.push(format!("   known shape: p_(n+1) <= {c:.4} p, tightness {:.1}% learned; on the unseen {}", 100.0 * t, if holds { "it holds".to_string() } else { format!("broken by a factor {worst:.2}") }));
+        if best_kept.is_none() && holds {
+            best_kept = Some((c, E::Mul(Box::new(E::Num(1.0)), Box::new(cp))));
+        }
+    }
+    // the model, as the Goldbach bound had one: in Wagstaff's picture each
+    // step log2(p_(n+1) / p_n) is exponential with mean 1 / e^gamma; Nuome
+    // checks that on all 51 steps, then turns bounds into probabilities
+    let rate = 0.5772156649f64.exp();
+    let steps: Vec<f64> = EXPONENTS.windows(2).map(|w| (w[1] as f64 / w[0] as f64).log2()).collect();
+    let mean = steps.iter().sum::<f64>() / steps.len() as f64;
+    let mut sorted = steps.clone();
+    sorted.sort_by(f64::total_cmp);
+    // Kolmogorov-Smirnov distance to the exponential law
+    let ks = sorted.iter().enumerate().map(|(i, &x)| {
+        let model = 1.0 - (-rate * x).exp();
+        ((i + 1) as f64 / sorted.len() as f64 - model).abs().max((model - i as f64 / sorted.len() as f64).abs())
+    }).fold(0.0, f64::max);
+    let ks_limit = 1.36 / (sorted.len() as f64).sqrt();
+    out.push(format!(
+        "   the model (as the Goldbach bound had one): each step log2(p_(n+1) / p_n) exponential with mean 1/e^gamma = {:.3}; the 51 known steps have mean {mean:.3}, and the largest distance between their distribution and the model is {ks:.3} (below {ks_limit:.3} means the data fit the model, at the 5% level): {}",
+        1.0 / rate,
+        if ks < ks_limit { "they fit" } else { "they do NOT fit" }
+    ));
+    let last = EXPONENTS[EXPONENTS.len() - 1] as f64;
+    let prize = 332_192_831.0f64;
+    let p_bound = |ratio: f64| (-rate * ratio.log2()).exp();
+    let before_prize = 1.0 - p_bound(prize / last);
+    out.push(format!(
+        "   so instead of a bound that holds always, a bound with a chance: the next one is above 4.10 p with chance {:.1}% per step, which is why no fixed bound can hold forever; from p = {last:.0}: chance {:.0}% that the 53rd lies below the prize size {prize:.0}, and chance {:.0}% that some Mersenne prime lies between {prize:.0} and {:.0} (the prize window)",
+        100.0 * p_bound(4.1024),
+        100.0 * before_prize,
+        100.0 * (1.0 - (-rate).exp()),
+        2.0 * prize
+    ));
+    match best_kept {
+        Some((c, g)) => {
+            let last = EXPONENTS[EXPONENTS.len() - 1];
+            let hi = c * g.eval(&feat(last));
+            let count = hi / hi.ln() - last as f64 / (last as f64).ln();
+            out.push(format!(
+                "   applied to the largest known, p = {last}: the 53rd lies in {last} < p <= {hi:.0}, about {count:.1e} prime exponents; the prize needs p >= 332192831, {}",
+                if hi >= 332_192_831.0 { "which this window reaches" } else { "beyond this window" }
+            ));
+        }
+        None => out.push("   no shape held on the unseen half".into()),
+    }
+    out.push("   not proved, and cannot be yet: it is not even proved that there are infinitely many Mersenne primes, so no bound on the gap can be proved now; as with Goldbach, the model fits the data, and the step from the model to the real Mersenne primes is the open part".into());
+    out
 }
 
 #[cfg(test)]
