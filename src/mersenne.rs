@@ -296,9 +296,15 @@ fn pow2_mod_check(mut e: u64, q: u64) -> u64 {
 /// general part), so only those q are tried; q with a small prime factor are
 /// skipped, since that prime would be a smaller factor of the same form.
 pub fn trial_factor(p: u64, bits: u32) -> Option<u64> {
+    trial_factor_from(p, 0, bits)
+}
+
+/// As trial_factor, but only factors from 2^from_bits on: a deeper pass over
+/// numbers already cleared below 2^from_bits (bits <= 62).
+pub fn trial_factor_from(p: u64, from_bits: u32, bits: u32) -> Option<u64> {
     const SMALL: [u64; 24] = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
-    let limit = 1u64 << bits;
-    let mut k = 1u64;
+    let limit = 1u64 << bits.min(62);
+    let mut k = if from_bits == 0 { 1 } else { ((1u64 << from_bits) / (2 * p)).max(1) };
     loop {
         let q = 2 * k * p + 1;
         if q >= limit {
@@ -335,6 +341,25 @@ pub fn candidates(count: usize, bits: u32) -> Vec<(u64, Option<u64>)> {
         }
     });
     exps.into_iter().zip(slots.into_inner().expect("done")).collect()
+}
+
+/// Deepen trial factoring for all survivors together, from 2^from_bits to
+/// 2^bits, every core at once; `done` is called with each result as soon as
+/// that exponent is finished (a factor is rechecked before it is reported).
+pub fn deepen(survivors: &[u64], from_bits: u32, bits: u32, done: &(dyn Fn(u64, Option<u64>) + Sync)) {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|sc| {
+        for _ in 0..std::thread::available_parallelism().map_or(4, |t| t.get()) {
+            sc.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if i >= survivors.len() {
+                    break;
+                }
+                let p = survivors[i];
+                done(p, trial_factor_from(p, from_bits, bits).filter(|&q| pow2_mod_check(p, q) == 1));
+            });
+        }
+    });
 }
 
 pub fn report(s: &Settings) -> Vec<String> {

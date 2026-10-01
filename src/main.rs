@@ -66,6 +66,11 @@ struct Cli {
     /// to out/eff-candidates.tsv (factor depth: factor_bits in rules.toml).
     #[arg(long)]
     eff_list: Option<usize>,
+    /// Deepen trial factoring of every survivor in out/eff-candidates.tsv to
+    /// factors below 2^BITS (at most 62), all together; each result is written
+    /// to out/eff-deepen.log at once and the list is updated at the end.
+    #[arg(long)]
+    eff_deepen: Option<u32>,
 }
 
 fn main() -> Result<()> {
@@ -80,6 +85,55 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(bits) = cli.eff_deepen {
+        let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("out");
+        let path = out_dir.join("eff-candidates.tsv");
+        let text = std::fs::read_to_string(&path).with_context(|| format!("reading {}; run --eff-list first", path.display()))?;
+        // the depth already cleared is in the first line: "below 2^N"
+        let from: u32 = text.lines().next().and_then(|l| l.split("below 2^").nth(1)).and_then(|r| r.split(|c: char| !c.is_ascii_digit()).next()).and_then(|n| n.parse().ok()).context("no depth in the list's first line")?;
+        let bits = bits.min(62);
+        if bits <= from {
+            bail!("the survivors are already cleared below 2^{from}");
+        }
+        let survivors: Vec<u64> = text.lines().filter(|l| l.contains("\tsurvivor")).filter_map(|l| l.split('\t').next()?.parse().ok()).collect();
+        println!("{} survivors, factors from 2^{from} to 2^{bits}, all together on every core; results in out/eff-deepen.log as they come", survivors.len());
+        let log = std::sync::Mutex::new(std::fs::OpenOptions::new().create(true).append(true).open(out_dir.join("eff-deepen.log"))?);
+        let found = std::sync::Mutex::new(std::collections::HashMap::new());
+        let finished = std::sync::atomic::AtomicUsize::new(0);
+        let t0 = std::time::Instant::now();
+        nuome::mersenne::deepen(&survivors, from, bits, &|p, f| {
+            use std::io::Write;
+            let n = finished.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            let line = match f {
+                Some(q) => format!("{n}/{} {p}: COMPOSITE, factor {q} (rechecked), {:.0} s", survivors.len(), t0.elapsed().as_secs_f64()),
+                None => format!("{n}/{} {p}: no factor below 2^{bits}, still a survivor, {:.0} s", survivors.len(), t0.elapsed().as_secs_f64()),
+            };
+            let mut g = log.lock().expect("no panics");
+            let _ = writeln!(g, "{line}");
+            let _ = g.flush();
+            if let Some(q) = f {
+                found.lock().expect("no panics").insert(p, q);
+            }
+        });
+        let found = found.into_inner().expect("done");
+        // rewrite the list: new factors, and the new depth for the survivors
+        let mut lines = text.lines();
+        let head = lines.next().unwrap_or("").replace(&format!("below 2^{from}"), &format!("below 2^{bits}"));
+        let mut new = format!("{head}\n");
+        for l in lines {
+            let p: Option<u64> = l.split('\t').next().and_then(|x| x.parse().ok());
+            match p.and_then(|p| found.get(&p).map(|q| (p, q))) {
+                Some((p, q)) => {
+                    let digits = l.split('\t').nth(1).unwrap_or("");
+                    new.push_str(&format!("{p}\t{digits}\tcomposite\t{q}\n"));
+                }
+                None => new.push_str(&format!("{l}\n")),
+            }
+        }
+        std::fs::write(&path, new)?;
+        println!("{} of {} survivors now have a factor; {} survivors left, cleared below 2^{bits} ({:.0} s)", found.len(), survivors.len(), survivors.len() - found.len(), t0.elapsed().as_secs_f64());
+        return Ok(());
+    }
     if let Some(count) = cli.eff_list {
         let bits = cfg.open.get("eff_prime").and_then(|p| p.factor_bits).unwrap_or(50);
         let t0 = std::time::Instant::now();
