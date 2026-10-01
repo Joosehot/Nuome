@@ -1007,6 +1007,28 @@ basis = [
     "what is missing is a mathematically rigorous construction",
 ]
 
+[open.beal]
+name = "The Beal conjecture"
+statement = "if A^x + B^y = C^z with positive integers and x, y, z >= 3, then A, B and C have a common prime factor"
+status = "open; Andrew Beal's prize of $1 000 000, held by the American Mathematical Society, for a proof or a counterexample"
+known = [
+    "it contains Fermat's last theorem (x = y = z, proved by Wiles 1995)",
+    "computer searches have found no counterexample with small bases and exponents",
+]
+formal = "prove that if a^x + b^y = c^z with x, y, z >= 3 then a, b and c share a prime factor"
+# counterexample search (src/beal.rs): every A <= B <= check_up_to, exponents 3 ..= max_exponent
+check_up_to = 1000
+max_check = 100000
+max_exponent = 12
+
+[open.beal.guess]
+answer = "true: no counterexample exists"
+confidence = "high"
+basis = [
+    "large computer searches found none",
+    "a counterexample would contradict the abc conjecture for large enough values",
+]
+
 [open.bsd]
 name = "The Birch and Swinnerton-Dyer conjecture"
 statement = "the rank of an elliptic curve over the rationals equals the order of vanishing of its L-function at s = 1"

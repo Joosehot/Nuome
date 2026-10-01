@@ -212,6 +212,9 @@ pub struct OpenProblem {
     /// itself from the records (simple_c is filled in at run time).
     #[serde(default)]
     pub simple_bound: Option<bool>,
+    /// Largest exponent in a search over powers.
+    #[serde(default)]
+    pub max_exponent: Option<u32>,
     #[serde(default)]
     pub simple_c: Option<f64>,
     #[serde(default)]

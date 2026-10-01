@@ -7,6 +7,7 @@
 //! naming its rule). No model in the loop: the same sentence and the same
 //! rules.toml always give a byte-identical solution.
 
+pub mod beal;
 pub mod bsd;
 pub mod calls;
 pub mod attempt;
