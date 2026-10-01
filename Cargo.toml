@@ -3,7 +3,7 @@ name = "nuome"
 version = "0.1.0"
 edition = "2021"
 description = "Deterministic natural-language math solver: lexicon + rewrite rules + beam search, every step explained and every answer checked"
-license = "PolyForm-Noncommercial-1.0.0"
+license = "MIT"
 publish = false
 
 [lib]

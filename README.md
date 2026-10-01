@@ -146,6 +146,54 @@ error: no way to solve x + 1 = 0 passes the checks
 
 `x^4 + 4 = (x^2 - 2x + 2)(x^2 + 2x + 2)`, and v0 has no rule for that split, so it says so instead of calling x^4 + 4 prime.
 
+## Open problems: what can be computed, computed; the rest said plainly
+
+Ask Nuome about a famous open problem and it tries: it runs the engine on the statement, then computes whatever bears on it, and ends with what is settled and what is not. Nothing here proves an open problem, and Nuome never says it does.
+
+| problem | what Nuome computes |
+|---|---|
+| Goldbach | every even number up to 10^9 by default (10^12 on request) as a sum of two primes, the record hardest cases (they match OEIS A025018/A025019), the Hardy-Littlewood count against exact counts |
+| Riemann hypothesis | verified up to a height by Turing's method (Gram blocks, Rosser's rule, Brent's bound), every sign of Z(t) fixed with an error bound; compared one to one with Odlyzko's published zeros (2 001 051 zeros up to height 1 132 490 when the full table is present) |
+| Birch and Swinnerton-Dyer | the analytic rank of every elliptic curve with conductor below 10 000 (38 042 isogeny classes) from point counts and L-derivatives; it equals the rank in Cremona's tables for all of them |
+| Yang-Mills | SU(2) lattice gauge theory (heat bath, overrelaxation), checked against the strong- and weak-coupling expansions; Creutz ratios give a positive string tension |
+| Navier-Stokes | a pseudo-spectral 3D solver on the Taylor-Green vortex, checked against the exact energy balance, with the Beale-Kato-Majda integral and the resolution watched |
+| P vs NP | random 3-SAT at the threshold by DPLL (answers checked in linear time) against 2-SAT by strongly connected components; exponential and polynomial growth judged by forward prediction |
+| Hodge | Hodge numbers of hypersurfaces (Griffiths), Hodge classes of Fermat varieties (Shioda); on the Fermat fourfolds of degree 3, 4, 5 and 7 every Hodge class is spanned by linear subspaces |
+| Conway's 99-graph | complete searches (symmetry-split, eigenvalue pruning) that settle the small cases both ways, fitness searches, the difference rule ruled out completely for both groups of order 99, and rules evolved over finite rings and fields |
+| EFF 100-million-digit prime | Lucas-Lehmer with exact NTT squaring finds exactly the 20 Mersenne primes below 2^4500 - 1, then times one test at the prize size |
+
+### The Goldbach bound, in one piece
+
+```
+nuome --proof goldbach            # English
+nuome --proof goldbach --lang fi  # Finnish
+```
+
+prints the whole argument for `p(n) <= c (ln n)^2 ln ln n`, where p(n) is the smallest prime with n - p prime, and keeps apart what is proved, what is computed and what is open:
+
+- **the constant c is found by Nuome** on every run, from the records it computed and the published ones (currently 1.527, against 1/C2 = 1.5148 predicted, C2 the twin prime constant);
+- **what each part means**: ln n from the prime number theorem, the square from the number of candidates, ln ln n from the m-th prime being about m ln m;
+- **proved in general**: the derivation inside the probabilistic model (a lemma whose derivative Nuome works out with its own rules, the maximum of independent geometric variables, the prime number theorem), and, by Nuome's logic rules, that the bound gives Goldbach and the three-prime statement;
+- **computed**: the bound for every even n from 1 000 to the limit, and at every published record up to 4 * 10^18;
+- **open**: that the actual primes obey the model, which is as hard as Goldbach itself.
+
+### Idea machines
+
+```
+nuome --ideas goldbach up to 2000000
+nuome --ideas conway99
+```
+
+Nuome makes up statements itself (shapes built by its genetic search, no shape given), fits them on half the data, tests them on the half it never saw, compares them with the known forms, and says what each would give if proved. They are its conjectures, never proofs.
+
+### More tools
+
+```
+nuome --graph graph.txt           # check any graph ("a-b" per line) against the 99-graph conditions, and draw it
+nuome --graph graph.txt --repair  # repair it by the fitness search
+nuome --overnight 8               # a long round-by-round search for the 99-graph
+```
+
 ## Usage
 
 ```
@@ -167,7 +215,7 @@ Every weight, every variant's axes, every judge, the beam width, the sample poin
 ## Tests
 
 ```
-cargo test                   # 169 unit tests (each rule: one case where it applies, one where it doesn't)
+cargo test                   # 202 unit tests (each rule: one case where it applies, one where it doesn't)
                              # + golden tests: examples/*.txt -> examples/out/*.txt
 NUOME_BLESS=1 cargo test     # accept intended changes to the goldens
 ```
@@ -183,6 +231,16 @@ The golden test runs each example file three times to prove determinism and comp
 - factoring quartics into quadratics (x^4 + 4)
 - a web page that shows the steps with LaTeX
 
+## Data
+
+The files in `data/` come from others and keep their own terms:
+
+- `goldbach_records.tsv`: OEIS A025018 / A025019 (The On-Line Encyclopedia of Integer Sequences, CC BY-SA 4.0)
+- `goldbach_top50.tsv`: the Top 50 table of T. Oliveira e Silva, S. Herzog and S. Pardi, "Goldbach conjecture verification", https://sweet.ua.pt/tos/goldbach.html
+- `zeta/zeros1`: the first 100 000 zeros of the zeta function, A. Odlyzko, https://www-users.cse.umn.edu/~odlyzko/zeta_tables/
+- `ecdata/allcurves.00000-09999`: J. Cremona's elliptic curve tables, https://github.com/JohnCremona/ecdata
+- `conway/joose-*-networks.txt`: hand-drawn starting graphs by Joose Hotari
+
 ## License
 
-PolyForm Noncommercial 1.0.0, see [LICENSE](LICENSE). © 2026 Joose Hotari.
+MIT, see [LICENSE](LICENSE). © 2026 Joose Hotari. The data files above are under their sources' terms.
