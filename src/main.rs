@@ -166,6 +166,18 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "prime-range" {
+            let p = cfg.open.get("eff_prime");
+            let digits = nuome::attempt::requested_limit(&cli.words.join(" ")).unwrap_or(100_000_000);
+            println!(
+                "{}",
+                nuome::prime_formula::range(
+                    &nuome::prime_formula::Settings { generations: p.and_then(|p| p.evolve_generations).unwrap_or(300), seed: p.and_then(|p| p.evolve_seed).unwrap_or(2026) },
+                    digits
+                )
+            );
+            return Ok(());
+        }
         if which == "prime-formula" {
             let p = cfg.open.get("eff_prime");
             println!(

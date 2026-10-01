@@ -160,8 +160,8 @@ pub struct Settings {
     pub seed: u64,
 }
 
-pub fn report(s: &Settings) -> String {
-    let mut out = vec!["Nuome's idea machine for a prime formula: a formula f(n) that gives primes, built from n, whole constants, +, -, *, squares and 2^x (no formula given)".to_string(), String::new()];
+/// The genetic search: the last generation, best first.
+fn invent(s: &Settings) -> Vec<(f64, F)> {
     let fit = |f: &F| -> f64 {
         // the forward check of the Goldbach search: n = 0..19 and then n = 20..29
         let (Some(early), Some(late)) = (score(f, 0..20), score(f, 20..30)) else { return f64::INFINITY };
@@ -198,6 +198,12 @@ pub fn report(s: &Settings) -> String {
     }
     let mut last: Vec<(f64, F)> = pop.into_iter().map(|f| (fit(&f), f)).filter(|x| x.0.is_finite()).collect();
     last.sort_by(|a, b| a.0.total_cmp(&b.0));
+    last
+}
+
+pub fn report(s: &Settings) -> String {
+    let mut out = vec!["Nuome's idea machine for a prime formula: a formula f(n) that gives primes, built from n, whole constants, +, -, *, squares and 2^x (no formula given)".to_string(), String::new()];
+    let last = invent(s);
     let line = |name: &str, f: &F| -> Option<(String, f64)> {
         let (tf, tp, tc) = score(f, 0..30)?;
         let (uf, up, uc) = score(f, 30..200).unwrap_or((0, 0, 0.0));
@@ -262,6 +268,86 @@ pub fn report(s: &Settings) -> String {
     out.push("  so a formula that names a prime at once cannot be one of these shapes: every polynomial and every u 2^n + v formula gives composites, at the latest at n = a + p. What a formula can do is make primes likelier than chance, as the numbers above show, and then each value still needs its primality test".into());
     out.push(String::new());
     out.push("for the prize: a number with 100 million digits is prime with chance about 1 / ln(10^(10^8)) = 1 / 2.3e8; a formula that is k times better than chance gives k / 2.3e8 per value, and each value with 100 million digits still needs a test of the Lucas-Lehmer kind (Proth's theorem for k 2^n + 1, the Lucas-Lehmer test for 2^n - 1), which is the slow part".into());
+    out.join("\n")
+}
+
+/// Primes among f(n), n in from..from+len, and the chance sum (1 / ln f).
+fn primes_in(f: &F, from: i128, len: i128) -> Option<(usize, f64)> {
+    let (mut p, mut c) = (0, 0.0);
+    for n in from..from + len {
+        let v = f.eval(n)?;
+        if is_prime(v as u64) {
+            p += 1;
+        }
+        c += 1.0 / (v as f64).ln();
+    }
+    Some((p, c))
+}
+
+/// The range for a prime with `digits` digits from Nuome's best formula:
+/// Nuome measures how much likelier than chance its values are prime, turns
+/// that into windows of n for 50%, 95% and 99%, first checks those windows
+/// on sizes it can test (does the 95% window hold a prime 95% of the time?),
+/// then gives the window at the asked size.
+pub fn range(s: &Settings, digits: u64) -> String {
+    let mut out = Vec::new();
+    let Some((_, f)) = invent(s).into_iter().next() else { return "the search found no formula".into() };
+    out.push(format!("Nuome's formula: f(n) = {}", f.show()));
+    // 1. how fast it grows: f(n) ~ a n^d, from two large n
+    let (n1, n2) = (100_000_000i128, 200_000_000i128);
+    let (Some(v1), Some(v2)) = (f.eval(n1), f.eval(n2)) else { return format!("{}\nf grows too fast to measure below 2^62", out.join("\n")) };
+    let d = ((v2 as f64).ln() - (v1 as f64).ln()) / 2f64.ln();
+    let d_round = d.round();
+    if (d - d_round).abs() > 0.01 || d_round < 1.0 {
+        return format!("{}\nf grows like n^{d:.2}, not a polynomial; no window computed", out.join("\n"));
+    }
+    let a = v2 as f64 / (n2 as f64).powf(d_round);
+    out.push(format!("growth, measured: f(n) is about {a:.3} n^{d_round}"));
+    // 2. how much likelier than chance, measured by Nuome at three sizes
+    let mut ks = Vec::new();
+    for start in [1_000_000i128, 10_000_000, 100_000_000] {
+        if let Some((p, c)) = primes_in(&f, start, 20_000) {
+            ks.push((start, p as f64 / c));
+        }
+    }
+    let k = ks.iter().map(|x| x.1).sum::<f64>() / ks.len() as f64;
+    out.push(format!(
+        "likelier than chance, measured on 20000 values each: {}; Nuome uses the mean k = {k:.2}",
+        ks.iter().map(|(n, k)| format!("{k:.2}x from n = {n}")).collect::<Vec<_>>().join(", ")
+    ));
+    // a value with D digits is prime with chance k / (D ln 10); a window of L
+    // values holds none with chance exp(-L q), so L = -ln(1 - conf) / q
+    let window = |dg: f64, conf: f64| -(1.0f64 - conf).ln() / (k / (dg * 10f64.ln()));
+    // 3. check the windows where every value can be tested
+    out.push("check first, on sizes Nuome can test (500 windows each, spread out): how often does each window hold a prime?".into());
+    let mut all_ok = true;
+    for dg in [10u32, 14, 18] {
+        let start = (10f64.powf((dg as f64 - 1.0 - a.log10()) / d_round)).ceil() as i128;
+        let mut cells = Vec::new();
+        for conf in [0.5, 0.95, 0.99] {
+            let len = window(dg as f64, conf).ceil() as i128;
+            let hits = (0..500).filter(|j| primes_in(&f, start + j * 2000, len).is_some_and(|x| x.0 > 0)).count();
+            let rate = hits as f64 / 500.0;
+            // the whole-number window promises a little more than conf
+            let promised = 1.0 - (-(len as f64) * k / (dg as f64 * 10f64.ln())).exp();
+            // within 3 standard errors of what it promises
+            let ok = (rate - promised).abs() <= 3.0 * (promised * (1.0 - promised) / 500.0).sqrt() + 0.01;
+            all_ok &= ok;
+            cells.push(format!("{:.0}% window ({len} values, promises {:.1}%): {:.1}%{}", conf * 100.0, promised * 100.0, rate * 100.0, if ok { "" } else { " MISS" }));
+        }
+        out.push(format!("   {dg} digits (n from {start}): {}", cells.join("; ")));
+    }
+    out.push(format!("   {}", if all_ok { "the windows hold what they promise at every tested size" } else { "the windows do NOT hold what they promise everywhere, so the prediction below is unreliable" }));
+    // 4. the asked size
+    let dg = digits as f64;
+    // the first power of ten from which f(n) has at least that many digits
+    let exp10 = ((dg - 1.0 - a.log10()) / d_round).ceil();
+    let ln_f = dg * 10f64.ln();
+    out.push(format!("the range for a prime with {digits} digits: f(n) has {digits} digits from n = 10^{exp10:.0} on (a {:.0}-digit n); there a value is prime with chance about 1 in {:.3e}", exp10.floor() + 1.0, ln_f / k));
+    for conf in [0.5, 0.95, 0.99] {
+        out.push(format!("   n from 10^{exp10:.0} to 10^{exp10:.0} + {:.3e}: at least one prime with chance {:.0}%", window(dg, conf), conf * 100.0));
+    }
+    out.push("not proved: that f gives infinitely many primes is open (Landau 1912); the windows rest on the measured k and the Bateman-Horn picture, which the check above supports at the tested sizes. The window says how many values to test, not which one is prime; each value still needs a primality test, and for a number of this form and size no proof method fast enough is known".into());
     out.join("\n")
 }
 
