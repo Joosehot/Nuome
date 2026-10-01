@@ -36,7 +36,7 @@ pub fn lines(key: &str, cfg: &Config) -> Vec<String> {
             o.push(format!("  {}", rule(cfg, "solve x^2 + x - 12 = 0")));
             o.push("lemma 3 (the multiplicities): the trace of A is 0 (no loops) and A has 99 eigenvalues: 14 once (the all-ones vector), 3 f times and -4 g times, so 14 + 3f - 4g = 0 and f + g = 98:".into());
             o.push(format!("  {}", rule(cfg, "solve 3f - 4g = -14 and f + g = 98")));
-            o.push("  both are whole numbers, so the eigenvalue test cannot rule the graph out (the same computation gives fractions for 19 and 33 points, which is why those do not exist). QED".into());
+            o.push("  both are whole numbers, so the eigenvalue test cannot rule the graph out (the same computation rules out 19 points, where the eigenvalues are irrational and the trace cannot be 0, and 33 points, where the multiplicity comes out as 14.4). QED".into());
             o.push("lemma 4 (local structure): the 14 neighbours of any point form 7 disjoint pairs (triangles through the point). Proof: two joined points share exactly 1 neighbour, so each edge lies in exactly one triangle; the neighbours of a point are therefore matched in pairs. QED".into());
         }
         "riemann" => {
