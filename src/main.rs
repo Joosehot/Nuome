@@ -178,6 +178,18 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "check-candidate" {
+            // check-candidate DIGITS K LIMIT: trial factoring of 10^(DIGITS-1) + K from 10^6 to LIMIT
+            let nums: Vec<u64> = cli.words.iter().filter_map(|w| w.replace(',', "").replace('_', "").parse().ok()).collect();
+            let (digits, k, limit) = (nums.first().copied().unwrap_or(100_000_000), nums.get(1).copied().unwrap_or(13), nums.get(2).copied().unwrap_or(10_000_000_000));
+            let t0 = std::time::Instant::now();
+            println!("checking 10^{} + {k}: trial factoring by every prime from 1,000,000 to {limit} ...", digits - 1);
+            match nuome::bigprime::deep_factor(digits, k, 1_000_000, limit) {
+                Some(p) => println!("COMPOSITE: divisible by {p} (10^{} mod {p} = {}, plus {k} is a multiple of {p}) ({:.1} s)", digits - 1, (p - (k % p)) % p, t0.elapsed().as_secs_f64()),
+                None => println!("no prime factor below {limit}: still a candidate (not a proof of anything) ({:.1} s)", t0.elapsed().as_secs_f64()),
+            }
+            return Ok(());
+        }
         if which == "supergenius" {
             let digits = nuome::supergenius::digits_asked(&cli.words.join(" ")).unwrap_or(100_000_000);
             return supergenius(digits);

@@ -160,3 +160,67 @@ mod tests {
         assert!(marks.iter().any(|m| m.is_none()));
     }
 }
+
+/// The smallest prime factor p of 10^(D-1) + k with from <= p < to, if any:
+/// a segmented sieve of the primes in [from, to) on every core, each prime
+/// tried by 10^(D-1) mod p (a small modular power: the number is never built).
+pub fn deep_factor(digits: u64, k: u64, from: u64, to: u64) -> Option<u64> {
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+    let root = (to as f64).sqrt() as u64 + 1;
+    let base = small_primes(root);
+    const SEG: u64 = 1 << 22;
+    let segments = (to - from).div_ceil(SEG) as usize;
+    let next = AtomicUsize::new(0);
+    let best = AtomicU64::new(u64::MAX);
+    std::thread::scope(|sc| {
+        for _ in 0..std::thread::available_parallelism().map_or(4, |t| t.get()) {
+            sc.spawn(|| loop {
+                let s = next.fetch_add(1, Ordering::Relaxed);
+                if s >= segments {
+                    break;
+                }
+                let lo = from + s as u64 * SEG;
+                let hi = (lo + SEG).min(to);
+                // a smaller factor is already known: nothing here can beat it
+                if lo >= best.load(Ordering::Relaxed) {
+                    continue;
+                }
+                let mut comp = vec![false; (hi - lo) as usize];
+                for &p in &base {
+                    if p * p >= hi {
+                        break;
+                    }
+                    let mut m = (lo.div_ceil(p) * p).max(p * p);
+                    while m < hi {
+                        comp[(m - lo) as usize] = true;
+                        m += p;
+                    }
+                }
+                for (i, c) in comp.iter().enumerate() {
+                    let p = lo + i as u64;
+                    if *c || p < 2 {
+                        continue;
+                    }
+                    if (pow_mod(10, digits - 1, p) as u128 + k as u128) % p as u128 == 0 {
+                        best.fetch_min(p, Ordering::Relaxed);
+                        break;
+                    }
+                }
+            });
+        }
+    });
+    let b = best.load(Ordering::Relaxed);
+    (b != u64::MAX).then_some(b)
+}
+
+#[cfg(test)]
+mod deep_tests {
+    use super::*;
+
+    #[test]
+    fn finds_a_known_factor() {
+        // 10^9 + 9 = 1000000009 is prime, 10^9 + 1 = 7 * 11 * 13 * 19 * 52579
+        assert_eq!(deep_factor(10, 1, 20, 100_000), Some(52579));
+        assert_eq!(deep_factor(10, 9, 2, 40_000), None);
+    }
+}
