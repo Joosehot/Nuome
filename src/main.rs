@@ -178,6 +178,11 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "supergenius" {
+            let digits = nuome::supergenius::digits_asked(&cli.words.join(" ")).unwrap_or(100_000_000);
+            println!("{}", nuome::supergenius::report(digits));
+            return Ok(());
+        }
         if which == "prime-learn" {
             println!("{}", nuome::prime_learn::report(&nuome::prime_learn::Settings { population: 1000, generations: 400, seed: 2026, islands: 12, learn_to: 140, upto: 200 }));
             return Ok(());

@@ -47,6 +47,7 @@ pub mod render;
 pub mod rules;
 pub mod scoring;
 pub mod search;
+pub mod supergenius;
 pub mod words;
 pub mod yang_mills;
 pub mod zeta;
