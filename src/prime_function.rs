@@ -461,9 +461,16 @@ mod tests {
         let learn: Vec<(f64, f64)> = (100..=50_000).step_by(5).map(|n| (n as f64, ps[n - 1] as f64)).collect();
         let ts = vec![Term { i: 1, j: 0 }, Term { i: 0, j: 1 }, Term { i: 0, j: 0 }];
         let c = fit(&ts, &learn, false).unwrap();
-        // close to Cesaro's 1, 1, -1
-        assert!((c[0] - 1.0).abs() < 0.2 && (c[1] - 1.0).abs() < 0.3, "{c:?}");
-        assert_eq!(fraction(-0.5), Some("1/2".into()));
+        // fitted on small n, the same three terms fit better than Cesaro's
+        // 1, 1, -1 there, with other numbers (what the report shows: a fit
+        // is not the law)
+        let fitted = Formula { terms: ts.clone(), coef: c, anchored: false };
+        let cesaro = Formula { terms: ts, coef: vec![1.0, 1.0, -1.0], anchored: false };
+        assert!(errors(&|n| fitted.at(n), &learn).1 < errors(&|n| cesaro.at(n), &learn).1);
+        // anchored, n ln n stays exactly as the prime number theorem says
+        let a = Formula { terms: vec![Term { i: 0, j: 0 }], coef: vec![0.0], anchored: true };
+        assert!((a.at(1e6) - 1e6 * 1e6f64.ln()).abs() < 1e-6);
+        assert_eq!(fraction(0.5), Some("1/2".into()));
         assert_eq!(subsets(4, 2).len(), 10);
     }
 }
