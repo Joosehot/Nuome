@@ -18,3 +18,8 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
+neuras = { path = "../Neuras", optional = true }
+
+[features]
+# the Neuras network in --ideas prime-function
+neural = ["dep:neuras"]

@@ -178,6 +178,13 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "prime-function" {
+            println!(
+                "{}",
+                nuome::prime_function::report(&nuome::prime_function::Settings { count: 100_000, far: 1_000_000, max_terms: 6, price: 0.0001 })
+            );
+            return Ok(());
+        }
         if which == "prime-formula" {
             let p = cfg.open.get("eff_prime");
             println!(
