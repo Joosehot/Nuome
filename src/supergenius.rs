@@ -73,13 +73,59 @@ pub const MILLS: f64 = 1.306_377_883_863_080_7;
 /// floor(A^(3^n)) for n = 1..4 (OEIS A051254); the next has 29 digits.
 pub const MILLS_PRIMES: [u64; 4] = [2, 11, 1361, 2_521_008_887];
 
+/// How far the answer is computed: the sieve's primes, and the largest
+/// size Miller-Rabin is run on here.
+pub const SIEVE_TO: u64 = 1_000_000;
+pub const TEST_UP_TO: u64 = 3000;
+
+/// The answer itself: the first prime with `digits` digits when it can be
+/// computed, otherwise the first candidate the sieve leaves.
+pub fn answer(digits: u64) -> crate::bigprime::Found {
+    crate::bigprime::first(digits.max(2), SIEVE_TO, TEST_UP_TO)
+}
+
 pub fn report(digits: u64) -> String {
+    report_with(digits, &answer(digits))
+}
+
+pub fn report_with(digits: u64, found: &crate::bigprime::Found) -> String {
     let d = digits.max(2);
     let ln10 = std::f64::consts::LN_10;
     // x = 10^(D-1)
     let ln_x = (d - 1) as f64 * ln10;
     let mut r = String::new();
     r.push_str(&format!("Nuome, the supergenius: the first prime with {} digits\n\n", group(d)));
+    r.push_str("THE ANSWER\n");
+    match &found.number {
+        Some(n) => {
+            let s = n.to_string();
+            let shown = if s.len() <= 300 { s.clone() } else { format!("{}...{} (all {} digits in the file written alongside)", &s[..40], &s[s.len() - 40..], group(s.len() as u64)) };
+            r.push_str(&format!(
+                "   10^{} + {} = {}\n   {}\n   found: of the k before it, {} have a factor below {} (sieve) and {} failed Miller-Rabin\n\n",
+                group(d - 1),
+                found.k,
+                shown,
+                if found.exact {
+                    "PRIME: Miller-Rabin with 12 bases decides exactly below 3.3 x 10^24".to_string()
+                } else {
+                    "PROBABLE PRIME: it passed Miller-Rabin with 12 prime bases (no number this size is known to fool them); a proof of primality is a further step".to_string()
+                },
+                found.sieved_out,
+                group(SIEVE_TO),
+                found.tested_out
+            ));
+        }
+        None => {
+            r.push_str(&format!(
+                "   not computed: the first candidate is 10^{} + {}, the smallest k whose number has no prime factor below {} (sieved without building the number)\n   it is a CANDIDATE, not a prime: about 1 in {} such survivors is prime, and testing even one takes the work in step 6\n   (Miller-Rabin runs here up to {} digits)\n\n",
+                group(d - 1),
+                found.k,
+                group(SIEVE_TO),
+                group((ln_x / (1.781_072 * (SIEVE_TO as f64).ln())).round().max(1.0) as u64),
+                group(TEST_UP_TO)
+            ));
+        }
+    }
 
     r.push_str("1. It exists (proved).\n");
     r.push_str(&format!(

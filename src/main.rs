@@ -180,8 +180,7 @@ fn main() -> Result<()> {
         }
         if which == "supergenius" {
             let digits = nuome::supergenius::digits_asked(&cli.words.join(" ")).unwrap_or(100_000_000);
-            println!("{}", nuome::supergenius::report(digits));
-            return Ok(());
+            return supergenius(digits);
         }
         if which == "prime-learn" {
             println!("{}", nuome::prime_learn::report(&nuome::prime_learn::Settings { population: 1000, generations: 400, seed: 2026, islands: 12, learn_to: 140, upto: 200 }));
@@ -310,8 +309,7 @@ fn main() -> Result<()> {
     // "find the first 100 million digit prime": the supergenius answers
     if let [q] = &questions[..] {
         if let Some(digits) = nuome::supergenius::asks(q) {
-            println!("{}", nuome::supergenius::report(digits));
-            return Ok(());
+            return supergenius(digits);
         }
     }
     let mut failed = 0;
@@ -339,6 +337,24 @@ fn main() -> Result<()> {
     }
     if failed > 0 {
         bail!("{failed} question{} not answered", if failed == 1 { "" } else { "s" });
+    }
+    Ok(())
+}
+
+/// The supergenius's report, with the whole number written to a file when
+/// it is too long to print.
+fn supergenius(digits: u64) -> Result<()> {
+    let found = nuome::supergenius::answer(digits);
+    println!("{}", nuome::supergenius::report_with(digits, &found));
+    if let Some(n) = &found.number {
+        let s = n.to_string();
+        if s.len() > 300 {
+            let path = std::path::PathBuf::from("out").join("supergenius").join(format!("first_prime_{digits}_digits.txt"));
+            std::fs::create_dir_all(path.parent().expect("dir"))?;
+            std::fs::write(&path, format!("{s}
+"))?;
+            println!("the whole number: {}", path.display());
+        }
     }
     Ok(())
 }
