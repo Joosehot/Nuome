@@ -307,6 +307,13 @@ fn main() -> Result<()> {
     if questions.is_empty() {
         bail!("ask something, e.g. nuome \"solve 2x + 3 = 7\"");
     }
+    // "find the first 100 million digit prime": the supergenius answers
+    if let [q] = &questions[..] {
+        if let Some(digits) = nuome::supergenius::asks(q) {
+            println!("{}", nuome::supergenius::report(digits));
+            return Ok(());
+        }
+    }
     let mut failed = 0;
     for (i, q) in questions.iter().enumerate() {
         if i > 0 {

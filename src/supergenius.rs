@@ -16,6 +16,20 @@
 
 use crate::mersenne;
 
+/// Whether a question asks for a prime of a given number of digits, in
+/// English or Finnish: "find the first 100 million digit prime", "hae
+/// ensimmäinen 100 miljoonaa numeroinen alkuluku". The digits, if so.
+pub fn asks(sentence: &str) -> Option<u64> {
+    let low = sentence.to_lowercase();
+    let prime = low.contains("prime") || low.contains("alkulu");
+    let digits = low.contains("digit") || low.contains("numeroi") || low.contains("numeron");
+    if prime && digits {
+        digits_asked(sentence)
+    } else {
+        None
+    }
+}
+
 /// "the first 100 million digit prime" -> 100,000,000 digits.
 pub fn digits_asked(sentence: &str) -> Option<u64> {
     let low = sentence.to_lowercase().replace(',', "").replace('-', " ");
@@ -176,6 +190,13 @@ pub fn report(digits: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hears_the_question_in_english_and_finnish() {
+        assert_eq!(asks("find the first 100 million digit prime"), Some(100_000_000));
+        assert_eq!(asks("hae ensimmäinen 100 miljoonaa numeroinen alkuluku"), Some(100_000_000));
+        assert_eq!(asks("solve 2x + 3 = 7"), None);
+    }
 
     #[test]
     fn reads_the_digits_asked() {
