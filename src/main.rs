@@ -178,6 +178,17 @@ fn main() -> Result<()> {
             );
             return Ok(());
         }
+        if which == "prime-learn" {
+            println!("{}", nuome::prime_learn::report(&nuome::prime_learn::Settings { population: 1000, generations: 400, seed: 2026, islands: 12, learn_to: 140, upto: 200 }));
+            return Ok(());
+        }
+        if which == "prime-evolve" {
+            println!(
+                "{}",
+                nuome::prime_evolve::report(&nuome::prime_evolve::Settings { generations: 150, population: 400, seed: 2026, band: 0.01 })
+            );
+            return Ok(());
+        }
         if which == "prime-function" {
             println!(
                 "{}",
