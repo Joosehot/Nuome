@@ -56,6 +56,9 @@ fn sci(log10: f64) -> String {
 /// its known digits assuming the Riemann hypothesis).
 pub const MILLS: f64 = 1.306_377_883_863_080_7;
 
+/// floor(A^(3^n)) for n = 1..4 (OEIS A051254); the next has 29 digits.
+pub const MILLS_PRIMES: [u64; 4] = [2, 11, 1361, 2_521_008_887];
+
 pub fn report(digits: u64) -> String {
     let d = digits.max(2);
     let ln10 = std::f64::consts::LN_10;
@@ -124,9 +127,16 @@ pub fn report(digits: u64) -> String {
 
     r.push_str("5. A formula that gives only primes, in a few symbols: Mills (1947).\n");
     r.push_str(&format!("   there is a constant A with floor(A^(3^n)) prime for every n >= 1; the smallest is A = {MILLS} (its known digits assume the Riemann hypothesis)\n"));
-    for n in 1..=4u32 {
-        let v = MILLS.powi(3i32.pow(n));
-        r.push_str(&format!("     n = {n}: floor(A^{}) = {}\n", 3u64.pow(n), group(v.floor() as u64)));
+    // the first Mills primes as published (OEIS A051254): f64 holds A to 16
+    // digits, too few past n = 3, so each is checked with Nuome's primality test
+    for (n, v) in MILLS_PRIMES.iter().enumerate() {
+        r.push_str(&format!(
+            "     n = {}: floor(A^{}) = {} ({})\n",
+            n + 1,
+            3u64.pow(n as u32 + 1),
+            group(*v),
+            if crate::prime_formula::is_prime(*v) { "prime, checked" } else { "NOT prime" }
+        ));
     }
     let log_a = MILLS.log10();
     let n_mills = (1u32..).find(|&n| 3f64.powi(n as i32) * log_a >= (d - 1) as f64).unwrap_or(1);
@@ -175,9 +185,10 @@ mod tests {
 
     #[test]
     fn mills_gives_the_known_primes() {
-        let v: Vec<u64> = (1..=4u32).map(|n| MILLS.powi(3i32.pow(n)).floor() as u64).collect();
-        assert_eq!(v, vec![2, 11, 1361, 2_521_008_887]);
-        for p in v {
+        // the first three follow from A's 16 known digits in f64; all four are prime
+        let v: Vec<u64> = (1..=3u32).map(|n| MILLS.powi(3i32.pow(n)).floor() as u64).collect();
+        assert_eq!(v, MILLS_PRIMES[..3].to_vec());
+        for p in MILLS_PRIMES {
             assert!(crate::prime_formula::is_prime(p));
         }
     }
