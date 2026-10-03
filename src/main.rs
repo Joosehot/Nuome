@@ -190,6 +190,14 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "three-cubes" {
+            // three-cubes [BOUND] [K ...]: the open k below 1000 by default
+            let nums: Vec<i64> = cli.words.iter().filter_map(|w| w.replace(',', "").replace('_', "").parse().ok()).collect();
+            let bound = nums.first().copied().unwrap_or(1_000_000_000);
+            let ks: Vec<i64> = if nums.len() > 1 { nums[1..].to_vec() } else { nuome::three_cubes::OPEN.to_vec() };
+            println!("{}", nuome::three_cubes::report(&ks, bound));
+            return Ok(());
+        }
         if which == "supergenius-shortcut" {
             let generations = cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(300);
             println!("{}", nuome::supergenius_shortcut::report(100_000_000, &nuome::prime_shortcut::Settings { population: 800, generations, islands: 12, seed: 2026 }));
