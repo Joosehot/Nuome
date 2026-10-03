@@ -194,6 +194,10 @@ fn main() -> Result<()> {
             let digits = nuome::supergenius::digits_asked(&cli.words.join(" ")).unwrap_or(100_000_000);
             return supergenius(digits);
         }
+        if which == "prime-shortcut" {
+            println!("{}", nuome::prime_shortcut::report(&nuome::prime_shortcut::Settings { population: 800, generations: cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(300), islands: 12, seed: 2026 }));
+            return Ok(());
+        }
         if which == "prime-learn" {
             println!("{}", nuome::prime_learn::report(&nuome::prime_learn::Settings { population: 1000, generations: 400, seed: 2026, islands: 12, learn_to: 140, upto: 200 }));
             return Ok(());

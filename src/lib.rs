@@ -40,6 +40,7 @@ pub mod prime_formula;
 pub mod prime_evolve;
 pub mod prime_function;
 pub mod prime_learn;
+pub mod prime_shortcut;
 pub mod print;
 pub mod proof;
 pub mod q;
