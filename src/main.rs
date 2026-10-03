@@ -190,6 +190,12 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "supergenius-conway" {
+            // supergenius-conway [SECONDS]: the supergenius on Conway's 99-graph
+            let seconds = cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(300.0);
+            println!("{}", nuome::supergenius_conway::report(seconds));
+            return Ok(());
+        }
         if which == "three-cubes" {
             // three-cubes [BOUND] [K ...]: the open k below 1000 by default
             let nums: Vec<i64> = cli.words.iter().filter_map(|w| w.replace(',', "").replace('_', "").parse().ok()).collect();

@@ -52,6 +52,7 @@ pub mod bigprime;
 pub mod supergenius;
 pub mod supergenius_shortcut;
 pub mod three_cubes;
+pub mod supergenius_conway;
 pub mod words;
 pub mod yang_mills;
 pub mod zeta;
