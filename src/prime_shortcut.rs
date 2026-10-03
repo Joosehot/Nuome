@@ -14,7 +14,7 @@
 use crate::evolve::Rng;
 
 #[derive(Clone, Debug, PartialEq)]
-enum T {
+pub(crate) enum T {
     N,
     D,
     C(i64),
@@ -187,7 +187,7 @@ impl T {
         }
         (inside, in_q)
     }
-    fn show(&self) -> String {
+    pub(crate) fn show(&self) -> String {
         match self {
             T::N => "n".into(),
             T::D => "d".into(),
@@ -247,18 +247,9 @@ fn random_t(r: &mut Rng, depth: usize, inside: bool, q: bool) -> T {
     }
 }
 
+/// The truth: Miller-Rabin with 12 bases, exact for every n < 3.3e24.
 fn is_prime(n: i128) -> bool {
-    if n < 2 {
-        return false;
-    }
-    let mut d = 2;
-    while d * d <= n {
-        if n % d == 0 {
-            return false;
-        }
-        d += 1;
-    }
-    true
+    n >= 2 && crate::prime_formula::is_prime(n as u64)
 }
 
 /// The liars below `limit`: Carmichael numbers and base-2 Fermat pseudoprimes.
@@ -303,7 +294,7 @@ pub fn liars(limit: usize) -> (Vec<i128>, Vec<i128>) {
 }
 
 /// (mistakes, total cost) over `ns`, or None if the test breaks or runs too long.
-fn judge(t: &T, ns: &[i128], limit_per: u64) -> Option<(usize, u64)> {
+pub(crate) fn judge(t: &T, ns: &[i128], limit_per: u64) -> Option<(usize, u64)> {
     let mut wrong = 0;
     let mut cost = 0;
     for &n in ns {
@@ -324,7 +315,7 @@ pub struct Settings {
     pub seed: u64,
 }
 
-fn evolve(s: &Settings, seed: u64, learn: &[i128], liars: &[i128]) -> Vec<(f64, T)> {
+pub(crate) fn evolve(s: &Settings, seed: u64, learn: &[i128], liars: &[i128]) -> Vec<(f64, T)> {
     let log_mean = learn.iter().map(|&n| (n as f64).log2().max(1.0)).sum::<f64>() / learn.len() as f64;
     let fit = |t: &T| -> f64 {
         let (Some(a), Some(b)) = (judge(t, learn, 20_000), judge(t, liars, 20_000)) else { return f64::INFINITY };

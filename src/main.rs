@@ -190,6 +190,11 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "supergenius-shortcut" {
+            let generations = cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(300);
+            println!("{}", nuome::supergenius_shortcut::report(100_000_000, &nuome::prime_shortcut::Settings { population: 800, generations, islands: 12, seed: 2026 }));
+            return Ok(());
+        }
         if which == "supergenius" {
             let digits = nuome::supergenius::digits_asked(&cli.words.join(" ")).unwrap_or(100_000_000);
             return supergenius(digits);

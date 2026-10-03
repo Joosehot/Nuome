@@ -50,6 +50,7 @@ pub mod scoring;
 pub mod search;
 pub mod bigprime;
 pub mod supergenius;
+pub mod supergenius_shortcut;
 pub mod words;
 pub mod yang_mills;
 pub mod zeta;
