@@ -219,12 +219,12 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             let budget: u64 = std::env::var("GOLDEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(400_000);
-            match nuome::neuro::deep(&b, &[], budget) {
+            match nuome::neuro::golden_move(&b, &[], budget) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, v, rows, nodes, depth)) => {
-                    println!("goldenboy, deep: {} ({} to move), {depth} plies complete, {nodes} positions", b.fen(), if b.white { "white" } else { "black" });
-                    for (m, val) in rows.iter().take(5) {
-                        println!("  {:<6} {}", m.uci(), nuome::neuro::show_tree_value(*val));
+                Some((mv, proof, v, rows, nodes)) => {
+                    println!("goldenboy: {} ({} to move): the supergenius calculated {nodes} positions, then the eval", b.fen(), if b.white { "white" } else { "black" });
+                    for (m, p, val) in rows.iter().take(5) {
+                        println!("  {:<6} {:<12} {}", m.uci(), nuome::neuro::show_tree_value(*val), nuome::neuro::show_proof(*p));
                     }
                     println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_tree_value(v), t0.elapsed().as_secs_f64());
                 }
