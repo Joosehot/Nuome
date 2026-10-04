@@ -283,6 +283,14 @@ fn main() -> Result<()> {
             println!("{}", nuome::patterns::report(&path, n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "graph-function" {
+            // graph-function [v k l m]... [SECONDS]: the graph function finds the known graphs again, then tries the given ones
+            let nums: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let seconds = if nums.len() % 4 == 1 { nums[nums.len() - 1] as f64 } else { 60.0 };
+            let targets: Vec<(u64, u64, u64, u64)> = nums.chunks_exact(4).map(|c| (c[0], c[1], c[2], c[3])).collect();
+            println!("{}", nuome::graph_function::report(&targets, seconds));
+            return Ok(());
+        }
         if which == "golden-whole" {
             // golden-whole [TRUTH FILES...]: the supergenius writes the whole golden function at once
             let given: Vec<&str> = cli.words.iter().map(|s| s.as_str()).collect();
