@@ -18,8 +18,8 @@ def main():
     ap.add_argument("--positions", type=int, default=300000)
     ap.add_argument("--out", default="out/golden/puzzle_positions.jsonl")
     a = ap.parse_args()
-    # the test's puzzles (the first 10 a theme), left out
-    test = {pid for v in pick(DEFAULT_THEMES, 10).values() for pid, *_ in v}
+    # the test's puzzles (the first 30 a theme: the tuning set and the fresh set), left out
+    test = {pid for v in pick(DEFAULT_THEMES, 30).values() for pid, *_ in v}
     n = 0
     with open(DB, "rb") as fh, open(a.out, "w") as out:
         reader = csv.reader(io.TextIOWrapper(zstandard.ZstdDecompressor().stream_reader(fh), encoding="utf-8"))

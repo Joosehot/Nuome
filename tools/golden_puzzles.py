@@ -46,9 +46,10 @@ def main():
     ap.add_argument("--per-theme", type=int, default=10)
     ap.add_argument("--ms", type=int, default=1000)
     ap.add_argument("--themes", default=",".join(DEFAULT_THEMES))
+    ap.add_argument("--offset", type=int, default=0, help="skip the first N puzzles a theme (a fresh set)")
     a = ap.parse_args()
     themes = a.themes.split(",")
-    want = pick(themes, a.per_theme)
+    want = {t: v[a.offset:] for t, v in pick(themes, a.offset + a.per_theme).items()}
     total = [0, 0]
     for t in themes:
         right = 0
