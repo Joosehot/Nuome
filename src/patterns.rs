@@ -228,20 +228,35 @@ struct Case {
 /// Read Stockfish's positions (one JSON object a line: "fen", "best_moves": [{"move": uci, ...}]).
 fn read_positions(path: &str, skip: usize, take: usize) -> Result<Vec<Case>, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-    let mut out = Vec::new();
-    for line in text.lines().skip(skip).take(take) {
-        let fen = line.split("\"fen\": \"").nth(1).and_then(|s| s.split('"').next());
-        let best = line.split("\"move\": \"").nth(1).and_then(|s| s.split('"').next());
-        let (Some(fen), Some(best)) = (fen, best) else { continue };
-        let Ok(b) = Board::from_fen(fen) else { continue };
-        let fs = facts_of(&b);
-        if fs.len() < 2 {
-            continue;
-        }
-        let Some(ci) = fs.iter().position(|(m, _)| m.uci() == best) else { continue };
-        out.push(Case { facts: fs.iter().map(|x| x.1).collect(), chosen: ci });
-    }
-    Ok(out)
+    let lines: Vec<&str> = text.lines().skip(skip).take(take).collect();
+    // the facts of every move of every position, on every core
+    let threads = 12;
+    let chunk = lines.len().div_ceil(threads).max(1);
+    let parts: Vec<Vec<Case>> = std::thread::scope(|sc| {
+        let hs: Vec<_> = lines
+            .chunks(chunk)
+            .map(|part| {
+                sc.spawn(move || {
+                    let mut out = Vec::new();
+                    for line in part {
+                        let fen = line.split("\"fen\": \"").nth(1).and_then(|s| s.split('"').next());
+                        let best = line.split("\"move\": \"").nth(1).and_then(|s| s.split('"').next());
+                        let (Some(fen), Some(best)) = (fen, best) else { continue };
+                        let Ok(b) = Board::from_fen(fen) else { continue };
+                        let fs = facts_of(&b);
+                        if fs.len() < 2 {
+                            continue;
+                        }
+                        let Some(ci) = fs.iter().position(|(m, _)| m.uci() == best) else { continue };
+                        out.push(Case { facts: fs.iter().map(|x| x.1).collect(), chosen: ci });
+                    }
+                    out
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().expect("facts")).collect()
+    });
+    Ok(parts.into_iter().flatten().collect())
 }
 
 fn lift(cases: &[Case], p: Pattern) -> (f64, usize) {
@@ -276,17 +291,30 @@ pub fn discover(path: &str, n: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<F
         }
     }
     let min_support = (a.len() / 100).max(30);
-    let mut found = Vec::new();
-    for p in candidates {
-        let (la, support) = lift(&a, p);
-        if support < min_support || la < 1.5 {
-            continue;
-        }
-        let (lb, _) = lift(&b, p);
-        if lb >= 1.3 {
-            found.push(Found { pattern: p, lift_a: la, lift_b: lb, support });
-        }
-    }
+    let chunk = candidates.len().div_ceil(12).max(1);
+    let mut found: Vec<Found> = std::thread::scope(|sc| {
+        let hs: Vec<_> = candidates
+            .chunks(chunk)
+            .map(|part| {
+                let (a, b) = (&a, &b);
+                sc.spawn(move || {
+                    let mut out = Vec::new();
+                    for &p in part {
+                        let (la, support) = lift(a, p);
+                        if support < min_support || la < 1.5 {
+                            continue;
+                        }
+                        let (lb, _) = lift(b, p);
+                        if lb >= 1.3 {
+                            out.push(Found { pattern: p, lift_a: la, lift_b: lb, support });
+                        }
+                    }
+                    out
+                })
+            })
+            .collect();
+        hs.into_iter().flat_map(|h| h.join().expect("lifts")).collect()
+    });
     found.sort_by(|x, y| y.lift_b.partial_cmp(&x.lift_b).unwrap());
     // a pair stays only when it beats both of its parts on the unseen positions
     let singles: std::collections::HashMap<u64, f64> = found.iter().filter(|f| f.pattern.0.count_ones() == 1).map(|f| (f.pattern.0, f.lift_b)).collect();

@@ -264,8 +264,9 @@ fn main() -> Result<()> {
         if which == "golden-discover" {
             // golden-discover [N]: Golden Boy finds Stockfish's recurring patterns in N positions, tested on the next N
             let n = cli.words.first().and_then(|w| w.replace('_', "").parse().ok()).unwrap_or(50_000);
-            let path = "C:/Users/joose/Desktop/ChessEngine/hf_data/stockfish_depth20_partial.jsonl";
-            println!("{}", nuome::patterns::report(path, n).map_err(|e| anyhow::anyhow!(e))?);
+            // golden-discover [N] [FILE]: the file defaults to the million Stockfish-evaluated positions exported from the parquet shards
+            let path = cli.words.get(1).cloned().unwrap_or_else(|| "out/golden/sf_positions_1m.jsonl".to_string());
+            println!("{}", nuome::patterns::report(&path, n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
         if which == "golden-whole" {
