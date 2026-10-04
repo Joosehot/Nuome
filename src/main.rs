@@ -218,12 +218,16 @@ fn main() -> Result<()> {
                 println!("move: {} (exact: {}, {:.3} s)", mv.uci(), nuome::retro::show(v), t0.elapsed().as_secs_f64());
                 return Ok(());
             }
-            match nuome::neuro::decide(&b, &[], 400_000) {
+            let budget: u64 = std::env::var("GOLDEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(400_000);
+            match nuome::neuro::lumberjack(&b, &[], budget) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, claim, rows, nodes)) => {
-                    println!("the supergenius decides {} ({} to move): {} plies, {nodes} positions, proofs over every reply", b.fen(), if b.white { "white" } else { "black" }, nuome::neuro::depth_for(&b));
-                    for (m, c) in rows.iter().take(5) {
-                        println!("  {:<6} {}", m.uci(), nuome::neuro::show_claim(*c));
+                Some((mv, claim, standing, felled, nodes)) => {
+                    println!("the lumberjack on {} ({} to move): {nodes} positions; {} trees standing, {} felled", b.fen(), if b.white { "white" } else { "black" }, standing.len(), felled.len());
+                    for (m, c, d) in standing.iter().take(5) {
+                        println!("  {:<6} {} (grown to {d} plies)", m.uci(), nuome::neuro::show_claim(*c));
+                    }
+                    for f in felled.iter().take(4) {
+                        println!("  felled {:<6} at {} plies: {}", f.mv.uci(), f.at_depth, f.why);
                     }
                     println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_claim(claim), t0.elapsed().as_secs_f64());
                 }

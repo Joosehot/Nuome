@@ -14,6 +14,7 @@
 //! one unit, the enemy king's room counts against, and a mating move wins.
 
 use crate::golden::{rule_mobility, Board, Mv};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -1004,5 +1005,122 @@ pub fn show_claim(c: Claim) -> String {
         Claim::Holds(Class::Equal) => "proved at least equal against every reply".into(),
         Claim::Holds(Class::Losing) => "losing: some reply wins against every continuation".into(),
         Claim::Uncovered => "not covered within the budget".into(),
+    }
+}
+
+
+// ── the lumberjack ──
+
+/// Every root move grows its own tree, ply by ply, all together. A tree
+/// leads somewhere when it proves its move at least equal (or winning, or a
+/// mate) against every reply. A move proved losing is felled at once; a
+/// tree that leads nowhere after `fell_at` plies is felled too, and the
+/// move leaves the list. The rest grow until the budget ends. The move is
+/// the best proof left (mate, winning, equal), ties by the rules' order;
+/// if every tree falls, the last one felled stays.
+pub const FELL_AT: u32 = 20;
+
+pub struct Felled {
+    pub mv: Mv,
+    pub at_depth: u32,
+    pub why: &'static str,
+}
+
+pub fn lumberjack(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim, Vec<(Mv, Claim, u32)>, Vec<Felled>, u64)> {
+    let ms = b.moves();
+    if ms.is_empty() {
+        return None;
+    }
+    // mates first: the exact calculation (a quarter of the budget)
+    let (_, _, rows, nodes0) = supergenius(b, history, budget / 4)?;
+    let mut standing: Vec<(Mv, Claim, u32)> = Vec::new();
+    let mut felled: Vec<Felled> = Vec::new();
+    for (m, proof, _) in &rows {
+        match proof {
+            Proof::Win(n) => standing.push((*m, Claim::Mate(*n), 0)),
+            Proof::Draw => standing.push((*m, Claim::Holds(Class::Equal), 0)),
+            Proof::Loss(n) => felled.push(Felled { mv: *m, at_depth: 0, why: "mated by force" }),
+            Proof::Unknown => standing.push((*m, Claim::Uncovered, 0)),
+        }
+        let _ = Claim::Mated(0);
+    }
+    if standing.iter().any(|s| matches!(s.1, Claim::Mate(_))) {
+        standing.sort_by_key(|s| match s.1 { Claim::Mate(n) => n as i64, _ => i64::MAX });
+        return Some((standing[0].0, standing[0].1, standing, felled, nodes0));
+    }
+    let mut p = Prover { nodes: 0, budget: budget - budget / 4, history: history.to_vec() };
+    p.history.push(b.hash());
+    let mut depth = 1u32;
+    while p.nodes < p.budget && standing.len() > 1 && depth <= 64 {
+        let mut next: Vec<(Mv, Claim, u32)> = Vec::new();
+        let mut out_of_budget = false;
+        for (m, claim, _) in standing.iter().copied() {
+            if out_of_budget || matches!(claim, Claim::Mate(_)) {
+                next.push((m, claim, depth));
+                continue;
+            }
+            let a = b.play(m);
+            // the strongest class this tree holds at this depth
+            let mut held: Option<Class> = None;
+            let mut undecided = false;
+            for goal in [Class::Winning, Class::Equal] {
+                match p.holds_against_every_reply(&a, goal, depth) {
+                    Some(true) => {
+                        held = Some(goal);
+                        break;
+                    }
+                    Some(false) => {}
+                    None => {
+                        undecided = true;
+                        break;
+                    }
+                }
+            }
+            if p.nodes > p.budget {
+                out_of_budget = true;
+                next.push((m, claim, depth));
+                continue;
+            }
+            match held {
+                Some(c) => next.push((m, Claim::Holds(c), depth)),
+                None if undecided => next.push((m, claim, depth)),
+                None => {
+                    // not even equal against every reply at this depth: losing here
+                    if depth >= 4 {
+                        felled.push(Felled { mv: m, at_depth: depth, why: "a reply beats every continuation" });
+                    } else {
+                        next.push((m, Claim::Holds(Class::Losing), depth));
+                    }
+                }
+            }
+        }
+        standing = next;
+        if depth >= FELL_AT {
+            let (keep, fall): (Vec<_>, Vec<_>) = standing.iter().copied().partition(|s| matches!(s.1, Claim::Holds(Class::Winning) | Claim::Holds(Class::Equal) | Claim::Mate(_)));
+            if !keep.is_empty() {
+                for s in fall {
+                    felled.push(Felled { mv: s.0, at_depth: depth, why: "led nowhere" });
+                }
+                standing = keep;
+            }
+        }
+        depth += 1;
+    }
+    let rank = |c: Claim| match c {
+        Claim::Mate(n) => (6i64, -(n as i64)),
+        Claim::Holds(Class::Winning) => (5, 0),
+        Claim::Holds(Class::Equal) => (4, 0),
+        Claim::Uncovered => (3, 0),
+        Claim::Holds(Class::Losing) => (2, 0),
+        Claim::Mated(n) => (1, n as i64),
+    };
+    standing.sort_by(|x, y| rank(y.1).cmp(&rank(x.1)));
+    let nodes = nodes0 + p.nodes;
+    match standing.first() {
+        Some(s) => Some((s.0, s.1, standing.clone(), felled, nodes)),
+        None => {
+            let last = felled.last()?;
+            Some((last.mv, Claim::Uncovered, Vec::new(), felled, nodes))
+        }
     }
 }
