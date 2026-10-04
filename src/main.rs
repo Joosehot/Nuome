@@ -244,9 +244,15 @@ fn main() -> Result<()> {
         }
         if which == "golden-polish" {
             // golden-polish [MAX_TERMS]: every found term into one golden function, polished on all the exact truth
-            let k = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(60);
+            // golden-polish [tune] [TRUTH FILES...]: add terms until none helps (no limit); "tune" instead tunes every weight once
+            // golden-polish supergenius [FILES...]: only the supergenius's reasoned terms are tried
+            let tune = cli.words.first().map(|w| w.as_str()) == Some("tune");
+            let sg = cli.words.first().map(|w| w.as_str()) == Some("supergenius");
+            let given: Vec<&str> = cli.words.iter().filter(|w| w.as_str() != "tune" && w.as_str() != "supergenius").map(|s| s.as_str()).collect();
+            let only = sg.then(|| nuome::golden_terms::supergenius_terms().into_iter().map(|x| x.0).collect::<Vec<_>>());
+            let files: Vec<&str> = if given.is_empty() { vec!["out/golden/truth_34.txt", "out/golden/truth_5.txt"] } else { given };
             let t0 = std::time::Instant::now();
-            let terms = nuome::golden_terms::polish(&["out/golden/truth_34.txt", "out/golden/truth_5.txt"], k, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
+            let terms = nuome::golden_terms::polish(&files, tune, only, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
             let text = nuome::golden_terms::written(&nuome::golden::Board::start(), &terms);
             println!("\nTHE GOLDEN FUNCTION: the supergenius's formula for the position + {} terms Nuome found (written for the start position, {} characters):\n{text}", terms.len(), text.len());
             println!("saved to {} ({:.0} s)", nuome::golden_terms::TERMS_FILE, t0.elapsed().as_secs_f64());

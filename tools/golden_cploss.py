@@ -61,9 +61,11 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--sf-time", type=float, default=0.1)
     ap.add_argument("--tb", default=r"C:\Users\joose\Tools\syzygy\345-wdl")
+    ap.add_argument("--classes", default=",".join(gt.DEFAULT_CLASSES))
     a = ap.parse_args()
     t0 = time.time()
-    jobs = gt.generate(gt.DEFAULT_CLASSES, a.per_class, a.seed)
+    classes = a.classes.split(",")
+    jobs = gt.generate(classes, a.per_class, a.seed)
     with mp.Pool(a.jobs, initializer=_init, initargs=(a.exe, a.depth, a.tb, a.sf_time)) as pool:
         rows = []
         for i, r in enumerate(pool.imap_unordered(work, jobs), 1):
@@ -79,7 +81,7 @@ def main():
     errors = sum(1 for r in rows if r[3] is None)
     print(f"golden function (engine {os.path.basename(a.exe)}, {a.depth} plies) on {len(allr)} tablebase positions, Stockfish {a.sf_time}s + Syzygy, loss capped at {CAP} cp")
     print(f"{'class':<10}{'pos':>5}{'mean loss':>11}{'perfect':>9}")
-    for cls in gt.DEFAULT_CLASSES:
+    for cls in classes:
         v = per.get(cls, [])
         if v:
             print(f"{cls:<10}{len(v):>5}{sum(r[3] for r in v) / len(v):>11.1f}{sum(r[3] == 0 for r in v):>9}")
