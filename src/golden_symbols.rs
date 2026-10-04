@@ -24,8 +24,15 @@ use crate::golden_invent::{Frame, Naming};
 const BIN: [&str; 16] = ["◇", "★", "⊛", "⊕", "⊗", "△", "▽", "◆", "♦", "♣", "♠", "♥", "☉", "☽", "⊞", "⊠"];
 const UN: [&str; 8] = ["†", "‡", "§", "¶", "∂", "∇", "♮", "♯"];
 const TER: [(&str, &str); 4] = [("⟨", "⟩"), ("⟦", "⟧"), ("⦃", "⦄"), ("⦉", "⦊")];
-/// The old ones it may use when it wants: +, -, × mod q.
+/// The old ones it may use when it wants: +, -, × mod q, and the parts of
+/// the 243-graph's formula (a power class in a field): x⁻¹, x², x³ and the
+/// power character χ(x) = x^((q-1)/2) mod q.
 const KNOWN: [&str; 3] = ["+", "-", "×"];
+const KNOWN_UN: [&str; 4] = ["inv", "sq", "cube", "χ"];
+
+fn pow_mod(x: usize, e: usize, q: usize) -> usize {
+    (0..e).fold(1 % q, |acc, _| acc * x % q)
+}
 const VARS: [&str; 8] = ["i1", "s1", "j1", "t1", "i2", "s2", "j2", "t2"];
 
 #[derive(Clone, Debug)]
@@ -33,6 +40,7 @@ pub enum Sx {
     Var(u8),
     Const(u8),
     Known(u8, Box<Sx>, Box<Sx>),
+    KnownUn(u8, Box<Sx>),
     Un(u8, Box<Sx>),
     Bin(u8, Box<Sx>, Box<Sx>),
     Ter(u8, Box<Sx>, Box<Sx>, Box<Sx>),
@@ -50,7 +58,7 @@ pub struct Lang {
 }
 
 impl Sx {
-    fn eval(&self, v: &[u64; 8], l: &Lang) -> u8 {
+    pub fn eval(&self, v: &[u64; 8], l: &Lang) -> u8 {
         let q = l.q;
         match self {
             Sx::Var(i) => (v[*i as usize] % q as u64) as u8,
@@ -63,15 +71,24 @@ impl Sx {
                     _ => x * y % q,
                 }) as u8
             }
+            Sx::KnownUn(o, a) => {
+                let x = a.eval(v, l) as usize;
+                (match o {
+                    0 => pow_mod(x, q.saturating_sub(2), q),
+                    1 => x * x % q,
+                    2 => x * x % q * x % q,
+                    _ => pow_mod(x, (q - 1) / 2, q),
+                }) as u8
+            }
             Sx::Un(o, a) => l.un[*o as usize][a.eval(v, l) as usize],
             Sx::Bin(o, a, b) => l.bin[*o as usize][a.eval(v, l) as usize * q + b.eval(v, l) as usize],
             Sx::Ter(o, a, b, c) => l.ter[*o as usize][(a.eval(v, l) as usize * q + b.eval(v, l) as usize) * q + c.eval(v, l) as usize],
         }
     }
-    fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         match self {
             Sx::Var(_) | Sx::Const(_) => 1,
-            Sx::Un(_, a) => 1 + a.size(),
+            Sx::Un(_, a) | Sx::KnownUn(_, a) => 1 + a.size(),
             Sx::Known(_, a, b) | Sx::Bin(_, a, b) => 1 + a.size() + b.size(),
             Sx::Ter(_, a, b, c) => 1 + a.size() + b.size() + c.size(),
         }
@@ -81,6 +98,7 @@ impl Sx {
             Sx::Var(i) => VARS[*i as usize].into(),
             Sx::Const(c) => c.to_string(),
             Sx::Known(o, a, b) => format!("({} {} {})", a.text(), KNOWN[*o as usize], b.text()),
+            Sx::KnownUn(o, a) => format!("{}({})", KNOWN_UN[*o as usize], a.text()),
             Sx::Un(o, a) => format!("{}{}", UN[*o as usize], a.text()),
             Sx::Bin(o, a, b) => format!("({} {} {})", a.text(), BIN[*o as usize], b.text()),
             Sx::Ter(o, a, b, c) => format!("{}{}, {}, {}{}", TER[*o as usize].0, a.text(), b.text(), c.text(), TER[*o as usize].1),
@@ -94,6 +112,10 @@ impl Sx {
                 known[*o as usize] = true;
                 a.uses(out, known);
                 b.uses(out, known);
+            }
+            Sx::KnownUn(o, a) => {
+                out.push((9, *o));
+                a.uses(out, known);
             }
             Sx::Un(o, a) => {
                 out.push((1, *o));
@@ -202,7 +224,8 @@ fn random_sx(r: &mut Rng, depth: u32, l: &mut Lang) -> Sx {
     let sub = |r: &mut Rng, l: &mut Lang| Box::new(random_sx(r, depth - 1, l));
     // which kind of node: an old operation, or an invented symbol (an existing one, or a new one)
     match r.below(10) {
-        0..=2 => Sx::Known(r.below(3) as u8, sub(r, l), sub(r, l)),
+        0 | 1 => Sx::Known(r.below(3) as u8, sub(r, l), sub(r, l)),
+        2 => Sx::KnownUn(r.below(4) as u8, sub(r, l)),
         3 | 4 => {
             let o = if l.un.is_empty() || r.below(5) == 0 { l.invent(1, r) } else { None }.unwrap_or_else(|| r.below(l.un.len().max(1) as u64) as u8);
             if l.un.is_empty() {
@@ -239,6 +262,10 @@ fn mutate_sx(e: &Sx, r: &mut Rng, l: &mut Lang) -> Sx {
             1 => Sx::Known(*o, b.clone(), a.clone()),
             2 => Sx::Known(*o, Box::new(mutate_sx(a, r, l)), b.clone()),
             _ => Sx::Known(*o, a.clone(), Box::new(mutate_sx(b, r, l))),
+        },
+        Sx::KnownUn(o, a) => match r.below(3) {
+            0 => Sx::KnownUn(r.below(4) as u8, a.clone()),
+            _ => Sx::KnownUn(*o, Box::new(mutate_sx(a, r, l))),
         },
         Sx::Un(o, a) => match r.below(3) {
             0 => Sx::Un(r.below(l.un.len().max(1) as u64) as u8, a.clone()),
@@ -304,33 +331,33 @@ pub struct Invented {
     pub islands: usize,
 }
 
-/// Invent symbols, their meanings and an expression, for at most `seconds` on every core.
-pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
+pub type Ind = (u64, Sx, Lang, Naming);
+
+/// The evolution on every core: languages, expressions and namings, scored
+/// by `fit` (lower is better, 0 errors = done); `seeds` start some of the
+/// population (what Golden already learned), the rest is random.
+pub fn evolve(fr: &Frame, seconds: f64, seed: u64, fit: &(dyn Fn(&Sx, &Lang, &Naming) -> u64 + Sync), seeds: &[(Sx, Lang, Naming)]) -> (Option<Ind>, u64, usize) {
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::Mutex;
-    if k % 2 != 0 || k < 4 {
-        return None;
-    }
-    let fr = Frame::new(k);
-    if fr.v > 512 {
-        return None;
-    }
     let q = fr.q as usize;
     let t0 = std::time::Instant::now();
     let islands = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(16);
     let done = AtomicBool::new(false);
     let tried = AtomicU64::new(0);
-    type Ind = (u64, Sx, Lang, Naming);
     let best: Mutex<Option<Ind>> = Mutex::new(None);
     std::thread::scope(|sc| {
         for isl in 0..islands {
-            let (fr, done, tried, best) = (&fr, &done, &tried, &best);
+            let (done, tried, best) = (&done, &tried, &best);
             sc.spawn(move || {
                 let mut r = Rng((seed ^ (isl as u64 + 1).wrapping_mul(0x9e37_79b9_7f4a_7c15)) | 1);
                 let pop_n = 200;
-                let fit = |e: &Sx, l: &Lang, nm: &Naming| fr.score_with(nm, |f, g| l.related(e.eval(f, l), e.eval(g, l))).0 * 64 + e.size() as u64;
                 let mut pop: Vec<Ind> = (0..pop_n)
-                    .map(|_| {
+                    .map(|i| {
+                        if !seeds.is_empty() && i < pop_n / 2 {
+                            let (e, l, nm) = &seeds[i % seeds.len()];
+                            let (e, l, nm) = if i < seeds.len() { (e.clone(), l.clone(), nm.clone()) } else { (e.clone(), l.mutate(&mut r), nm.mutate_seeded(r.next())) };
+                            return (fit(&e, &l, &nm), e, l, nm);
+                        }
                         let mut l = Lang::start(q, &mut r);
                         let e = random_sx(&mut r, 4, &mut l);
                         let nm = Naming::shuffled(fr.q, r.next());
@@ -352,7 +379,7 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
                             4..=7 => (e.clone(), l.mutate(&mut r), nm.clone()),
                             _ => (e.clone(), l.clone(), nm.mutate_seeded(r.next())),
                         };
-                        if e.size() > 30 {
+                        if e.size() > 40 {
                             continue;
                         }
                         my += 1;
@@ -382,7 +409,27 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
             });
         }
     });
-    let (_, expr, lang, naming) = best.into_inner().unwrap()?;
+    (best.into_inner().unwrap(), tried.load(Ordering::Relaxed), islands)
+}
+
+/// Invent symbols, their meanings and an expression for srg(v, k, 1, 2), for at most `seconds` on every core.
+pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
+    invent_seeded(k, seconds, seed, &[])
+}
+
+/// The same, starting part of the population from what Golden learned before.
+pub fn invent_seeded(k: usize, seconds: f64, seed: u64, seeds: &[(Sx, Lang, Naming)]) -> Option<Invented> {
+    if k % 2 != 0 || k < 4 {
+        return None;
+    }
+    let fr = Frame::new(k);
+    if fr.v > 512 {
+        return None;
+    }
+    let t0 = std::time::Instant::now();
+    let fit = |e: &Sx, l: &Lang, nm: &Naming| fr.score_with(nm, |f, g| l.related(e.eval(f, l), e.eval(g, l))).0 * 64 + e.size() as u64;
+    let (best, tried, islands) = evolve(&fr, seconds, seed, &fit, seeds);
+    let (_, expr, lang, naming) = best?;
     let adj = fr.adjacency_with(&naming, |f, g| lang.related(expr.eval(f, &lang), expr.eval(g, &lang)));
     let (mut met, pairs) = (0usize, fr.v * (fr.v - 1) / 2);
     for x in 0..fr.v {
@@ -392,7 +439,19 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
         }
     }
     let verified = crate::golden_graph::check(&adj, k as u64, 1, 2).is_ok();
-    Some(Invented { expr, lang, naming, pairs_met_share: met as f64 / pairs as f64, verified, tried: tried.load(Ordering::Relaxed), seconds: t0.elapsed().as_secs_f64(), islands })
+    Some(Invented { expr, lang, naming, pairs_met_share: met as f64 / pairs as f64, verified, tried, seconds: t0.elapsed().as_secs_f64(), islands })
+}
+
+/// What Golden learned, carried to q' names: the same expression and the
+/// same kinds of symbols, each table cut down to the first q' names (values
+/// mod q'), the relation likewise, the plain naming.
+pub fn transfer(e: &Sx, l: &Lang, q2: usize) -> (Sx, Lang, Naming) {
+    let q = l.q;
+    let cut2 = |t: &Vec<u8>| -> Vec<u8> { (0..q2 * q2).map(|c| t[(c / q2) * q + c % q2] % q2 as u8).collect() };
+    let cut1 = |t: &Vec<u8>| -> Vec<u8> { (0..q2).map(|c| t[c] % q2 as u8).collect() };
+    let cut3 = |t: &Vec<u8>| -> Vec<u8> { (0..q2 * q2 * q2).map(|c| t[((c / (q2 * q2)) * q + (c / q2) % q2) * q + c % q2] % q2 as u8).collect() };
+    let l2 = Lang { q: q2, bin: l.bin.iter().map(cut2).collect(), un: l.un.iter().map(cut1).collect(), ter: l.ter.iter().map(cut3).collect(), rel: (0..q2 * q2).map(|c| l.rel[(c / q2) * q + c % q2]).collect() };
+    (e.clone(), l2, Naming::shuffled(q2 as u64, 7))
 }
 
 /// The symbols the expression uses, each invented one with its table and what it is like.
@@ -414,7 +473,11 @@ pub fn glossary(inv: &Invented) -> Vec<String> {
         "adjacency relation ≈: {}",
         if eq { "equality (old)".to_string() } else if sum0 { "a + b ≡ 0 (old)".to_string() } else { format!("invented, {} related pairs: {}", pairs.len(), pairs.join(" ")) }
     ));
-    for (arity, o) in used {
+    let old_un: Vec<&str> = used.iter().filter(|(a, _)| *a == 9).map(|(_, o)| KNOWN_UN[*o as usize]).collect();
+    if !old_un.is_empty() {
+        out.push(format!("old one-place operations used: {} (mod {q}; from the 243-graph's formula)", old_un.join(" ")));
+    }
+    for (arity, o) in used.into_iter().filter(|(a, _)| *a != 9) {
         let o = o as usize;
         match arity {
             1 => {

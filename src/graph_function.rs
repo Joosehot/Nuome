@@ -62,7 +62,7 @@ impl Group {
         let c: Vec<u64> = self.coords(i).iter().zip(&self.dims).map(|(&x, &d)| x * (t % d) % d).collect();
         self.index(&c)
     }
-    fn sub(&self, a: u64, b: u64) -> u64 {
+    pub fn sub(&self, a: u64, b: u64) -> u64 {
         let (x, y) = (self.coords(a), self.coords(b));
         let c: Vec<u64> = x.iter().zip(&y).zip(&self.dims).map(|((&p, &q), &d)| (p + d - q) % d).collect();
         self.index(&c)

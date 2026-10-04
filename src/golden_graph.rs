@@ -234,7 +234,16 @@ fn invent_answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<St
     let q = k / 2;
     lines.push(format!("the frame the conditions force (nothing else is given): x, its {k} neighbours (i, s) with triangle i among {q} names and corner s in {{0,1}}, and the far vertices, the pairs {{(i1,s1),(j1,t1)}}"));
     lines.push("Golden may invent new symbols without limit (one-, two- and three-place, meanings as tables it makes up, new ones from scratch or grown from old ones) and use the old + - × when it wants; it invents an expression E, the names of the triangles and corners, and the relation ≈ that decides adjacency: f ~ g when E(f, g) ≈ E(g, f)".into());
-    let Some(inv) = crate::golden_symbols::invent(k as usize, secs, 0x2545_f491_4f6c_dd1d) else {
+    // the answer for 243 is given to Golden: it learns it first, then starts from what it learned
+    let mut seeds = Vec::new();
+    if k != 22 {
+        if let Some(l) = crate::golden_learn::learn_243(secs * 0.4) {
+            lines.push(format!("given the answer for 243 (the Berlekamp-van Lint-Seidel graph, built and checked), Golden learned an expression for its far adjacencies: {} of {} pairs wrong in {:.0} s; E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()));
+            seeds.push(crate::golden_symbols::transfer(&l.expr, &l.lang, q as usize));
+        }
+    }
+    let rest = if seeds.is_empty() { secs } else { secs * 0.6 };
+    let Some(inv) = crate::golden_symbols::invent_seeded(k as usize, rest, 0x2545_f491_4f6c_dd1d, &seeds) else {
         return None;
     };
     lines.push(format!("{} languages and expressions tried in {:.0} s on {} islands", inv.tried, inv.seconds, inv.islands));

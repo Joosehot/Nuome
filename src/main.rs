@@ -283,6 +283,16 @@ fn main() -> Result<()> {
             println!("{}", nuome::patterns::report(&path, n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-learn-243" {
+            // golden-learn-243 [SECONDS]: Golden learns the given 243-graph in its own language
+            let secs = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(120.0);
+            match nuome::golden_learn::learn_243(secs) {
+                Some(l) => println!("learned the 243-graph's far adjacencies: {} of {} pairs wrong in {:.0} s
+E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()),
+                None => println!("the 243-graph could not be built or written in the frame"),
+            }
+            return Ok(());
+        }
         if which == "graph-orbits" {
             // graph-orbits v k l m p [SECONDS]: an srg with an automorphism of prime order p fixing one vertex
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
