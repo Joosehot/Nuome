@@ -219,17 +219,15 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             let budget: u64 = std::env::var("GOLDEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(400_000);
-            match nuome::neuro::goldenboy(&b, &[], budget) {
+            let patterns = nuome::patterns::load();
+            match nuome::patterns::play(&b, &[], &patterns) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, trees, nodes, depth)) => {
-                    let standing = trees.iter().filter(|t| t.felled.is_none()).count();
-                    println!("goldenboy looked through every tree of {} ({} to move) to {depth} plies, the heart at every leaf, {nodes} positions; {standing} standing, {} felled", b.fen(), if b.white { "white" } else { "black" }, trees.len() - standing);
-                    let mut shown: Vec<&nuome::neuro::Tree> = trees.iter().filter(|t| t.felled.is_none()).collect();
-                    shown.sort_by_key(|t| -*t.seen.last().unwrap_or(&i64::MIN));
-                    for t in shown.iter().take(3) {
-                        println!("  {:<6} {}  (seen: {})", t.mv.uci(), nuome::neuro::show_tree_value(*t.seen.last().unwrap_or(&0)), t.seen.iter().map(|v| nuome::neuro::show_tree_value(*v)).collect::<Vec<_>>().join(" "));
+                Some((mv, w, rows)) => {
+                    println!("Golden Boy on {} ({} to move): the exact calculation first, then {} discovered patterns", b.fen(), if b.white { "white" } else { "black" }, patterns.len());
+                    for (m, weight, hits) in rows.iter().take(3) {
+                        println!("  {:<6} {:>6.2}  because: {}", m.uci(), weight, hits.iter().take(4).map(|p| p.words()).collect::<Vec<_>>().join("; "));
                     }
-                    println!("move: {} ({:.3} s)", mv.uci(), t0.elapsed().as_secs_f64());
+                    println!("move: {} ({}, {:.3} s)", mv.uci(), if w.is_infinite() { "forced mate".to_string() } else { format!("{w:.2}") }, t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());
@@ -261,6 +259,13 @@ fn main() -> Result<()> {
         if which == "neuro" {
             // neuro "<fen>": the position written as a network, its numbers, and GOLDEN's move
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "golden-discover" {
+            // golden-discover [N]: Golden Boy finds Stockfish's recurring patterns in N positions, tested on the next N
+            let n = cli.words.first().and_then(|w| w.replace('_', "").parse().ok()).unwrap_or(50_000);
+            let path = "C:/Users/joose/Desktop/ChessEngine/hf_data/stockfish_depth20_partial.jsonl";
+            println!("{}", nuome::patterns::report(path, n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
         if which == "golden-whole" {
