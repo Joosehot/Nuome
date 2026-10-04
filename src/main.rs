@@ -237,6 +237,12 @@ fn main() -> Result<()> {
             println!("{}", nuome::chess_network::report(cli.words.first().map(|s| s.as_str()).unwrap_or("all")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-terms" {
+            // golden-terms [MAX_TERMS]: Nuome looks for new terms of the golden function against the endgame tables
+            let k = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(4);
+            println!("{}", nuome::golden_terms::report("out/golden/truth_34.txt", "out/golden/truth_5.txt", k).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "supergenius-golden" {
             // supergenius-golden: the supergenius writes the golden function from the rules of chess (no evolution)
             let _ = std::fs::create_dir_all("out/golden");

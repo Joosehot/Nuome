@@ -173,6 +173,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=12)
     ap.add_argument("--tb", default=TB_PATH)
     ap.add_argument("--exe", default=SRC_EXE, help="binary to copy and test")
+    ap.add_argument("--no-copy", action="store_true", help="run --exe where it is (it finds its own data files)")
     ap.add_argument("--only-testable", action="store_true",
                     help="skip lost positions while generating, so every class gets N testable ones")
     a = ap.parse_args()
@@ -184,7 +185,9 @@ def main():
             sys.exit("bad class %r (need e.g. KRPvKR, at most 5 pieces)" % c)
 
     os.makedirs(OUT, exist_ok=True)
-    shutil.copy2(a.exe, TB_EXE)
+    run_exe = a.exe if a.no_copy else TB_EXE
+    if not a.no_copy:
+        shutil.copy2(a.exe, TB_EXE)
     exe_info = "%s (copied from %s, modified %s, %d bytes)" % (
         TB_EXE, a.exe, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(a.exe))),
         os.path.getsize(a.exe))
@@ -203,7 +206,7 @@ def main():
           % (len(jobs), len(classes), a.depth, a.seed, a.jobs), flush=True)
 
     t0 = time.time()
-    with mp.Pool(a.jobs, initializer=_init, initargs=(a.tb, TB_EXE, a.depth)) as pool:
+    with mp.Pool(a.jobs, initializer=_init, initargs=(a.tb, run_exe, a.depth)) as pool:
         results = pool.map(check, jobs, chunksize=4)
     secs = time.time() - t0
 
