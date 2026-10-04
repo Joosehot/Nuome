@@ -19,7 +19,7 @@
 use crate::golden::{atoms, Board, Mv, ATOMS};
 
 /// The facts of a move, each a yes/no the rules decide.
-pub const FACTS: [&str; 64] = [
+pub const FACTS: [&str; 68] = [
     "pawn moves", "knight moves", "bishop moves", "rook moves", "queen moves", "king moves",
     "captures", "promotes", "gives check", "castles",
     "lands where they strike", "lands where they do not strike", "lands guarded by me", "lands unguarded",
@@ -40,6 +40,7 @@ pub const FACTS: [&str; 64] = [
     "blocks a line to my king", "attacks a pinned piece",
     "lands where only their pinned pieces strike", "skewers two of their pieces", "pawn break: steps to strike their pawn",
     "king strikes their pawn", "pawn outruns their king", "creates a passed pawn",
+    "wins material by exchange", "loses material by exchange", "strikes a dearer piece", "check and strikes a dearer piece",
 ];
 pub const N_FACTS: usize = FACTS.len();
 
@@ -90,6 +91,18 @@ fn pinned(b: &Board, white: bool) -> u64 {
     out
 }
 
+/// What the side to move gains by capturing on `sq` and letting the
+/// exchange run, cheapest capturer first, every capture a legal move
+/// (each side may stop when going on loses).
+fn exchange_gain(b: &Board, sq: usize, depth: u32) -> i64 {
+    if b.sq[sq] == 0 || depth == 0 {
+        return 0;
+    }
+    let order = |p: i8| if p.abs() == 6 { 10_000 } else { worth(p) };
+    let Some(m) = b.moves().into_iter().filter(|m| m.to as usize == sq).min_by_key(|m| order(b.sq[m.from as usize])) else { return 0 };
+    (worth(b.sq[sq]) - exchange_gain(&b.play(m), sq, depth - 1)).max(0)
+}
+
 fn cheb(a: usize, b: usize) -> i32 {
     ((a % 8) as i32 - (b % 8) as i32).abs().max(((a / 8) as i32 - (b / 8) as i32).abs())
 }
@@ -113,7 +126,7 @@ fn passed_pawns(b: &Board, white: bool) -> Vec<(usize, usize)> {
 }
 
 /// The facts of every legal move of `b`, as bit masks (bit i = FACTS[i]).
-pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
+pub fn facts_of(b: &Board) -> Vec<(Mv, u128)> {
     let ms = b.moves();
     let before = atoms(b, &ms, u32::MAX);
     let e_before = crate::golden::attack_edges(b);
@@ -145,8 +158,8 @@ pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
     let hung_before: Vec<usize> = (0..64).filter(|&n| b.sq[n] != 0 && ((b.sq[n] > 0) == b.white) && b.sq[n].abs() != 6 && e_before[them][n] > 0 && e_before[me][n] == 0).collect();
     let mut out = Vec::with_capacity(ms.len());
     for &m in &ms {
-        let mut f = 0u64;
-        let set = |f: &mut u64, name: &str| *f |= 1 << idx(name);
+        let mut f = 0u128;
+        let set = |f: &mut u128, name: &str| *f |= 1u128 << idx(name);
         let p = b.sq[m.from as usize];
         let t = p.abs();
         set(&mut f, ["", "pawn moves", "knight moves", "bishop moves", "rook moves", "queen moves", "king moves"][t as usize]);
@@ -345,6 +358,25 @@ pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
                 set(&mut f, "blocks a line to my king");
             }
         }
+        // ── what the exchange on the landing node leaves, by the rules' captures ──
+        let taken = if ep { 100 } else { worth(victim) };
+        let balance = taken - exchange_gain(&a, to, 8);
+        if balance > 0 {
+            set(&mut f, "wins material by exchange");
+        } else if balance < 0 {
+            set(&mut f, "loses material by exchange");
+        }
+        if t != 6 {
+            let hits = crate::golden::strikes_of(&a, to);
+            let mine = worth(a.sq[to]);
+            let dearer = (0..64).any(|n| hits >> n & 1 == 1 && a.sq[n] != 0 && ((a.sq[n] > 0) != b.white) && a.sq[n].abs() != 6 && worth(a.sq[n]) > mine);
+            if dearer {
+                set(&mut f, "strikes a dearer piece");
+                if a.in_check() {
+                    set(&mut f, "check and strikes a dearer piece");
+                }
+            }
+        }
         // ── the clear words: pins that do not guard, skewers, pawn endings ──
         let pin_a = pinned(&a, !b.white);
         if e_after[them][to] > 0 {
@@ -415,10 +447,10 @@ pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
 
 /// A pattern: one fact, or two together.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Pattern(pub u64);
+pub struct Pattern(pub u128);
 
 impl Pattern {
-    pub fn holds(self, facts: u64) -> bool {
+    pub fn holds(self, facts: u128) -> bool {
         facts & self.0 == self.0
     }
     pub fn words(self) -> String {
@@ -436,8 +468,47 @@ pub struct Found {
 
 /// One position: the facts of every legal move, and which one Stockfish chose.
 struct Case {
-    facts: Vec<u64>,
+    facts: Vec<u128>,
     chosen: usize,
+    phase: Phase,
+}
+
+/// The phase of a position, by the pieces on the board: each phase gets its own roster.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Phase {
+    /// kings and pawns only
+    Pawns,
+    /// at most four pieces besides kings and pawns
+    Endgame,
+    Middle,
+}
+
+pub const PHASES: [Phase; 3] = [Phase::Pawns, Phase::Endgame, Phase::Middle];
+
+pub fn phase_of(b: &Board) -> Phase {
+    let pieces = b.sq.iter().filter(|&&p| p != 0 && p.abs() != 1 && p.abs() != 6).count();
+    match pieces {
+        0 => Phase::Pawns,
+        1..=4 => Phase::Endgame,
+        _ => Phase::Middle,
+    }
+}
+
+impl Phase {
+    pub fn file(self) -> &'static str {
+        match self {
+            Phase::Pawns => "out/golden/patterns_pawns.txt",
+            Phase::Endgame => "out/golden/patterns_endgame.txt",
+            Phase::Middle => "out/golden/patterns_middle.txt",
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Phase::Pawns => "pawn endings",
+            Phase::Endgame => "endgames",
+            Phase::Middle => "openings and middlegames",
+        }
+    }
 }
 
 /// Read Stockfish's positions (one JSON object a line: "fen", "best_moves": [{"move": uci, ...}]).
@@ -463,7 +534,7 @@ fn read_positions(path: &str, skip: usize, take: usize) -> Result<Vec<Case>, Str
                             continue;
                         }
                         let Some(ci) = fs.iter().position(|(m, _)| m.uci() == best) else { continue };
-                        out.push(Case { facts: fs.iter().map(|x| x.1).collect(), chosen: ci });
+                        out.push(Case { facts: fs.iter().map(|x| x.1).collect(), chosen: ci, phase: phase_of(&b) });
                     }
                     out
                 })
@@ -494,24 +565,21 @@ fn lift(cases: &[Case], p: Pattern) -> (f64, usize) {
 
 /// Discover: every single fact and every pair, lifts on the first positions,
 /// kept when the lift survives on the unseen ones.
-pub fn discover(path: &str, n: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<Found>, String> {
+fn discover(a: &[Case], b: &[Case], log: &mut dyn FnMut(&str)) -> Vec<Found> {
     let t0 = std::time::Instant::now();
-    let a = read_positions(path, 0, n)?;
-    let b = read_positions(path, n, n)?;
-    log(&format!("{} positions to discover on, {} unseen ({:.0} s to read the facts of every move)", a.len(), b.len(), t0.elapsed().as_secs_f64()));
-    let mut candidates: Vec<Pattern> = (0..N_FACTS).map(|i| Pattern(1 << i)).collect();
+    let mut candidates: Vec<Pattern> = (0..N_FACTS).map(|i| Pattern(1u128 << i)).collect();
     for i in 0..N_FACTS {
         for j in i + 1..N_FACTS {
-            candidates.push(Pattern(1 << i | 1 << j));
+            candidates.push(Pattern(1u128 << i | 1u128 << j));
         }
     }
-    let min_support = 200; // rare tactics count too; the unseen half still checks every one
+    // rare tactics count too (the unseen half still checks every one); a small phase scales it down
+    let min_support = (a.len() / 1500).clamp(30, 200);
     let chunk = candidates.len().div_ceil(12).max(1);
     let mut found: Vec<Found> = std::thread::scope(|sc| {
         let hs: Vec<_> = candidates
             .chunks(chunk)
             .map(|part| {
-                let (a, b) = (&a, &b);
                 sc.spawn(move || {
                     let mut out = Vec::new();
                     for &p in part {
@@ -539,31 +607,55 @@ pub fn discover(path: &str, n: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<F
     });
     found.sort_by(|x, y| y.lift_b.partial_cmp(&x.lift_b).unwrap());
     // a pair stays only when it beats both of its parts on the unseen positions
-    let singles: std::collections::HashMap<u64, f64> = found.iter().filter(|f| f.pattern.0.count_ones() == 1 && f.lift_b >= 1.3).map(|f| (f.pattern.0, f.lift_b)).collect();
+    let singles: std::collections::HashMap<u128, f64> = found.iter().filter(|f| f.pattern.0.count_ones() == 1 && f.lift_b >= 1.3).map(|f| (f.pattern.0, f.lift_b)).collect();
     found.retain(|f| {
         if f.pattern.0.count_ones() == 1 {
             return true;
         }
-        (0..N_FACTS).map(|i| 1u64 << i).filter(|bit| f.pattern.0 & bit != 0).all(|p| singles.get(&p).map_or(true, |&l| f.lift_b > l * 1.1))
+        (0..N_FACTS).map(|i| 1u128 << i).filter(|bit| f.pattern.0 & bit != 0).all(|p| singles.get(&p).map_or(true, |&l| f.lift_b > l * 1.1))
     });
     log(&format!("{} patterns survive ({:.0} s)", found.len(), t0.elapsed().as_secs_f64()));
-    Ok(found)
+    found
 }
 
 pub const PATTERNS_FILE: &str = "out/golden/patterns.txt";
 
-pub fn save(found: &[Found]) -> Result<(), String> {
+pub fn save(file: &str, found: &[Found]) -> Result<(), String> {
     let text: String = found.iter().map(|f| format!("{}\t{:.3}\t{:.3}\t{}\t{}\n", f.pattern.0, f.lift_a, f.lift_b, f.support, f.pattern.words())).collect();
-    std::fs::write(PATTERNS_FILE, text).map_err(|e| e.to_string())
+    std::fs::write(file, text).map_err(|e| e.to_string())
 }
 
-pub fn load() -> Vec<(Pattern, f64)> {
-    std::fs::read_to_string(PATTERNS_FILE)
+/// Every roster: the whole one, and one a phase (empty when not discovered).
+pub struct Rosters {
+    pub all: Vec<(Pattern, f64)>,
+    pub phase: Vec<(Phase, Vec<(Pattern, f64)>)>,
+}
+
+impl Rosters {
+    /// The roster for this position: its phase's own when it has one.
+    pub fn for_board(&self, b: &Board) -> &[(Pattern, f64)] {
+        let ph = phase_of(b);
+        match self.phase.iter().find(|(p, r)| *p == ph && !r.is_empty()) {
+            Some((_, r)) => r,
+            None => &self.all,
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.all.len() + self.phase.iter().map(|(_, r)| r.len()).sum::<usize>()
+    }
+}
+
+pub fn load() -> Rosters {
+    Rosters { all: load_file(PATTERNS_FILE), phase: PHASES.iter().map(|&p| (p, load_file(p.file()))).collect() }
+}
+
+fn load_file(file: &str) -> Vec<(Pattern, f64)> {
+    std::fs::read_to_string(file)
         .unwrap_or_default()
         .lines()
         .filter_map(|l| {
             let mut it = l.split('\t');
-            let bits: u64 = it.next()?.parse().ok()?;
+            let bits: u128 = it.next()?.parse().ok()?;
             let _la: f64 = it.next()?.parse().ok()?;
             let lb: f64 = it.next()?.parse().ok()?;
             Some((Pattern(bits), lb))
@@ -575,13 +667,14 @@ pub fn load() -> Vec<(Pattern, f64)> {
 /// calculation); moves proved lost are left alone; among the rest the one
 /// whose matching patterns weigh most (the sum of unseen log-lifts); ties
 /// stay in the rules' order.
-pub fn play(b: &Board, history: &[u64], patterns: &[(Pattern, f64)]) -> Option<(Mv, f64, Vec<(Mv, f64, Vec<Pattern>)>)> {
+pub fn play(b: &Board, history: &[u64], rosters: &Rosters) -> Option<(Mv, f64, Vec<(Mv, f64, Vec<Pattern>)>)> {
     let (_, _, rows, _) = crate::neuro::supergenius(b, history, 100_000)?;
     if let Some((m, _, _)) = rows.iter().find(|r| matches!(r.1, crate::neuro::Proof::Win(_))) {
         return Some((*m, f64::INFINITY, vec![]));
     }
     let losing: Vec<Mv> = rows.iter().filter(|r| matches!(r.1, crate::neuro::Proof::Loss(_))).map(|r| r.0).collect();
     let fs = facts_of(b);
+    let patterns = rosters.for_board(b);
     let mut scored: Vec<(Mv, f64, Vec<Pattern>)> = fs
         .iter()
         .filter(|(m, _)| !losing.contains(m) || losing.len() == fs.len())
@@ -600,8 +693,23 @@ pub fn play(b: &Board, history: &[u64], patterns: &[(Pattern, f64)]) -> Option<(
 
 pub fn report(path: &str, n: usize) -> Result<String, String> {
     let mut out = String::from("Golden Boy, the discovering genius, reads Stockfish's choices\n");
-    let found = discover(path, n, &mut |l| out.push_str(&format!("  {l}\n")))?;
-    save(&found)?;
+    let t0 = std::time::Instant::now();
+    let a = read_positions(path, 0, n)?;
+    let b = read_positions(path, n, n)?;
+    out.push_str(&format!("  {} positions to discover on, {} unseen ({:.0} s to read the facts of every move)\n", a.len(), b.len(), t0.elapsed().as_secs_f64()));
+    for ph in PHASES {
+        let pick = |cs: &[Case]| -> Vec<Case> { cs.iter().filter(|c| c.phase == ph).map(|c| Case { facts: c.facts.clone(), chosen: c.chosen, phase: c.phase }).collect() };
+        let (pa, pb) = (pick(&a), pick(&b));
+        let found = discover(&pa, &pb, &mut |_| {});
+        save(ph.file(), &found)?;
+        out.push_str(&format!("\n{}: {} positions + {} unseen, {} patterns; the strongest:\n", ph.name(), pa.len(), pb.len(), found.len()));
+        for f in found.iter().take(12) {
+            out.push_str(&format!("  x{:.2} (unseen x{:.2}, {} times): {}\n", f.lift_a, f.lift_b, f.support, f.pattern.words()));
+        }
+    }
+    out.push_str("\nall phases together:\n");
+    let found = discover(&a, &b, &mut |l| out.push_str(&format!("  {l}\n")));
+    save(PATTERNS_FILE, &found)?;
     out.push_str(&format!("\n{} patterns recur and survive the unseen positions (lift >= 1.5 found, >= 1.3 unseen):\n", found.len()));
     for f in found.iter().take(40) {
         out.push_str(&format!("  x{:.2} (unseen x{:.2}, {} times): {}\n", f.lift_a, f.lift_b, f.support, f.pattern.words()));
