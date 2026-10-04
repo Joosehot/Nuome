@@ -443,7 +443,7 @@ impl Board {
 // ── atoms: numbers the rules define about a position ──
 
 /// The atoms' names, in order; "my" is the side to move.
-pub const ATOMS: [&str; 23] = [
+pub const ATOMS: [&str; 25] = [
     "my_moves",
     "their_moves",
     "in_check",
@@ -467,6 +467,8 @@ pub const ATOMS: [&str; 23] = [
     "my_pawn_power",
     "their_pawn_power",
     "my_best_capture",
+    "my_nodes",
+    "their_nodes",
 ];
 const N_ATOMS: usize = ATOMS.len();
 
@@ -501,6 +503,58 @@ pub fn rule_mobility(t: i8) -> f64 {
         total += b.pseudo(false).len();
     }
     total as f64 / 64.0
+}
+
+/// The network: for every one of the 64 squares (nodes), how many edges of
+/// each side point at it - the squares each piece attacks under the rules
+/// (pawns diagonally forward, sliders until the first piece). [white, black].
+pub fn attack_edges(b: &Board) -> [[u8; 64]; 2] {
+    let mut e = [[0u8; 64]; 2];
+    for s in 0..64i32 {
+        let p = b.sq[s as usize];
+        if p == 0 {
+            continue;
+        }
+        let side = (p < 0) as usize;
+        let (f, r) = (file(s), rank(s));
+        let mut hit = |t: i32| e[side][t as usize] += 1;
+        match p.abs() {
+            1 => {
+                let dr = if p > 0 { 1 } else { -1 };
+                for df in [-1, 1] {
+                    if let Some(t) = on(f + df, r + dr) {
+                        hit(t);
+                    }
+                }
+            }
+            2 | 6 => {
+                for (df, dr) in if p.abs() == 2 { KNIGHT } else { KING } {
+                    if let Some(t) = on(f + df, r + dr) {
+                        hit(t);
+                    }
+                }
+            }
+            t => {
+                let dirs: Vec<(i32, i32)> = match t {
+                    3 => BISHOP.to_vec(),
+                    4 => ROOK.to_vec(),
+                    _ => ROOK.iter().chain(BISHOP.iter()).copied().collect(),
+                };
+                for (df, dr) in dirs {
+                    let (mut x, mut y) = (f + df, r + dr);
+                    while let Some(t) = on(x, y) {
+                        hit(t);
+                        if b.sq[t as usize] != 0 {
+                            break;
+                        }
+                        x += df;
+                        y += dr;
+                    }
+                }
+            }
+        }
+    }
+    e
 }
 
 /// Steps a pawn on square `s` still needs to become a queen.
@@ -578,6 +632,13 @@ pub fn atoms(b: &Board, ms: &[Mv], mask: u32) -> [i64; N_ATOMS] {
             best = best.max(if defended { victim - attacker } else { victim });
         }
         a[22] = best;
+    }
+    if want(23) || want(24) {
+        // the nodes each side holds: more of its edges point there than the other side's
+        let e = attack_edges(b);
+        let (me, them) = if b.white { (0, 1) } else { (1, 0) };
+        a[23] = (0..64).filter(|&s| e[me][s] > e[them][s]).count() as i64;
+        a[24] = (0..64).filter(|&s| e[them][s] > e[me][s]).count() as i64;
     }
     a
 }
