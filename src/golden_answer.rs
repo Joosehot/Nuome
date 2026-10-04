@@ -242,6 +242,107 @@ pub enum Statement {
     FourColour,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Prop {
+    Even,
+    Odd,
+    Square,
+    Cube,
+    Perfect,
+    Triangular,
+    Fibonacci,
+    Palindrome,
+    PowerOfTwo,
+    DivisibleBy(u64),
+}
+
+impl Prop {
+    fn words(self) -> String {
+        match self {
+            Prop::Even => "even".into(),
+            Prop::Odd => "odd".into(),
+            Prop::Square => "a perfect square".into(),
+            Prop::Cube => "a perfect cube".into(),
+            Prop::Perfect => "a perfect number".into(),
+            Prop::Triangular => "a triangular number".into(),
+            Prop::Fibonacci => "a Fibonacci number".into(),
+            Prop::Palindrome => "a palindrome".into(),
+            Prop::PowerOfTwo => "a power of two".into(),
+            Prop::DivisibleBy(k) => format!("divisible by {k}"),
+        }
+    }
+}
+
+/// Every whole number written in the text, in order.
+fn integers_in(q: &str) -> Vec<u64> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    for c in q.chars().chain(std::iter::once(' ')) {
+        if c.is_ascii_digit() {
+            cur.push(c);
+        } else if !cur.is_empty() {
+            if let Ok(v) = cur.parse() {
+                out.push(v);
+            }
+            cur.clear();
+        }
+    }
+    out
+}
+
+fn prop_of(l: &str) -> Option<Prop> {
+    let has = |w: &str| l.contains(w);
+    if has("divisible by") {
+        let after = l.split("divisible by").nth(1)?;
+        return integers_in(after).first().map(|&k| Prop::DivisibleBy(k));
+    }
+    if has("perfect square") || has(" a square") || has(" square number") {
+        return Some(Prop::Square);
+    }
+    if has("perfect cube") || has(" a cube") || has(" cube number") {
+        return Some(Prop::Cube);
+    }
+    if has("perfect number") || l.trim_end_matches('?').ends_with(" perfect") {
+        return Some(Prop::Perfect);
+    }
+    if has("triangular") {
+        return Some(Prop::Triangular);
+    }
+    if has("fibonacci") {
+        return Some(Prop::Fibonacci);
+    }
+    if has("palindrom") {
+        return Some(Prop::Palindrome);
+    }
+    if has("power of two") || has("power of 2") {
+        return Some(Prop::PowerOfTwo);
+    }
+    let words: Vec<&str> = l.split(|c: char| !c.is_alphanumeric()).collect();
+    if words.contains(&"even") {
+        return Some(Prop::Even);
+    }
+    if words.contains(&"odd") {
+        return Some(Prop::Odd);
+    }
+    None
+}
+
+/// The arithmetic in a question, when that is all it asks.
+fn arithmetic_of(l: &str) -> Option<String> {
+    let mut t = format!(" {} ", l.trim().trim_end_matches('?'));
+    for w in ["what is", "what's", "how much is", "calculate", "compute", "evaluate", "the value of", "find"] {
+        t = t.replace(w, " ");
+    }
+    for (w, op) in [(" plus ", " + "), (" minus ", " - "), (" times ", " * "), (" divided by ", " / "), (" to the power of ", " ^ "), (" squared", " ^ 2"), (" cubed", " ^ 3"), ("**", "^"), ("×", "*"), ("÷", "/")] {
+        t = t.replace(w, op);
+    }
+    let t = t.trim().trim_end_matches('=').trim().to_string();
+    let rest = t.replace("sqrt", "");
+    let ok = !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit() || " +-*/^().".contains(c));
+    let op = rest.chars().skip(1).any(|c| "+-*/^".contains(c)) || t.contains("sqrt");
+    (ok && op && rest.chars().any(|c| c.is_ascii_digit())).then_some(t)
+}
+
 #[derive(Clone, Debug)]
 pub enum Task {
     IsPrime(Num),
@@ -253,6 +354,10 @@ pub enum Task {
     FourSquares(Num),
     Collatz(Num),
     Statement(Statement),
+    /// a property of one number: even, square, perfect, divisible by k, ...
+    Property(Num, Prop),
+    /// plain arithmetic: numbers and + - * / ^ ( ) sqrt
+    Arithmetic(String),
     /// handed to Nuome's worked-solution engine
     Algebra,
     Unknown,
@@ -297,6 +402,14 @@ pub fn task_of(q: &str) -> Task {
     }
     if has("sum of four squares") {
         return n.map_or(Task::Unknown, Task::FourSquares);
+    }
+    if let Some(e) = arithmetic_of(&l) {
+        return Task::Arithmetic(e);
+    }
+    if let (Some(n), Some(p)) = (n.clone(), prop_of(&l)) {
+        if !l.contains('=') {
+            return Task::Property(n, p);
+        }
     }
     let algebra = l.contains('=') || ["solve", "differentiate", "derivative", "integrate", "simplify", "expand", "evaluate", "calculate"].iter().any(|w| has(w));
     if (has("how many primes") || has("number of primes") || has("count the primes") || has("primes below") || has("primes up to") || has("primes less than")) && n.is_some() {
@@ -615,8 +728,20 @@ fn form_divisor(b: u64, e: u64, c: i64, limit: usize) -> Option<u64> {
 // ───────────────────────── answering ─────────────────────────
 
 pub fn answer(kind: Kind, question: &str) -> Answer {
+    let task = task_of(question);
+    let a = answer_task(kind, question, &task);
+    if kind == Kind::Abstract && a.short.is_none() {
+        // an abstract answer always answers: a guess with its reasons
+        return guess(Answer::new(kind, question), question, &task);
+    }
+    a
+}
+
+fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
     let a = Answer::new(kind, question);
-    match task_of(question) {
+    match task.clone() {
+        Task::Property(n, p) => property(a, &n, p),
+        Task::Arithmetic(e) => arithmetic(a, &e),
         Task::IsPrime(n) => is_prime(a, &n),
         Task::Factor(n) => factor(a, &n),
         Task::PrimeCount(n, below) => prime_count(a, &n, below),
@@ -698,6 +823,16 @@ fn is_prime(a: Answer, n: &Num) -> Answer {
                     return a.says("composite").line(format!("{p} divides it"));
                 }
                 let ln_n = n.size * std::f64::consts::LN_10;
+                if b == 2 && c == -1 {
+                    // Wagstaff's heuristic: 2^p - 1 has only factors 2kp + 1, so it is prime with chance e^gamma log2(a p) / p
+                    let a_ = if e % 4 == 3 { 2.0 } else { 6.0 };
+                    let chance = 1.781_072_418 * (a_ * e as f64).log2() / e as f64;
+                    return a
+                        .says("probably composite")
+                        .line(format!("every factor of 2^{e} - 1 has the form 2k·{e} + 1, so small primes cannot divide it and the usual 1/ln n does not apply"))
+                        .line(format!("Wagstaff's heuristic: 2^p - 1 is prime with chance about e^γ log2({a_} p) / p = 1 in {:.0}", 1.0 / chance))
+                        .line("so composite is the better guess, though a few of these are prime (GIMPS has found 52)");
+                }
                 // Mertens: no factor below B makes a prime e^gamma ln B times more likely than 1/ln n
                 let chance = 1.781_072_418 * (bound as f64).ln() / ln_n;
                 return a
@@ -1082,6 +1217,363 @@ fn algebra(a: Answer, question: &str) -> Answer {
     }
 }
 
+fn property(a: Answer, n: &Num, p: Prop) -> Answer {
+    let what = p.words();
+    // exactly, when the number is held
+    let exact: Option<(bool, String)> = n.value.as_ref().and_then(|v| {
+        let two = BigUint::from(2u32);
+        Some(match p {
+            Prop::Even => ((v % &two).is_zero(), format!("{} leaves remainder {} when divided by 2", n.text, v % &two)),
+            Prop::Odd => (!(v % &two).is_zero(), format!("{} leaves remainder {} when divided by 2", n.text, v % &two)),
+            Prop::DivisibleBy(k) if k > 0 => {
+                let r = v % BigUint::from(k);
+                (r.is_zero(), format!("{} = {k} x {} + {r}", n.text, v / BigUint::from(k)))
+            }
+            Prop::Square => {
+                let r = num_integer::Roots::sqrt(v);
+                (&r * &r == *v, format!("{r}² = {} and {}² = {}", &r * &r, &r + 1u32, (&r + 1u32) * (&r + 1u32)))
+            }
+            Prop::Cube => {
+                let r = num_integer::Roots::cbrt(v);
+                (&r * &r * &r == *v, format!("{r}³ = {} and {}³ = {}", &r * &r * &r, &r + 1u32, (&r + 1u32).pow(3)))
+            }
+            Prop::Palindrome => {
+                let t = v.to_string();
+                (t.chars().rev().collect::<String>() == t, format!("{t} read backwards is {}", t.chars().rev().collect::<String>()))
+            }
+            Prop::PowerOfTwo => {
+                let ok = !v.is_zero() && (v & (v - 1u32)).is_zero();
+                (ok, format!("{} in binary has {} ones", n.text, v.count_ones()))
+            }
+            Prop::Triangular => {
+                let m = v * 8u32 + 1u32;
+                let r = num_integer::Roots::sqrt(&m);
+                (&r * &r == m, format!("n is triangular exactly when 8n + 1 is a square; 8n + 1 = {m}, √ ≈ {r}"))
+            }
+            Prop::Fibonacci => {
+                let m = v * v * 5u32;
+                let sq = |x: &BigUint| {
+                    let r = num_integer::Roots::sqrt(x);
+                    &r * &r == *x
+                };
+                let ok = sq(&(&m + 4u32)) || (m >= BigUint::from(4u32) && sq(&(&m - 4u32)));
+                (ok, "n is a Fibonacci number exactly when 5n² + 4 or 5n² - 4 is a square".to_string())
+            }
+            Prop::Perfect => {
+                let w = v.to_u64()?;
+                let mut f = factor_u64(w);
+                let mut sigma: u128 = 1;
+                f.dedup();
+                for q in f {
+                    let mut k = 0;
+                    let mut x = w;
+                    while x % q == 0 {
+                        x /= q;
+                        k += 1;
+                    }
+                    sigma *= ((q as u128).pow(k + 1) - 1) / (q as u128 - 1);
+                }
+                (sigma == 2 * w as u128, format!("the divisors of {w} below it add up to {}", sigma - w as u128))
+            }
+            Prop::DivisibleBy(_) => return None,
+        })
+    });
+    // b^e + c read by its form: parity and divisibility
+    let by_form: Option<(bool, String)> = n.form.and_then(|(b, e, c)| match p {
+        Prop::Even | Prop::Odd => {
+            let r = form_mod(b, e, c, 2);
+            Some(((r == 0) == (p == Prop::Even), format!("{} leaves remainder {r} when divided by 2", n.text)))
+        }
+        Prop::DivisibleBy(k) if k > 1 => {
+            let r = form_mod(b, e, c, k);
+            Some((r == 0, format!("{} mod {k} = {r}, by repeated squaring", n.text)))
+        }
+        _ => None,
+    });
+    let found = exact.or(by_form);
+    match (a.kind, found) {
+        (Kind::Logical, Some((yes, why))) => a.says(if yes { "yes" } else { "no" }).line(why).line(format!("so {} is {}{}", n.text, if yes { "" } else { "not " }, what)),
+        (Kind::Logical, None) => a.none(format!("{} is too large to test whether it is {what}", n.text)),
+        (Kind::Theoretical, _) => a.none("a direct check, not a known result; ask logical"),
+        (Kind::Abstract, Some((yes, why))) => a.says(if yes { "yes" } else { "no" }).line(why),
+        (Kind::Abstract, None) => a.none(""),
+    }
+}
+
+/// A value while evaluating: f64 always, exact as a fraction when it stays one.
+#[derive(Clone, Copy, Debug)]
+struct V {
+    f: f64,
+    r: Option<(i128, i128)>,
+}
+
+fn gcd128(a: i128, b: i128) -> i128 {
+    let (mut a, mut b) = (a.abs(), b.abs());
+    while b != 0 {
+        (a, b) = (b, a % b);
+    }
+    a.max(1)
+}
+
+fn frac(n: i128, d: i128) -> Option<(i128, i128)> {
+    if d == 0 {
+        return None;
+    }
+    let g = gcd128(n, d);
+    let s = if d < 0 { -1 } else { 1 };
+    Some((s * n / g, s * d / g))
+}
+
+fn show(v: V) -> String {
+    match v.r {
+        Some((n, 1)) => n.to_string(),
+        Some((n, d)) => format!("{n}/{d}"),
+        None => format!("{}", v.f),
+    }
+}
+
+struct Calc<'a> {
+    s: &'a [u8],
+    i: usize,
+    steps: Vec<String>,
+}
+
+impl<'a> Calc<'a> {
+    fn ws(&mut self) {
+        while self.i < self.s.len() && self.s[self.i] == b' ' {
+            self.i += 1;
+        }
+    }
+    fn peek(&mut self) -> Option<u8> {
+        self.ws();
+        self.s.get(self.i).copied()
+    }
+    fn op(&mut self, a: V, o: char, b: V) -> Option<V> {
+        let f = match o {
+            '+' => a.f + b.f,
+            '-' => a.f - b.f,
+            '*' => a.f * b.f,
+            '/' => a.f / b.f,
+            _ => a.f.powf(b.f),
+        };
+        let r = match (a.r, b.r) {
+            (Some((an, ad)), Some((bn, bd))) => match o {
+                '+' => an.checked_mul(bd).zip(bn.checked_mul(ad)).and_then(|(x, y)| x.checked_add(y)).zip(ad.checked_mul(bd)).and_then(|(n, d)| frac(n, d)),
+                '-' => an.checked_mul(bd).zip(bn.checked_mul(ad)).and_then(|(x, y)| x.checked_sub(y)).zip(ad.checked_mul(bd)).and_then(|(n, d)| frac(n, d)),
+                '*' => an.checked_mul(bn).zip(ad.checked_mul(bd)).and_then(|(n, d)| frac(n, d)),
+                '/' => an.checked_mul(bd).zip(ad.checked_mul(bn)).and_then(|(n, d)| frac(n, d)),
+                _ if bd == 1 && (0..=200).contains(&bn) => an.checked_pow(bn as u32).zip(ad.checked_pow(bn as u32)).and_then(|(n, d)| frac(n, d)),
+                _ => None,
+            },
+            _ => None,
+        };
+        let v = V { f, r };
+        self.steps.push(format!("{} {o} {} = {}", show(a), show(b), show(v)));
+        Some(v)
+    }
+    fn expr(&mut self) -> Option<V> {
+        let mut v = self.term()?;
+        while let Some(c) = self.peek().filter(|c| *c == b'+' || *c == b'-') {
+            self.i += 1;
+            let b = self.term()?;
+            v = self.op(v, c as char, b)?;
+        }
+        Some(v)
+    }
+    fn term(&mut self) -> Option<V> {
+        let mut v = self.power()?;
+        while let Some(c) = self.peek().filter(|c| *c == b'*' || *c == b'/') {
+            self.i += 1;
+            let b = self.power()?;
+            v = self.op(v, c as char, b)?;
+        }
+        Some(v)
+    }
+    fn power(&mut self) -> Option<V> {
+        let base = self.unary()?;
+        if self.peek() == Some(b'^') {
+            self.i += 1;
+            let e = self.power()?;
+            return self.op(base, '^', e);
+        }
+        Some(base)
+    }
+    fn unary(&mut self) -> Option<V> {
+        if self.peek() == Some(b'-') {
+            self.i += 1;
+            let v = self.unary()?;
+            return Some(V { f: -v.f, r: v.r.map(|(n, d)| (-n, d)) });
+        }
+        self.primary()
+    }
+    fn primary(&mut self) -> Option<V> {
+        match self.peek()? {
+            b'(' => {
+                self.i += 1;
+                let v = self.expr()?;
+                (self.peek() == Some(b')')).then(|| self.i += 1)?;
+                Some(v)
+            }
+            b's' if self.s[self.i..].starts_with(b"sqrt") => {
+                self.i += 4;
+                let x = self.primary()?;
+                let f = x.f.sqrt();
+                let r = x.r.and_then(|(n, d)| {
+                    let (rn, rd) = (isqrt(n.max(0) as u128) as i128, isqrt(d as u128) as i128);
+                    (rn * rn == n && rd * rd == d).then_some((rn, rd))
+                });
+                let v = V { f, r };
+                self.steps.push(format!("√{} = {}", show(x), show(v)));
+                Some(v)
+            }
+            c if c.is_ascii_digit() || c == b'.' => {
+                let st = self.i;
+                while self.i < self.s.len() && (self.s[self.i].is_ascii_digit() || self.s[self.i] == b'.') {
+                    self.i += 1;
+                }
+                let t = std::str::from_utf8(&self.s[st..self.i]).ok()?;
+                let f: f64 = t.parse().ok()?;
+                let r = if let Some((w, d)) = t.split_once('.') {
+                    let den = 10i128.checked_pow(d.len() as u32)?;
+                    format!("{w}{d}").parse::<i128>().ok().and_then(|n| frac(n, den))
+                } else {
+                    t.parse::<i128>().ok().map(|n| (n, 1))
+                };
+                Some(V { f, r })
+            }
+            _ => None,
+        }
+    }
+}
+
+fn calc(e: &str) -> Option<(V, Vec<String>)> {
+    let mut c = Calc { s: e.as_bytes(), i: 0, steps: Vec::new() };
+    let v = c.expr()?;
+    (c.peek().is_none()).then_some((v, c.steps))
+}
+
+fn arithmetic(a: Answer, e: &str) -> Answer {
+    let Some((v, steps)) = calc(e) else { return a.none(format!("could not read \"{e}\" as arithmetic")) };
+    match a.kind {
+        Kind::Logical => match v.r {
+            Some(_) => {
+                let mut a = a.says(show(v));
+                for s in steps {
+                    a = a.line(s);
+                }
+                a
+            }
+            None => a.none("the value is not an exact fraction (a root or a number too large for exact arithmetic here)"),
+        },
+        Kind::Theoretical => a.none("arithmetic is a direct calculation, not a known result; ask logical"),
+        Kind::Abstract => a.says(match v.r {
+            Some(_) => show(v),
+            None => format!("about {:.10}", v.f),
+        })
+        .line(format!("{e} evaluated step by step")),
+    }
+}
+
+/// The abstract guess when the question's own answer has none: every
+/// question gets one, with its reasons, never claimed to be right always.
+fn guess(a: Answer, question: &str, task: &Task) -> Answer {
+    let ln10 = std::f64::consts::LN_10;
+    match task {
+        Task::IsPrime(n) => {
+            let ln_n = n.size * ln10;
+            a.says("probably composite").line(format!("a number of this size is prime with chance about 1/ln n = 1 in {ln_n:.0}"))
+        }
+        Task::Factor(n) => {
+            if let Some(v) = &n.value {
+                let mut rest = v.clone();
+                let mut fs = Vec::new();
+                for p in primes_up_to(1_000_000) {
+                    let bp = BigUint::from(p as u64);
+                    while (&rest % &bp).is_zero() {
+                        fs.push(p.to_string());
+                        rest /= &bp;
+                    }
+                }
+                let mut a = a;
+                if !rest.is_one() {
+                    let pp = miller_rabin(&rest, &FIRST_PRIMES);
+                    let t = rest.to_string();
+                    fs.push(if pp || t.len() <= 30 { t } else { format!("[a {}-digit composite, not split]", t.len()) });
+                    a = a.line(format!("the part left after the primes below 10^6 {}", if pp { "passes 20 Miller-Rabin rounds: probably prime" } else { "is composite (a Miller-Rabin round fails) but its factors are above 10^6: not split" }));
+                }
+                return a.says(format!("probably {}", fs.join(" * "))).line("trial division by every prime below 10^6");
+            }
+            if let Some((b, e, c)) = n.form {
+                let small: Vec<String> = primes_up_to(100_000).into_iter().filter(|&p| form_mod(b, e, c, p as u64) == 0).map(|p| p.to_string()).collect();
+                return a
+                    .says(if small.is_empty() { "probably a product of large primes".to_string() } else { format!("probably {} times large factors", small.join(" * ")) })
+                    .line("the primes below 10^5 that divide it, found by repeated squaring; the rest is too large to split");
+            }
+            a.says("probably a product of large primes")
+        }
+        Task::PrimeCount(n, _) => {
+            // x / ln x in logarithms: log10 pi(x) ≈ size - log10(size ln 10)
+            let lg = n.size - (n.size * ln10).log10();
+            a.says(format!("about 10^{lg:.3}")).line("the prime number theorem: π(x) ≈ x / ln x, computed in logarithms")
+        }
+        Task::Goldbach(n) if n.u64().is_some_and(|v| v % 2 == 1) => {
+            let v = n.u64().unwrap();
+            let yes = v > 2 && is_prime_u64(v - 2);
+            a.says(if yes { "yes" } else { "no" }).line(format!("an odd sum of two primes must be 2 + {}, which is {}", v.saturating_sub(2), if yes { "prime" } else { "not prime" }))
+        }
+        Task::Goldbach(n) => a.says("probably yes").line(format!("the expected number of ways to write a number this size as p + q grows like N/ln² N (Hardy-Littlewood); {} is far past where a failure was ever plausible", n.text)),
+        Task::TwoSquares(n) => {
+            if let Some(v) = n.u64().filter(|&v| v <= 100_000_000_000_000) {
+                let found = (0..=isqrt(v as u128 / 2)).find(|&x| {
+                    let r = v as u128 - x * x;
+                    isqrt(r) * isqrt(r) == r
+                });
+                return match found {
+                    Some(x) => a.says("yes").line(format!("{v} = {x}² + {}²", isqrt(v as u128 - x * x))),
+                    None => a.says("no").line("no a up to √(N/2) leaves a square"),
+                };
+            }
+            let ln_n = n.size * ln10;
+            let share = 0.764_223_653 / ln_n.sqrt();
+            a.says(if share < 0.5 { "probably no" } else { "probably yes" }).line(format!("about {:.1}% of numbers this size are sums of two squares (Landau-Ramanujan: 0.764 / √ln n)", 100.0 * share))
+        }
+        Task::FourSquares(_) => {
+            let ok = (0..=1_000u128).all(|v| {
+                let r = isqrt(v);
+                (0..=r).any(|x| (0..=isqrt(v - x * x)).any(|y| (0..=isqrt(v - x * x - y * y)).any(|z| {
+                    let w2 = v - x * x - y * y - z * z;
+                    isqrt(w2) * isqrt(w2) == w2
+                })))
+            });
+            a.says(if ok { "probably yes" } else { "probably no" }).line("every number from 0 to 1000 is a sum of four squares (each one checked)")
+        }
+        Task::Collatz(_) => a.says("probably yes").line("every number checked so far reaches 1, and on average a step multiplies by about 3/4"),
+        Task::Statement(Statement::FourColour) => a
+            .says("probably yes")
+            .line("every planar map has a country with at most five neighbours (Euler's formula), so five colours always suffice (Heawood's argument)")
+            .line("no map needing five colours has ever been drawn"),
+        Task::Property(n, p) => a.says("probably no").line(format!("{} has about {:.0} digits, and numbers that are {} thin out as numbers grow", n.text, n.size + 1.0, p.words())),
+        _ => generic_guess(a, question),
+    }
+}
+
+/// The last resort: Nuome's own working even if not every check passed,
+/// then arithmetic, then a plain statement that nothing could be tested.
+fn generic_guess(a: Answer, question: &str) -> Answer {
+    let cfg = crate::config::Config::builtin();
+    if let Ok(s) = crate::solve(question, &cfg, &crate::Options { lenient: true, ..Default::default() }) {
+        let short = crate::render::answer(&s.request, &s.outcome, &cfg, crate::print::Style::default());
+        let passed = s.outcome.checks().iter().filter(|c| c.ok).count();
+        return a.says(format!("probably {}", short.trim_start_matches("Answer: "))).line(format!("Nuome's worked solution, read leniently; {passed} of {} checks passed", s.outcome.checks().len()));
+    }
+    if let Some(e) = arithmetic_of(&question.to_lowercase()) {
+        if let Some((v, _)) = calc(&e) {
+            return a.says(format!("about {}", v.f)).line(format!("{e} evaluated"));
+        }
+    }
+    a.says("no evidence either way").line("nothing in the question could be read as something to compute or test, so this guess carries no information (a coin flip)")
+}
+
 // ───────────────────────── the fixed test set ─────────────────────────
 
 /// The fixed test set: (category, question, the true answer). "open" marks
@@ -1121,6 +1613,14 @@ pub const BENCH: &[(&str, &str, &str)] = &[
     ("theorems", "are there infinitely many twin primes", "open"),
     ("theorems", "is the riemann hypothesis true", "open"),
     ("theorems", "catalan: which consecutive powers are there", "only 8 and 9"),
+    ("properties", "is 28 a perfect number", "yes"),
+    ("properties", "is 1001 divisible by 7", "yes"),
+    ("properties", "is 12321 a palindrome", "yes"),
+    ("properties", "is 145 a perfect square", "no"),
+    ("properties", "is 10^100 + 1 even", "no"),
+    ("properties", "is 832040 a fibonacci number", "yes"),
+    ("arithmetic", "what is 2^10 + 3 * 7", "1045"),
+    ("arithmetic", "what is (17 - 5) / 4", "3"),
     ("algebra", "solve 2x + 3 = 7", "x = 2"),
     ("algebra", "solve x^2 - 5x + 6 = 0", "x = 2 or x = 3"),
 ];
@@ -1281,9 +1781,29 @@ mod tests {
 
     #[test]
     fn no_kind_slips_into_another() {
-        // an exact question asked abstractly gives no answer rather than a logical one
-        assert!(answer(Kind::Abstract, "is 21 a sum of two squares").short.is_none());
-        // algebra is answered only logically
+        // algebra is answered logically, never theoretically
         assert!(answer(Kind::Theoretical, "solve 2x + 3 = 7").short.is_none());
+        // an abstract answer never claims proof, even when it is exact
+        for &(_, q, _) in BENCH {
+            assert_eq!(answer(Kind::Abstract, q).kind, Kind::Abstract);
+        }
+    }
+
+    #[test]
+    fn abstract_answers_everything() {
+        for &(_, q, _) in BENCH {
+            assert!(answer(Kind::Abstract, q).short.is_some(), "{q}");
+        }
+        for q in ["is the moon made of cheese", "what is the best number", "is 10^5000000 + 7 a perfect square", "factor 10^1000 + 1", "how many primes are below 10^1000"] {
+            assert!(answer(Kind::Abstract, q).short.is_some(), "{q}");
+        }
+    }
+
+    #[test]
+    fn arithmetic_is_exact_when_it_can_be() {
+        assert_eq!(answer(Kind::Logical, "what is 2^10 + 3 * 7").short.as_deref(), Some("1045"));
+        assert_eq!(answer(Kind::Logical, "what is 1/3 + 1/6").short.as_deref(), Some("1/2"));
+        assert_eq!(answer(Kind::Logical, "is 1001 divisible by 7").short.as_deref(), Some("yes"));
+        assert_eq!(answer(Kind::Logical, "is 10^100 + 1 even").short.as_deref(), Some("no"));
     }
 }
