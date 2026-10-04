@@ -230,7 +230,7 @@ pub fn golden(b: &Board, history: &[u64]) -> Option<(Mv, i64, Vec<(Mv, i64)>)> {
                 0
             } else {
                 let n = Network::write(&a);
-                -(n.worth() + n.vision_worth(&a))
+                -n.worth()
             };
             (m, v)
         })
@@ -401,10 +401,27 @@ impl Network {
                 _ => 0,
             };
         }
-        let occ: u64 = (0..64).filter(|&n| self.piece[n] != 0).fold(0, |a, n| a | 1 << n);
-        let side_bb = |side: usize| (0..64).filter(|&n| (self.piece[n] > 0) == (side == 0) && self.piece[n] != 0).fold(0u64, |a, n| a | 1 << n);
-        let kind_bb = |side: usize, t: i8| (0..64).filter(|&n| self.piece[n] == if side == 0 { t } else { -t }).fold(0u64, |a, n| a | 1 << n);
-        let king_of = |side: usize| self.piece.iter().position(|&p| p == if side == 0 { 6 } else { -6 });
+        // the piece sets once, not in every loop
+        let mut occ = 0u64;
+        let mut sides = [0u64; 2];
+        let mut kinds = [[0u64; 7]; 2];
+        let mut kings: [Option<usize>; 2] = [None, None];
+        for n in 0..64 {
+            let p = self.piece[n];
+            if p == 0 {
+                continue;
+            }
+            let side = (p < 0) as usize;
+            occ |= 1 << n;
+            sides[side] |= 1 << n;
+            kinds[side][p.unsigned_abs() as usize] |= 1 << n;
+            if p.abs() == 6 {
+                kings[side] = Some(n);
+            }
+        }
+        let side_bb = |side: usize| sides[side];
+        let kind_bb = |side: usize, t: i8| kinds[side][t as usize];
+        let king_of = |side: usize| kings[side];
         let opening = v.phase >= 18;
         for side in 0..2 {
             let o = 1 - side;
@@ -1206,7 +1223,7 @@ pub fn lumberjack(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim,
     let golden = |m: Mv| {
         let a = b.play(m);
         let n = Network::write(&a);
-        -(n.worth() + n.vision_worth(&a))
+        -n.worth()
     };
     let mut keyed: Vec<((i64, i64), i64, (Mv, Claim, u32))> = standing.iter().map(|s| (rank(s.1), golden(s.0), *s)).collect();
     keyed.sort_by(|x, y| y.0.cmp(&x.0).then(y.1.cmp(&x.1)));
@@ -1244,7 +1261,7 @@ fn goldenboy_value(b: &Board, ply: u32) -> i64 {
         }
     }
     let n = Network::write(b);
-    n.worth() + n.vision_worth(b)
+    n.worth()
 }
 
 /// One root move's tree as goldenboy sees it: grown full width to `depth`
@@ -1366,5 +1383,38 @@ pub fn show_tree_value(v: i64) -> String {
         format!("mated in {}", (v + WIN + 1) / 2)
     } else {
         format!("{v:+}")
+    }
+}
+
+#[cfg(test)]
+mod speed {
+    use super::*;
+
+    #[test]
+    fn where_the_time_goes_per_node() {
+        let b = Board::from_fen("r2q1rk1/5p2/p3p1pQ/1p2N3/2pPb3/2P2PR1/PP4PP/R5K1 b - - 0 1").unwrap();
+        let n = 2000;
+        let t = std::time::Instant::now();
+        for _ in 0..n {
+            std::hint::black_box(b.moves());
+        }
+        let moves_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
+        let t = std::time::Instant::now();
+        for _ in 0..n {
+            std::hint::black_box(Network::write(&b).worth());
+        }
+        let net_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
+        let t = std::time::Instant::now();
+        for _ in 0..n {
+            let net = Network::write(&b);
+            std::hint::black_box(net.vision_worth(&b));
+        }
+        let vis_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
+        let t = std::time::Instant::now();
+        for _ in 0..n {
+            std::hint::black_box(crate::retro::pieces_of(&b));
+        }
+        let pieces_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
+        eprintln!("per node: moves {moves_us:.1} us, network+worth {net_us:.1} us, network+vision {vis_us:.1} us, pieces_of {pieces_us:.1} us");
     }
 }
