@@ -500,6 +500,11 @@ fn escapes(b: &Board, white: bool) -> i64 {
 /// over the 64 squares of an empty board: knight 5.25, bishop 8.75,
 /// rook 14, queen 22.75, king 6.5625.
 pub fn rule_mobility(t: i8) -> f64 {
+    static CACHE: std::sync::OnceLock<[f64; 7]> = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::array::from_fn(|i| if (2..=6).contains(&i) { open_board(i as i8) } else { 0.0 }))[t as usize]
+}
+
+fn open_board(t: i8) -> f64 {
     let mut total = 0;
     for s in 0..64 {
         let mut b = Board { sq: [0; 64], white: true, castle: 0, ep: None, half: 0, full: 1 };

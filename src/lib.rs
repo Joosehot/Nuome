@@ -8,6 +8,7 @@
 //! rules.toml always give a byte-identical solution.
 
 pub mod beal;
+pub mod bitboard;
 pub mod bsd;
 pub mod calls;
 pub mod attempt;

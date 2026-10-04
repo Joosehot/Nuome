@@ -48,7 +48,14 @@ pub struct Edge {
 }
 
 pub struct Network {
-    pub edges: Vec<Edge>,
+    /// edges of each side by kind: [side][move, capture, guard]
+    pub counts: [[i64; 3]; 2],
+    /// the pieces' worth (open-board reach and reach now), mine minus theirs, pawns as queens in waiting
+    pub pieces_worth: i64,
+    /// the most the side to move takes with one capture
+    pub best_capture: i64,
+    /// my pieces struck and unguarded, all but the largest (the side to move answers one)
+    pub hanging_rest: i64,
     /// in-degree of every node from each side: [mine, theirs]
     pub struck: [[u8; 64]; 2],
     /// nodes each king can walk through without being struck, king included
@@ -86,48 +93,119 @@ pub fn walk(a: u64, b: u64, allowed: u64) -> i64 {
 }
 
 impl Network {
-    /// The network of `b`, seen from the side to move.
+    /// The network of `b`, seen from the side to move, written with the
+    /// bitboards: every piece's edges are a table lookup, every count a
+    /// population count.
     pub fn write(b: &Board) -> Network {
-        let mine = |p: i8| if b.white { p > 0 } else { p < 0 };
+        let t = crate::bitboard::tables();
+        let w = b.white;
         let mut piece = [0i8; 64];
+        let (mut occ, mut mine, mut theirs) = (0u64, 0u64, 0u64);
         for n in 0..64 {
             let p = b.sq[n];
-            piece[n] = if p == 0 { 0 } else if mine(p) { p.abs() } else { -p.abs() };
-        }
-        let mut edges = Vec::with_capacity(96);
-        let mut struck = [[0u8; 64]; 2];
-        let e = crate::golden::attack_edges(b);
-        let (me, them) = if b.white { (0, 1) } else { (1, 0) };
-        for n in 0..64 {
-            struck[0][n] = e[me][n];
-            struck[1][n] = e[them][n];
-        }
-        for from in 0..64usize {
-            let p = piece[from];
             if p == 0 {
                 continue;
             }
-            let my = p > 0;
-            let targets = crate::golden::strikes_of(b, from) | if p.abs() == 1 { crate::golden::pawn_pushes(b, from) } else { 0 };
-            let mut t = targets;
-            while t != 0 {
-                let to = t.trailing_zeros() as usize;
-                t &= t - 1;
-                let q = piece[to];
-                let kind = if q == 0 { Kind::Move } else if (q > 0) == my { Kind::Guard } else { Kind::Capture };
-                // a pawn's diagonal edge onto an empty node is a strike, not a move
-                if p.abs() == 1 && q == 0 && (to % 8) != (from % 8) {
-                    continue;
-                }
-                edges.push(Edge { from: from as u8, to: to as u8, kind, mine: my });
+            let my = if w { p > 0 } else { p < 0 };
+            piece[n] = if my { p.abs() } else { -p.abs() };
+            occ |= 1 << n;
+            if my {
+                mine |= 1 << n;
+            } else {
+                theirs |= 1 << n;
             }
         }
-        let kings = |my: bool| piece.iter().position(|&p| p == if my { 6 } else { -6 }).map_or(0u64, |k| 1 << k);
-        let empty: u64 = (0..64).filter(|&n| piece[n] == 0).fold(0, |a, n| a | 1 << n);
-        let region = |my: bool| {
-            let k = kings(my);
-            let other = if my { 1 } else { 0 };
-            let allowed: u64 = (0..64).filter(|&n| struck[other][n] == 0).fold(0, |a, n| a | 1 << n) & (empty | k);
+        let empty = !occ;
+        let unit = 256i64;
+        let open = |k: usize| (rule_mobility(k as i8) * 256.0) as i64;
+        let q = open(5);
+        let mut counts = [[0i64; 3]; 2];
+        let mut struck = [[0u8; 64]; 2];
+        let mut hit = [0u64; 2];
+        let mut pieces_worth = 0i64;
+        let mut best_capture = 0i64;
+        let mut hanging: Vec<i64> = Vec::new();
+        let victim = |k: i8| -> i64 {
+            match k.abs() {
+                1 => q / 64,
+                6 => 0,
+                k => open(k as usize),
+            }
+        };
+        let mut bits = occ;
+        while bits != 0 {
+            let n = bits.trailing_zeros() as usize;
+            bits &= bits - 1;
+            let p = piece[n];
+            let my = p > 0;
+            let side = (!my) as usize;
+            let (own, other) = if my { (mine, theirs) } else { (theirs, mine) };
+            let white_piece = my == w;
+            let attacks = match p.abs() {
+                1 => {
+                    if white_piece {
+                        t.att.pawn_w[n]
+                    } else {
+                        t.att.pawn_b[n]
+                    }
+                }
+                2 => t.att.knight[n],
+                3 => t.bishop_attacks(n, occ),
+                4 => t.rook_attacks(n, occ),
+                5 => t.queen_attacks(n, occ),
+                _ => t.att.king[n],
+            };
+            hit[side] |= attacks;
+            let mut a = attacks;
+            while a != 0 {
+                let m = a.trailing_zeros() as usize;
+                a &= a - 1;
+                struck[side][m] += 1;
+            }
+            let moves = if p.abs() == 1 {
+                let one = (if white_piece { (1u64 << n) << 8 } else { (1u64 << n) >> 8 }) & empty;
+                let start = if white_piece { n / 8 == 1 } else { n / 8 == 6 };
+                let two = if one != 0 && start { (if white_piece { one << 8 } else { one >> 8 }) & empty } else { 0 };
+                one | two
+            } else {
+                attacks & empty
+            };
+            counts[side][0] += moves.count_ones() as i64;
+            counts[side][1] += (attacks & other).count_ones() as i64;
+            counts[side][2] += (attacks & own).count_ones() as i64;
+            let sign = if my { 1 } else { -1 };
+            match p.abs() {
+                1 => {
+                    let steps = if white_piece { 7 - (n / 8) as i64 } else { (n / 8) as i64 };
+                    pieces_worth += sign * (q >> steps.clamp(1, 6));
+                }
+                6 => {}
+                k => pieces_worth += sign * (open(k as usize) + attacks.count_ones() as i64 * unit) / 2,
+            }
+            if my {
+                let mut c = attacks & theirs;
+                while c != 0 {
+                    let m = c.trailing_zeros() as usize;
+                    c &= c - 1;
+                    best_capture = best_capture.max(victim(piece[m]));
+                }
+            }
+        }
+        // my pieces struck by them and not guarded by me
+        let mut m = mine;
+        while m != 0 {
+            let n = m.trailing_zeros() as usize;
+            m &= m - 1;
+            if piece[n] != 6 && hit[1] >> n & 1 == 1 && hit[0] >> n & 1 == 0 {
+                hanging.push(victim(piece[n]));
+            }
+        }
+        hanging.sort_unstable_by(|a, b| b.cmp(a));
+        let hanging_rest: i64 = hanging.iter().skip(1).sum();
+        // the kings' regions: the nodes a king walks through unstruck by the other side
+        let king = |my: bool| piece.iter().position(|&p| p == if my { 6 } else { -6 }).map_or(0u64, |k| 1 << k);
+        let region = |k: u64, other_hit: u64| {
+            let allowed = !other_hit & (empty | k);
             let mut r = k;
             loop {
                 let n = r | (grow(r) & allowed);
@@ -137,11 +215,17 @@ impl Network {
                 r = n;
             }
         };
-        Network { edges, struck, region: [region(true), region(false)], piece, my_turn_white: b.white }
+        let region = [region(king(true), hit[1]), region(king(false), hit[0])];
+        Network { counts, pieces_worth, best_capture, hanging_rest, struck, region, piece, my_turn_white: w }
     }
 
     fn count(&self, my: bool, kind: Kind) -> i64 {
-        self.edges.iter().filter(|e| e.mine == my && e.kind == kind).count() as i64
+        let k = match kind {
+            Kind::Move => 0,
+            Kind::Capture => 1,
+            Kind::Guard => 2,
+        };
+        self.counts[(!my) as usize][k]
     }
 
     /// The numbers of the network, named (for the explanation).
@@ -169,47 +253,11 @@ impl Network {
     /// supergenius's function over the network's numbers.
     pub fn worth(&self) -> i64 {
         let unit = 256i64;
-        let open = |t: usize| (rule_mobility(t as i8) * 256.0) as i64;
-        let q = open(5);
-        let mut v = 0i64;
-        // pieces: their open-board worth and their edges now (reach), pawns as queens in waiting along their path
-        let mut edges_of = [0i64; 64];
-        for e in &self.edges {
-            edges_of[e.from as usize] += 1;
-        }
-        for n in 0..64 {
-            let p = self.piece[n];
-            if p == 0 || p.abs() == 6 {
-                continue;
-            }
-            let s = if p > 0 { 1 } else { -1 };
-            let t = p.unsigned_abs() as usize;
-            let w = if t == 1 {
-                let white_pawn = (p > 0) == self.my_turn_white;
-                let steps = if white_pawn { 7 - (n / 8) as i64 } else { (n / 8) as i64 };
-                q >> steps.clamp(1, 6)
-            } else {
-                (open(t) + edges_of[n] * unit) / 2
-            };
-            v += s * w;
-        }
-        // edges: a move is one unit; a capture is worth what it takes (the victim's worth, in units) - the side to move may take now
-        let victim = |n: usize| {
-            let t = self.piece[n].unsigned_abs() as usize;
-            if t == 1 { q / 64 } else if t == 6 { 0 } else { open(t) }
-        };
-        v += unit * (self.count(true, Kind::Move) - self.count(false, Kind::Move));
-        let best_capture = self.edges.iter().filter(|e| e.mine && e.kind == Kind::Capture).map(|e| victim(e.to as usize)).max().unwrap_or(0);
-        v += best_capture;
-        // the goal: the enemy king's room counts against, mine for
-        // the kings' room: at most a piece's worth over the whole board (unit / 8 per node)
-        v += unit / 8 * (self.region[0].count_ones() as i64 - self.region[1].count_ones() as i64);
-        // my pieces under strike lose, theirs under my strike gain
-        // my pieces struck and unguarded: the side to move answers the largest threat (it moves first)
-        let mut hanging: Vec<i64> = (0..64).filter(|&n| self.piece[n] > 0 && self.piece[n] != 6 && self.struck[1][n] > 0 && self.struck[0][n] == 0).map(victim).collect();
-        hanging.sort_unstable_by(|a, b| b.cmp(a));
-        v -= hanging.iter().skip(1).sum::<i64>();
-        v
+        self.pieces_worth
+            + unit * (self.counts[0][0] - self.counts[1][0])
+            + self.best_capture
+            + unit / 8 * (self.region[0].count_ones() as i64 - self.region[1].count_ones() as i64)
+            - self.hanging_rest
     }
 }
 
@@ -245,7 +293,7 @@ pub fn golden(b: &Board, history: &[u64]) -> Option<(Mv, i64, Vec<(Mv, i64)>)> {
 pub fn report(fen: &str) -> Result<String, String> {
     let b = if fen.trim().is_empty() || fen.trim() == "startpos" { Board::start() } else { Board::from_fen(fen.trim())? };
     let net = Network::write(&b);
-    let mut out = format!("NEURO writes {} as a network: {} edges\n", b.fen(), net.edges.len());
+    let mut out = format!("NEURO writes {} as a network: {} edges\n", b.fen(), net.counts.iter().flatten().sum::<i64>());
     for (k, v) in net.numbers() {
         out.push_str(&format!("  {k:<24} {v}\n"));
     }
