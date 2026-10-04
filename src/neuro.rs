@@ -862,7 +862,7 @@ impl Prover {
             return Some(at_least(c, goal));
         }
         if depth == 0 {
-            return Some(at_least(horizon(b), goal));
+            return self.settled(b, goal, QUIET);
         }
         self.history.push(b.hash());
         let mut undecided = false;
@@ -892,7 +892,7 @@ impl Prover {
             return Some(at_least(opposite(c), goal));
         }
         if depth == 0 {
-            return Some(at_least(opposite(horizon(b)), goal));
+            return self.settled_reply(b, goal, QUIET);
         }
         self.history.push(b.hash());
         let mut undecided = false;
@@ -907,6 +907,72 @@ impl Prover {
             }
         }
         self.history.pop();
+        if undecided { None } else { Some(true) }
+    }
+}
+
+/// Plies of captures and promotions finished before a horizon verdict.
+const QUIET: u32 = 8;
+
+fn forcing(b: &Board, m: &Mv) -> bool {
+    b.sq[m.to as usize] != 0 || m.promo != 0 || (b.sq[m.from as usize].abs() == 1 && Some(m.to) == b.ep)
+}
+
+impl Prover {
+    /// At the horizon the forced business is finished first: can the side
+    /// to move reach `goal` by standing pat, or by a capture or promotion
+    /// that holds against every forcing reply (up to `q` more plies)?
+    fn settled(&mut self, b: &Board, goal: Class, q: u32) -> Option<bool> {
+        self.nodes += 1;
+        if self.nodes > self.budget {
+            return None;
+        }
+        let ms = b.moves();
+        if let Some(c) = self.verdict(b, &ms) {
+            return Some(at_least(c, goal));
+        }
+        if at_least(horizon(b), goal) {
+            return Some(true);
+        }
+        if q == 0 {
+            return Some(false);
+        }
+        let mut undecided = false;
+        for m in ms.into_iter().filter(|m| forcing(b, m)) {
+            match self.settled_reply(&b.play(m), goal, q - 1) {
+                Some(true) => return Some(true),
+                Some(false) => {}
+                None => undecided = true,
+            }
+        }
+        if undecided { None } else { Some(false) }
+    }
+
+    /// After our move at the horizon: does every reply - declining, or any
+    /// capture or promotion - still leave us the goal?
+    fn settled_reply(&mut self, b: &Board, goal: Class, q: u32) -> Option<bool> {
+        self.nodes += 1;
+        if self.nodes > self.budget {
+            return None;
+        }
+        let ms = b.moves();
+        if let Some(c) = self.verdict(b, &ms) {
+            return Some(at_least(opposite(c), goal));
+        }
+        if !at_least(opposite(horizon(b)), goal) {
+            return Some(false);
+        }
+        if q == 0 {
+            return Some(true);
+        }
+        let mut undecided = false;
+        for r in ms.into_iter().filter(|m| forcing(b, m)) {
+            match self.settled(&b.play(r), goal, q - 1) {
+                Some(false) => return Some(false),
+                Some(true) => {}
+                None => undecided = true,
+            }
+        }
         if undecided { None } else { Some(true) }
     }
 }

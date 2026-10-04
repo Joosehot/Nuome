@@ -62,6 +62,7 @@ def main():
     ap.add_argument("--sf-time", type=float, default=0.1)
     ap.add_argument("--tb", default=r"C:\Users\joose\Tools\syzygy\345-wdl")
     ap.add_argument("--classes", default=",".join(gt.DEFAULT_CLASSES))
+    ap.add_argument("--verbose", action="store_true", help="print every position that loses")
     a = ap.parse_args()
     t0 = time.time()
     classes = a.classes.split(",")
@@ -78,6 +79,15 @@ def main():
             continue
         per.setdefault(r[0], []).append(r)
     allr = [r for v in per.values() for r in v]
+    # positions lost whatever is played (the tables say so): every move loses, the scale is not cp
+    lost = [r for r in allr if r[4] <= -19000]
+    allr = [r for r in allr if r[4] > -19000]
+    per = {k: [r for r in v if r[4] > -19000] for k, v in per.items()}
+    print(f"lost positions left out (every move loses): {len(lost)}")
+    if a.verbose:
+        for r in sorted(allr, key=lambda r: -r[3]):
+            if r[3] > 0:
+                print(f"  LOSS {r[3]:>5} {r[0]:<7} {r[1]}  played {r[2]}  (best {r[4]} cp)")
     errors = sum(1 for r in rows if r[3] is None)
     print(f"golden function (engine {os.path.basename(a.exe)}, {a.depth} plies) on {len(allr)} tablebase positions, Stockfish {a.sf_time}s + Syzygy, loss capped at {CAP} cp")
     print(f"{'class':<10}{'pos':>5}{'mean loss':>11}{'perfect':>9}")
