@@ -209,7 +209,12 @@ fn main() -> Result<()> {
             let (formula, _) = nuome::supergenius_golden::function_for(&b);
             let from = "written by the supergenius for this position";
             let t0 = std::time::Instant::now();
-            match nuome::golden::golden(&b, &[], &formula) {
+            match nuome::golden::golden(&b, &[], &formula).map(|mut a| {
+                if let Some(mv) = nuome::golden_terms::best_move(&b, &[]) {
+                    a.mv = mv;
+                }
+                a
+            }) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
                 Some(a) => {
                     println!("the golden function on {} ({} to move):", b.fen(), if b.white { "white" } else { "black" });
@@ -235,6 +240,16 @@ fn main() -> Result<()> {
         if which == "chess-network" {
             // chess-network [fool|scholar|legal|opera|all]: how chess works as a 64-node network, and famous games laid into it
             println!("{}", nuome::chess_network::report(cli.words.first().map(|s| s.as_str()).unwrap_or("all")).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "golden-polish" {
+            // golden-polish [MAX_TERMS]: every found term into one golden function, polished on all the exact truth
+            let k = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(60);
+            let t0 = std::time::Instant::now();
+            let terms = nuome::golden_terms::polish(&["out/golden/truth_34.txt", "out/golden/truth_5.txt"], k, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
+            let text = nuome::golden_terms::written(&nuome::golden::Board::start(), &terms);
+            println!("\nTHE GOLDEN FUNCTION: the supergenius's formula for the position + {} terms Nuome found (written for the start position, {} characters):\n{text}", terms.len(), text.len());
+            println!("saved to {} ({:.0} s)", nuome::golden_terms::TERMS_FILE, t0.elapsed().as_secs_f64());
             return Ok(());
         }
         if which == "golden-terms" {

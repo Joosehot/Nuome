@@ -426,8 +426,7 @@ pub fn report(train: &str, test: &str, max_terms: usize) -> Result<String, Strin
     out.push_str(&written);
     out.push_str(&format!("\n({} characters in the terms Nuome found)", written.len()));
     out.push_str(&format!("\n(values from the side that moves; {} candidate terms, {:.1} s)\n", cands.len(), t0.elapsed().as_secs_f64()));
-    let saved: String = chosen.iter().map(|(t, w)| format!("{w}\t{t:?}\n")).collect();
-    let _ = std::fs::write("out/golden/terms.txt", saved);
+    let _ = save(&chosen, TERMS_FILE);
     Ok(out)
 }
 
@@ -448,4 +447,169 @@ mod tests {
         assert_eq!(dist(1, 1 << 63), 7);
         assert_eq!(dist(1, 1 << 9), 1);
     }
+}
+
+// ── the golden function: the supergenius's formula and every term Nuome found, in one ──
+
+impl Term {
+    /// The term as a line of the terms file.
+    fn code(self) -> String {
+        match self {
+            Term::Count(Set::Base(a)) => format!("count base {a}"),
+            Term::Count(Set::And(a, b)) => format!("count and {a} {b}"),
+            Term::Count(Set::Minus(a, b)) => format!("count minus {a} {b}"),
+            Term::Count(Set::Near(a)) => format!("count near {a}"),
+            Term::Dist(a, b) => format!("dist {a} {b}"),
+            Term::Reach(t) => format!("reach {t}"),
+        }
+    }
+
+    fn from_code(words: &[&str]) -> Option<Term> {
+        let n = |i: usize| words.get(i).and_then(|w| w.parse::<usize>().ok()).filter(|&x| x < N_BASE);
+        Some(match (words.first().copied()?, words.get(1).copied()) {
+            ("count", Some("base")) => Term::Count(Set::Base(n(2)?)),
+            ("count", Some("and")) => Term::Count(Set::And(n(2)?, n(3)?)),
+            ("count", Some("minus")) => Term::Count(Set::Minus(n(2)?, n(3)?)),
+            ("count", Some("near")) => Term::Count(Set::Near(n(2)?)),
+            ("dist", _) => Term::Dist(n(1)?, n(2)?),
+            ("reach", _) => Term::Reach(n(1).filter(|&t| t < 6)?),
+            _ => return None,
+        })
+    }
+}
+
+pub const TERMS_FILE: &str = "out/golden/terms.txt";
+
+/// The terms file: one "weight code..." line per term (weights as seen from the position after the move).
+pub fn save(terms: &[(Term, i64)], path: &str) -> Result<(), String> {
+    let text: String = terms.iter().map(|(t, w)| format!("{w} {}\n", t.code())).collect();
+    std::fs::write(path, text).map_err(|e| format!("{path}: {e}"))
+}
+
+pub fn load(path: &str) -> Vec<(Term, i64)> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            Some((Term::from_code(w.get(1..)?)?, w.first()?.parse().ok()?))
+        })
+        .collect()
+}
+
+/// The golden function's terms (loaded once).
+pub fn terms() -> &'static [(Term, i64)] {
+    static T: std::sync::OnceLock<Vec<(Term, i64)>> = std::sync::OnceLock::new();
+    T.get_or_init(|| load(TERMS_FILE))
+}
+
+/// The golden function written out: the supergenius's formula for `b` and every term.
+pub fn written(b: &Board, terms: &[(Term, i64)]) -> String {
+    let base = function_for(b).0.show();
+    let t: String = terms.iter().map(|(t, w)| format!(" {:+}*{}", -w, t.mirrored().short())).collect();
+    format!("{base}{t}")
+}
+
+/// The golden function's move: the legal move after which the supergenius's
+/// formula plus every term is best for the mover (mates win, the draw rules give 0).
+pub fn best_move(b: &Board, history: &[u64]) -> Option<crate::golden::Mv> {
+    let f = function_for(b).0;
+    let mut best: Option<(i64, crate::golden::Mv)> = None;
+    for m in b.moves() {
+        let a = b.play(m);
+        let mut v = value_of(b, m, history, &f);
+        let fixed = a.moves().is_empty() || a.insufficient() || a.half >= 100;
+        if !fixed && !terms().is_empty() {
+            let (s, r) = (base_sets(&a), reaches(&a));
+            v -= terms().iter().map(|(t, w)| w * t.value(&s, &r)).sum::<i64>();
+        }
+        if best.map_or(true, |x| v > x.0) {
+            best = Some((v, m));
+        }
+    }
+    best.map(|x| x.1)
+}
+
+/// Polish the golden function on every position of the truth files: keep
+/// adding the term that helps most, tuning every weight together after each
+/// (each weight times 0, 1/2, 3/4, 5/4, 3/2, 2 or -1, while anything
+/// helps), and save it after every step.
+pub fn polish(files: &[&str], max_terms: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<(Term, i64)>, String> {
+    let mut all = Vec::new();
+    for f in files {
+        all.extend(read(f)?);
+    }
+    let cases: Vec<&Case> = all.iter().collect();
+    let mut chosen: Vec<(Term, i64)> = load(TERMS_FILE);
+    log(&format!("starting from {} terms; {} positions of exact truth", chosen.len(), cases.len()));
+    let cands = candidates();
+    let weights: Vec<i64> = [-4096, -2048, -1024, -512, -256, -128, -64, -32, 32, 64, 128, 256, 512, 1024, 2048, 4096].to_vec();
+    let mut score = right(&cases, &chosen);
+    let tune = |chosen: &mut Vec<(Term, i64)>, score: &mut usize| loop {
+        let mut better = false;
+        for i in 0..chosen.len() {
+            let w0 = chosen[i].1;
+            for k in [0.0, 0.5, 0.75, 1.25, 1.5, 2.0, -1.0] {
+                let w = (w0 as f64 * k).round() as i64;
+                let keep = chosen[i].1;
+                if w == keep {
+                    continue;
+                }
+                chosen[i].1 = w;
+                let r = right(&cases, chosen);
+                if r > *score {
+                    *score = r;
+                    better = true;
+                } else {
+                    chosen[i].1 = keep;
+                }
+            }
+        }
+        chosen.retain(|x| x.1 != 0);
+        if !better {
+            break;
+        }
+    };
+    tune(&mut chosen, &mut score);
+    while chosen.len() < max_terms {
+        let threads = 12;
+        let chunk = cands.len().div_ceil(threads);
+        let best: Option<(usize, Term, i64)> = std::thread::scope(|sc| {
+            let hs: Vec<_> = cands
+                .chunks(chunk)
+                .map(|part| {
+                    let (chosen, cases, weights) = (&chosen, &cases, &weights);
+                    sc.spawn(move || {
+                        let mut best: Option<(usize, Term, i64)> = None;
+                        for &t in part {
+                            if chosen.iter().any(|x| x.0 == t) {
+                                continue;
+                            }
+                            for &w in weights {
+                                let mut c = chosen.clone();
+                                c.push((t, w));
+                                let r = right(cases, &c);
+                                if best.as_ref().map_or(true, |b| r > b.0) {
+                                    best = Some((r, t, w));
+                                }
+                            }
+                        }
+                        best
+                    })
+                })
+                .collect();
+            hs.into_iter().filter_map(|h| h.join().expect("search")).max_by_key(|b| b.0)
+        });
+        let Some((r, t, w)) = best else { break };
+        if r <= score {
+            break;
+        }
+        chosen.push((t, w));
+        score = r;
+        tune(&mut chosen, &mut score);
+        log(&format!("  term {}: {} (mine minus theirs)", chosen.len(), t.mirrored().words()));
+        save(&chosen, TERMS_FILE)?;
+    }
+    save(&chosen, TERMS_FILE)?;
+    Ok(chosen)
 }
