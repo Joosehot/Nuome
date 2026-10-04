@@ -1201,7 +1201,16 @@ pub fn lumberjack(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim,
         Claim::Holds(Class::Losing) => (2, 0),
         Claim::Mated(n) => (1, n as i64),
     };
-    standing.sort_by(|x, y| rank(y.1).cmp(&rank(x.1)));
+    // among the trees left standing in the same class, goldenboy chooses: the
+    // supergenius's function over NEURO's network of the position after the move
+    let golden = |m: Mv| {
+        let a = b.play(m);
+        let n = Network::write(&a);
+        -(n.worth() + n.vision_worth(&a))
+    };
+    let mut keyed: Vec<((i64, i64), i64, (Mv, Claim, u32))> = standing.iter().map(|s| (rank(s.1), golden(s.0), *s)).collect();
+    keyed.sort_by(|x, y| y.0.cmp(&x.0).then(y.1.cmp(&x.1)));
+    standing = keyed.into_iter().map(|k| k.2).collect();
     let nodes = nodes0 + p.nodes;
     match standing.first() {
         Some(s) => Some((s.0, s.1, standing.clone(), felled, nodes)),
