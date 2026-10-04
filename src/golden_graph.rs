@@ -19,6 +19,8 @@ pub struct GraphQ {
     pub mu: u64,
     /// asked to build it, not only whether it exists
     pub make: bool,
+    /// asked which orders v have such graphs at all (v is then 0)
+    pub list: bool,
 }
 
 fn word_number(w: &str) -> Option<u64> {
@@ -52,7 +54,7 @@ pub fn read(q: &str) -> Option<GraphQ> {
             return None;
         }
         let make = ["make", "construct", "build", "find", "give"].iter().any(|w| rest.split_whitespace().any(|x| x == *w));
-        return Some(GraphQ { v: nums[0], k: Some(nums[1]), lambda: nums[2], mu: nums[3], make });
+        return Some(GraphQ { v: nums[0], k: Some(nums[1]), lambda: nums[2], mu: nums[3], make, list: false });
     }
     // Conway's way: "make a 944-point closed network like Conway's", "tee 944 pisteinen suljettu verkko conwayn tapaan"
     if t.contains("conway") {
@@ -62,9 +64,17 @@ pub fn read(q: &str) -> Option<GraphQ> {
             "tee", "rakenna", "pisteinen", "pisteen", "suljettu", "suljettua", "verkko", "verkkoa", "conwayn", "tapaan", "is", "there", "onko", "olemassa", "exist", "does",
         ];
         let nums: Vec<u64> = words.iter().filter_map(|w| w.parse().ok()).collect();
+        // which orders: "minkälaisia verkkoja on olemassa conwayn tapaan", "which graphs exist in conway's way"
+        const LIST: &[&str] = &["minkälaisia", "mitkä", "mitä", "millaisia", "which", "what", "list", "all"];
+        const LIST_OK: &[&str] = &[
+            "minkälaisia", "mitkä", "mitä", "millaisia", "verkkoja", "verkot", "on", "ovat", "olemassa", "conwayn", "tapaan", "which", "what", "list", "all", "graphs", "networks", "exist", "are", "there", "in", "conway's", "conways", "way", "style", "like", "conway", "s", "the",
+        ];
+        if nums.is_empty() && words.iter().any(|w| LIST.contains(&w.as_str())) && words.iter().all(|w| LIST_OK.contains(&w.as_str())) {
+            return Some(GraphQ { v: 0, k: None, lambda: 1, mu: 2, make: false, list: true });
+        }
         if nums.len() == 1 && words.iter().all(|w| w.parse::<u64>().is_ok() || OK.contains(&w.as_str())) {
             let make = !["is there", "onko", "does"].iter().any(|w| t.starts_with(w));
-            return Some(GraphQ { v: nums[0], k: None, lambda: 1, mu: 2, make });
+            return Some(GraphQ { v: nums[0], k: None, lambda: 1, mu: 2, make, list: false });
         }
         return None;
     }
@@ -89,7 +99,7 @@ pub fn read(q: &str) -> Option<GraphQ> {
     if !["", "common neighbours", "common neighbors"].contains(&tail.trim()) {
         return None;
     }
-    Some(GraphQ { v, k: None, lambda, mu, make })
+    Some(GraphQ { v, k: None, lambda, mu, make, list: false })
 }
 
 /// The whole degrees k with k(k - 1 - λ) = μ(v - 1 - k), 0 < k <= v - 1.
@@ -223,7 +233,56 @@ pub enum Kind3 {
 }
 
 /// The answer: short, lines, sources (sources only for theoretical).
+/// Which orders v have a graph of Conway's kind (λ = 1, μ = 2).
+fn family(kind: Kind3) -> Option<(String, Vec<String>, Vec<String>)> {
+    let mut lines = Vec::new();
+    match kind {
+        Kind3::Logical => {
+            lines.push("such a graph is regular (A·A² = A²·A with μ = 2), and counting the edges around one vertex gives k(k - 2) = 2(v - 1 - k), i.e. k² = 2(v - 1)".into());
+            lines.push("so k is even and v = k²/2 + 1: v = 3, 9, 19, 33, 51, 73, 99, 129, 163, 201, ... are the only orders the count allows".into());
+            let triangle = vec![vec![false, true, true], vec![true, false, true], vec![true, true, false]];
+            let tri = check(&triangle, 2, 1, 2).ok()?;
+            lines.push(format!("built and checked: v = 3, the triangle (every pair adjacent with 1 common neighbour; {tri} pairs)"));
+            let (name, adj) = construct(9, 4, 1, 2)?;
+            let n9 = check(&adj, 4, 1, 2).ok()?;
+            lines.push(format!("built and checked: v = 9, {name} ({n9} pairs)"));
+            lines.push("the count alone does not decide the other orders".into());
+            Some(("only v = k²/2 + 1 with k even can have one; built: 3 and 9".into(), lines, vec![]))
+        }
+        Kind3::Theoretical => {
+            let mut admissible = Vec::new();
+            for k in (2..=2_000u64).step_by(2) {
+                let v = k * k / 2 + 1;
+                if integral(v, k, 1, 2).0 {
+                    admissible.push((v, k));
+                }
+            }
+            lines.push(format!("of the orders v = k²/2 + 1 with even k up to 2000, the eigenvalue multiplicities are whole only for {}", admissible.iter().map(|(v, k)| format!("v = {v} (k = {k})")).collect::<Vec<_>>().join(", ")));
+            lines.push("and none beyond: √(4k - 7) must divide 63, so k is one of 2, 4, 14, 22, 112, 994".into());
+            for (v, _) in &admissible {
+                match conway_state(*v) {
+                    Some((state, why)) => lines.push(format!("v = {v}: {state} ({why})")),
+                    None if *v == 3 => lines.push("v = 3: yes (the triangle; no two vertices are non-adjacent)".into()),
+                    None => {}
+                }
+            }
+            Some((
+                "v = 3, 9, 99, 243, 6273, 494019 only: 3, 9 and 243 exist; 99, 6273 and 494019 are open".into(),
+                lines,
+                vec![
+                    "the eigenvalue multiplicities of a strongly regular graph are whole numbers (Bose & Mesner 1959; Brouwer & Haemers, Spectra of Graphs, ch. 9)".into(),
+                    "Conway, Five $1,000 Problems (2014): the orders 9, 99, 243, 6273, 494019; Berlekamp, van Lint & Seidel (1973) for 243".into(),
+                ],
+            ))
+        }
+        Kind3::Abstract => Some(("probably only a few: 9 and 243 are known, the rest unknown".into(), vec!["the known ones are rare and come from special structures (a grid, the ternary Golay code)".into()], vec![])),
+    }
+}
+
 pub fn answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<String>)> {
+    if g.list {
+        return family(kind);
+    }
     let GraphQ { v, lambda, mu, make, .. } = g.clone();
     let mut lines = Vec::new();
     let ks: Vec<u64> = match g.k {
@@ -327,6 +386,7 @@ mod tests {
         let g = read("is there a strongly regular graph srg(10,3,0,1)").unwrap();
         assert_eq!((g.v, g.k, g.lambda, g.mu, g.make), (10, Some(3), 0, 1, false));
         assert!(read("make a graph on 944 vertices that is planar").is_none());
+        assert!(read("minkälaisia verkkoja on olemassa conwayn tapaan").unwrap().list);
         let g = read("onko 999 pisteen verkkoa olemassa conwayn tapaan").unwrap();
         assert_eq!((g.v, g.make), (999, false));
     }
