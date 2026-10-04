@@ -218,14 +218,14 @@ fn main() -> Result<()> {
                 println!("move: {} (exact: {}, {:.3} s)", mv.uci(), nuome::retro::show(v), t0.elapsed().as_secs_f64());
                 return Ok(());
             }
-            match nuome::neuro::supergenius(&b, &[], 400_000) {
+            match nuome::neuro::decide(&b, &[], 400_000) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, proof, rows, nodes)) => {
-                    println!("the supergenius calculates {} ({} to move) in NEURO's network: {nodes} positions, proofs only", b.fen(), if b.white { "white" } else { "black" });
-                    for (m, p, _) in rows.iter().take(5) {
-                        println!("  {:<6} {}", m.uci(), nuome::neuro::show_proof(*p));
+                Some((mv, claim, rows, nodes)) => {
+                    println!("the supergenius decides {} ({} to move): {} plies, {nodes} positions, proofs over every reply", b.fen(), if b.white { "white" } else { "black" }, nuome::neuro::depth_for(&b));
+                    for (m, c) in rows.iter().take(5) {
+                        println!("  {:<6} {}", m.uci(), nuome::neuro::show_claim(*c));
                     }
-                    println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_proof(proof), t0.elapsed().as_secs_f64());
+                    println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_claim(claim), t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());

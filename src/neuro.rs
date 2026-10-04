@@ -762,3 +762,247 @@ pub fn show_proof(p: Proof) -> String {
         Proof::Unknown => "not proved: judged by the network".into(),
     }
 }
+
+
+// ── proofs over every reply: winning, equal, losing ──
+
+/// The horizon's verdict on a position, for the side to move, from the
+/// rules alone: the pieces' worth is their reach on an open board (a pawn a
+/// queen in waiting); ahead by at least a knight is winning, behind by that
+/// is losing, else equal. Mate and the draw rules decide before any horizon.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Class {
+    Winning,
+    Equal,
+    Losing,
+}
+
+fn material(b: &Board) -> i64 {
+    let worth = |p: i8, n: usize| match p.abs() {
+        1 => {
+            let steps = if p > 0 { 7 - (n / 8) as i64 } else { (n / 8) as i64 };
+            ((rule_mobility(5) * 256.0) as i64) >> steps.clamp(1, 6)
+        }
+        6 => 0,
+        t => (rule_mobility(t) * 256.0) as i64,
+    };
+    let mut v = 0;
+    for n in 0..64 {
+        let p = b.sq[n];
+        if p != 0 {
+            let w = worth(p, n);
+            v += if (p > 0) == b.white { w } else { -w };
+        }
+    }
+    v
+}
+
+pub fn horizon(b: &Board) -> Class {
+    let knight = (rule_mobility(2) * 256.0) as i64;
+    let m = material(b);
+    if m >= knight {
+        Class::Winning
+    } else if m <= -knight {
+        Class::Losing
+    } else {
+        Class::Equal
+    }
+}
+
+/// Plies the calculation goes by the pieces on the board: 10 with a full
+/// board, deeper as it empties (the exact tables take over at 3 pieces).
+pub fn depth_for(b: &Board) -> u32 {
+    match b.sq.iter().filter(|&&p| p != 0).count() {
+        0..=5 => 24,
+        6..=11 => 16,
+        12..=19 => 12,
+        _ => 10,
+    }
+}
+
+struct Prover {
+    nodes: u64,
+    budget: u64,
+    history: Vec<u64>,
+}
+
+impl Prover {
+    /// The rules' verdict on `b` if they give one now: mate (-), stalemate
+    /// / draw rules (0), a solved class (its sign), else None.
+    fn verdict(&self, b: &Board, ms: &[Mv]) -> Option<Class> {
+        if ms.is_empty() {
+            return Some(if b.in_check() { Class::Losing } else { Class::Equal });
+        }
+        if b.half >= 100 || b.insufficient() || self.history.iter().filter(|h| **h == b.hash()).count() >= 2 {
+            return Some(Class::Equal);
+        }
+        if let Some(t) = crate::retro::table(&crate::retro::pieces_of(b)) {
+            if let Some(i) = t.index(b) {
+                let v = t.val[i];
+                if v != crate::retro::UNSET && v != crate::retro::NONE {
+                    return Some(if v > 0 { Class::Winning } else if v < 0 { Class::Losing } else { Class::Equal });
+                }
+            }
+        }
+        None
+    }
+
+    /// Can the side to move reach at least `goal` whatever the other side
+    /// answers, within `depth` plies? A proof over every reply: some move
+    /// of ours after which every reply of theirs leaves us a move that
+    /// still reaches the goal. None when the budget ran out.
+    fn can_reach(&mut self, b: &Board, goal: Class, depth: u32) -> Option<bool> {
+        self.nodes += 1;
+        if self.nodes > self.budget {
+            return None;
+        }
+        let ms = b.moves();
+        if let Some(c) = self.verdict(b, &ms) {
+            return Some(at_least(c, goal));
+        }
+        if depth == 0 {
+            return Some(at_least(horizon(b), goal));
+        }
+        self.history.push(b.hash());
+        let mut undecided = false;
+        for m in ordered(b, ms) {
+            match self.holds_against_every_reply(&b.play(m), goal, depth - 1) {
+                Some(true) => {
+                    self.history.pop();
+                    return Some(true);
+                }
+                Some(false) => {}
+                None => undecided = true,
+            }
+        }
+        self.history.pop();
+        if undecided { None } else { Some(false) }
+    }
+
+    /// After our move: does every reply of theirs leave us able to reach the goal?
+    fn holds_against_every_reply(&mut self, b: &Board, goal: Class, depth: u32) -> Option<bool> {
+        self.nodes += 1;
+        if self.nodes > self.budget {
+            return None;
+        }
+        let ms = b.moves();
+        if let Some(c) = self.verdict(b, &ms) {
+            // their verdict, seen from us
+            return Some(at_least(opposite(c), goal));
+        }
+        if depth == 0 {
+            return Some(at_least(opposite(horizon(b)), goal));
+        }
+        self.history.push(b.hash());
+        let mut undecided = false;
+        for r in ordered(b, ms) {
+            match self.can_reach(&b.play(r), goal, depth - 1) {
+                Some(false) => {
+                    self.history.pop();
+                    return Some(false);
+                }
+                Some(true) => {}
+                None => undecided = true,
+            }
+        }
+        self.history.pop();
+        if undecided { None } else { Some(true) }
+    }
+}
+
+fn opposite(c: Class) -> Class {
+    match c {
+        Class::Winning => Class::Losing,
+        Class::Losing => Class::Winning,
+        Class::Equal => Class::Equal,
+    }
+}
+
+fn at_least(c: Class, goal: Class) -> bool {
+    let rank = |c: Class| match c {
+        Class::Winning => 2,
+        Class::Equal => 1,
+        Class::Losing => 0,
+    };
+    rank(c) >= rank(goal)
+}
+
+/// checks and captures first: proofs are found sooner
+fn ordered(b: &Board, ms: Vec<Mv>) -> Vec<Mv> {
+    let mut v: Vec<(i32, Mv)> = ms
+        .into_iter()
+        .map(|m| {
+            let a = b.play(m);
+            (-((a.in_check() as i32) * 2 + (b.sq[m.to as usize] != 0) as i32), m)
+        })
+        .collect();
+    v.sort_by_key(|x| x.0);
+    v.into_iter().map(|x| x.1).collect()
+}
+
+/// What is proved about a root move: the best class it reaches against
+/// every reply (Some), or nothing within the budget (None).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Claim {
+    Mate(u32),
+    Holds(Class),
+    Uncovered,
+    Mated(u32),
+}
+
+/// The supergenius decides the position: proven mates first (the exact
+/// calculation), then for every move the strongest class it holds against
+/// every reply to the depth the pieces allow; ties by the rules' order.
+pub fn decide(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim, Vec<(Mv, Claim)>, u64)> {
+    let (_, _, rows, nodes) = supergenius(b, history, budget / 4)?;
+    let depth = depth_for(b);
+    let mut p = Prover { nodes: 0, budget: budget - budget / 4, history: history.to_vec() };
+    p.history.push(b.hash());
+    let mut out: Vec<(Mv, Claim)> = Vec::new();
+    for (m, proof, _) in &rows {
+        let claim = match proof {
+            Proof::Win(n) => Claim::Mate(*n),
+            Proof::Loss(n) => Claim::Mated(*n),
+            Proof::Draw => Claim::Holds(Class::Equal),
+            Proof::Unknown => {
+                let a = b.play(*m);
+                let mut best = Claim::Uncovered;
+                for goal in [Class::Winning, Class::Equal, Class::Losing] {
+                    match p.holds_against_every_reply(&a, goal, depth - 1) {
+                        Some(true) => {
+                            best = Claim::Holds(goal);
+                            break;
+                        }
+                        Some(false) => continue,
+                        None => break,
+                    }
+                }
+                best
+            }
+        };
+        out.push((*m, claim));
+    }
+    let rank = |c: Claim| match c {
+        Claim::Mate(n) => (6i64, -(n as i64)),
+        Claim::Holds(Class::Winning) => (5, 0),
+        Claim::Holds(Class::Equal) => (4, 0),
+        Claim::Uncovered => (3, 0),
+        Claim::Holds(Class::Losing) => (2, 0),
+        Claim::Mated(n) => (1, n as i64),
+    };
+    // stable: the rules' order breaks ties
+    out.sort_by(|x, y| rank(y.1).cmp(&rank(x.1)));
+    let nodes = nodes + p.nodes;
+    Some((out[0].0, out[0].1, out, nodes))
+}
+
+pub fn show_claim(c: Claim) -> String {
+    match c {
+        Claim::Mate(n) => format!("proved: mate in {}", (n + 1) / 2),
+        Claim::Mated(n) => format!("proved: mated in {}", (n + 1) / 2),
+        Claim::Holds(Class::Winning) => "proved winning against every reply".into(),
+        Claim::Holds(Class::Equal) => "proved at least equal against every reply".into(),
+        Claim::Holds(Class::Losing) => "losing: some reply wins against every continuation".into(),
+        Claim::Uncovered => "not covered within the budget".into(),
+    }
+}
