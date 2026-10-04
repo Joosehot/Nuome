@@ -206,23 +206,16 @@ fn main() -> Result<()> {
             let fen = if depth.is_some() { cli.words[..cli.words.len() - 1].join(" ") } else { text.clone() };
             let fen = if fen.trim().is_empty() || fen.trim() == "startpos" { nuome::golden::Board::start().fen() } else { fen };
             let b = nuome::golden::Board::from_fen(fen.trim()).map_err(|e| anyhow::anyhow!(e))?;
-            let (formula, _) = nuome::supergenius_golden::function_for(&b);
-            let from = "written by the supergenius for this position";
+            // FEN -> NEURO (the position as a network, by the rules) -> GOLDEN (the move that leaves the best network)
             let t0 = std::time::Instant::now();
-            match nuome::golden::golden(&b, &[], &formula).map(|mut a| {
-                if let Some(mv) = nuome::golden_terms::best_move(&b, &[]) {
-                    a.mv = mv;
-                }
-                a
-            }) {
+            match nuome::neuro::golden(&b, &[]) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some(a) => {
-                    println!("the golden function on {} ({} to move):", b.fen(), if b.white { "white" } else { "black" });
-                    println!("formula ({from}): {}", formula.show());
-                    for (m, v) in a.ranked.iter().take(5) {
-                        println!("  {:<6} {:>14}", m.uci(), nuome::golden::show_value(*v));
+                Some((mv, v, ranked)) => {
+                    println!("the golden function on {} ({} to move): NEURO writes the network, GOLDEN solves it", b.fen(), if b.white { "white" } else { "black" });
+                    for (m, val) in ranked.iter().take(5) {
+                        println!("  {:<6} {:>14}", m.uci(), val);
                     }
-                    println!("move: {} ({}, {:.3} s)", a.mv.uci(), nuome::golden::show_value(a.value), t0.elapsed().as_secs_f64());
+                    println!("move: {} ({v}, {:.3} s)", mv.uci(), t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());
@@ -249,6 +242,11 @@ fn main() -> Result<()> {
             let t0 = std::time::Instant::now();
             nuome::golden_terms::selfplay(rounds, games, 2026, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
             println!("({:.0} s)", t0.elapsed().as_secs_f64());
+            return Ok(());
+        }
+        if which == "neuro" {
+            // neuro "<fen>": the position written as a network, its numbers, and GOLDEN's move
+            println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
         if which == "golden-whole" {

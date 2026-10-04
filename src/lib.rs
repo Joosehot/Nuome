@@ -23,6 +23,7 @@ pub mod explain;
 pub mod expr;
 pub mod goldbach;
 pub mod golden;
+pub mod neuro;
 pub mod golden_terms;
 pub mod chess_network;
 pub mod chess_rules_data;

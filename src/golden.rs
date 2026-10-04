@@ -607,6 +607,79 @@ pub fn reach(b: &Board, s: usize) -> usize {
     n
 }
 
+/// The nodes the one piece on `n` strikes (its edges under the rules): pawns
+/// diagonally forward, sliders until the first piece, that piece's node included.
+pub fn strikes_of(b: &Board, n: usize) -> u64 {
+    let p = b.sq[n];
+    if p == 0 {
+        return 0;
+    }
+    let (f, r) = (file(n as i32), rank(n as i32));
+    let mut out = 0u64;
+    let mut hit = |t: i32| out |= 1 << t;
+    match p.abs() {
+        1 => {
+            let dr = if p > 0 { 1 } else { -1 };
+            for df in [-1, 1] {
+                if let Some(t) = on(f + df, r + dr) {
+                    hit(t);
+                }
+            }
+        }
+        2 | 6 => {
+            for (df, dr) in if p.abs() == 2 { KNIGHT } else { KING } {
+                if let Some(t) = on(f + df, r + dr) {
+                    hit(t);
+                }
+            }
+        }
+        k => {
+            let dirs: Vec<(i32, i32)> = match k {
+                3 => BISHOP.to_vec(),
+                4 => ROOK.to_vec(),
+                _ => ROOK.iter().chain(BISHOP.iter()).copied().collect(),
+            };
+            for (df, dr) in dirs {
+                let (mut x, mut y) = (f + df, r + dr);
+                while let Some(t) = on(x, y) {
+                    hit(t);
+                    if b.sq[t as usize] != 0 {
+                        break;
+                    }
+                    x += df;
+                    y += dr;
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The nodes the pawn on `n` may step to (one, or two from its start), empty only.
+pub fn pawn_pushes(b: &Board, n: usize) -> u64 {
+    let p = b.sq[n];
+    if p.abs() != 1 {
+        return 0;
+    }
+    let (f, r) = (file(n as i32), rank(n as i32));
+    let dr = if p > 0 { 1 } else { -1 };
+    let start = if p > 0 { 1 } else { 6 };
+    let mut out = 0u64;
+    if let Some(t) = on(f, r + dr) {
+        if b.sq[t as usize] == 0 {
+            out |= 1 << t;
+            if r == start {
+                if let Some(t2) = on(f, r + 2 * dr) {
+                    if b.sq[t2 as usize] == 0 {
+                        out |= 1 << t2;
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 /// The pawn on `s` has a clear path: no piece on any node ahead of it on its file.
 fn clear_path(b: &Board, s: usize, white: bool) -> bool {
     let (f, r) = (s % 8, s / 8);
