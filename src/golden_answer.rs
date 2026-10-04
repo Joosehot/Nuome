@@ -361,6 +361,8 @@ pub enum Task {
     /// an exact calculation read from written mathematics (LaTeX): a value,
     /// a remainder, a units digit, gcd, lcm, an inverse mod m, a base
     Exact(crate::golden_exact::Q),
+    /// a graph whose adjacent pairs have λ and non-adjacent pairs μ common neighbours (Conway's 99-graph kind)
+    Graph(crate::golden_graph::GraphQ),
     /// handed to Nuome's worked-solution engine
     Algebra,
     Unknown,
@@ -402,6 +404,9 @@ fn frame(t: &str, prefixes: &[&str], suffixes: &[&str]) -> Option<Num> {
 /// question it cannot read whole is Unknown (or Nuome's algebra), so an
 /// answer that claims to be right never answers a question it misread.
 pub fn task_of(q: &str) -> Task {
+    if let Some(g) = crate::golden_graph::read(q) {
+        return Task::Graph(g);
+    }
     if let Some(x) = crate::golden_exact::read(q) {
         return Task::Exact(x);
     }
@@ -798,6 +803,32 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
     match task.clone() {
         Task::Property(n, p) => property(a, &n, p),
         Task::Arithmetic(e) => arithmetic(a, &e),
+        Task::Graph(g) => {
+            use crate::golden_graph::{answer as graph_answer, Kind3};
+            let k3 = match a.kind {
+                Kind::Logical => Kind3::Logical,
+                Kind::Theoretical => Kind3::Theoretical,
+                Kind::Abstract => Kind3::Abstract,
+            };
+            match graph_answer(k3, &g) {
+                None => a.none(match kind {
+                    Kind::Logical if g.mu < 2 && g.k.is_none() => "with μ < 2 the graph need not be regular, and this derivation needs regularity".to_string(),
+                    Kind::Logical => format!("the counting allows these parameters, and no construction known to Golden Answer builds a graph on {} vertices with them; existence is not decided from the question alone", g.v),
+                    Kind::Theoretical => "the parameters pass the known necessary conditions, and the table of known results does not decide them".to_string(),
+                    Kind::Abstract => String::new(),
+                }),
+                Some((short, lines, sources)) => {
+                    let mut a = a.says(short);
+                    for l in lines {
+                        a = a.line(l);
+                    }
+                    for s in sources {
+                        a = a.source(s);
+                    }
+                    a
+                }
+            }
+        }
         Task::Exact(x) => match (a.kind, crate::golden_exact::solve(&x)) {
             (Kind::Theoretical, _) => a.none("a direct calculation, not a known result; ask logical"),
             (_, None) => a.none("the value is not an exact fraction, or too large to write"),
@@ -1696,6 +1727,13 @@ pub const BENCH: &[(&str, &str, &str)] = &[
     ("properties", "is 832040 a fibonacci number", "yes"),
     ("arithmetic", "what is 2^10 + 3 * 7", "1045"),
     ("arithmetic", "what is (17 - 5) / 4", "3"),
+    ("graphs", "make a graph on 944 vertices in which every two adjacent vertices have exactly one common neighbour and every two non-adjacent vertices have exactly two", "no such graph exists"),
+    ("graphs", "tee 944 pisteinen suljettu verkko conwayn tapaan", "no such graph exists"),
+    ("graphs", "is there a graph on 9 vertices in which every two adjacent vertices have exactly one common neighbour and every two non-adjacent vertices have exactly two", "yes"),
+    ("graphs", "is there a graph on 99 vertices in which every two adjacent vertices have exactly one common neighbour and every two non-adjacent vertices have exactly two", "open"),
+    ("graphs", "is there a graph on 243 vertices in which every two adjacent vertices have exactly one common neighbour and every two non-adjacent vertices have exactly two", "yes"),
+    ("graphs", "is there a strongly regular graph srg(10,3,0,1)", "yes"),
+    ("graphs", "is there a strongly regular graph srg(19,6,1,2)", "no"),
     ("algebra", "solve 2x + 3 = 7", "x = 2"),
     ("algebra", "solve x^2 - 5x + 6 = 0", "x = 2 or x = 3"),
 ];
