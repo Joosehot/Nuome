@@ -443,7 +443,7 @@ impl Board {
 // ── atoms: numbers the rules define about a position ──
 
 /// The atoms' names, in order; "my" is the side to move.
-pub const ATOMS: [&str; 25] = [
+pub const ATOMS: [&str; 29] = [
     "my_moves",
     "their_moves",
     "in_check",
@@ -469,6 +469,10 @@ pub const ATOMS: [&str; 25] = [
     "my_best_capture",
     "my_nodes",
     "their_nodes",
+    "my_unstoppable",
+    "their_unstoppable",
+    "my_key_squares",
+    "their_key_squares",
 ];
 const N_ATOMS: usize = ATOMS.len();
 
@@ -557,6 +561,58 @@ pub fn attack_edges(b: &Board) -> [[u8; 64]; 2] {
     e
 }
 
+/// The edges of the one piece on node `s` in this network (its reach now).
+pub fn reach(b: &Board, s: usize) -> usize {
+    let p = b.sq[s];
+    if p == 0 {
+        return 0;
+    }
+    let t = b;
+    let (f, r) = (file(s as i32), rank(s as i32));
+    let mut n = 0;
+    match p.abs() {
+        1 => {
+            let dr = if p > 0 { 1 } else { -1 };
+            n += [-1, 1].iter().filter(|&&df| on(f + df, r + dr).is_some()).count();
+            if on(f, r + dr).is_some_and(|x| t.sq[x as usize] == 0) {
+                n += 1;
+            }
+        }
+        2 | 6 => {
+            for (df, dr) in if p.abs() == 2 { KNIGHT } else { KING } {
+                if on(f + df, r + dr).is_some() {
+                    n += 1;
+                }
+            }
+        }
+        k => {
+            let dirs: Vec<(i32, i32)> = match k {
+                3 => BISHOP.to_vec(),
+                4 => ROOK.to_vec(),
+                _ => ROOK.iter().chain(BISHOP.iter()).copied().collect(),
+            };
+            for (df, dr) in dirs {
+                let (mut x, mut y) = (f + df, r + dr);
+                while let Some(q) = on(x, y) {
+                    n += 1;
+                    if t.sq[q as usize] != 0 {
+                        break;
+                    }
+                    x += df;
+                    y += dr;
+                }
+            }
+        }
+    }
+    n
+}
+
+/// The pawn on `s` has a clear path: no piece on any node ahead of it on its file.
+fn clear_path(b: &Board, s: usize, white: bool) -> bool {
+    let (f, r) = (s % 8, s / 8);
+    if white { (r + 1..8).all(|y| b.sq[y * 8 + f] == 0) } else { (0..r).all(|y| b.sq[y * 8 + f] == 0) }
+}
+
 /// Steps a pawn on square `s` still needs to become a queen.
 fn steps_left(s: usize, white: bool) -> i64 {
     if white { 7 - (s / 8) as i64 } else { (s / 8) as i64 }
@@ -615,8 +671,8 @@ pub fn atoms(b: &Board, ms: &[Mv], mask: u32) -> [i64; N_ATOMS] {
     if want(20) || want(21) {
         for (sq, &p) in b.sq.iter().enumerate() {
             if p.abs() == 1 {
-                // 2^(6 - steps left): 32 one step from queening, 1 at the start
-                let w = 1i64 << (6 - steps_left(sq, p > 0).clamp(1, 6));
+                // 2^(6 - steps left): 32 one step from queening, 1 at the start; a blocked path counts 1
+                let w = if clear_path(b, sq, p > 0) { 1i64 << (6 - steps_left(sq, p > 0).clamp(1, 6)) } else { 1 };
                 a[if mine(p) { 20 } else { 21 }] += w;
             }
         }
@@ -639,6 +695,39 @@ pub fn atoms(b: &Board, ms: &[Mv], mask: u32) -> [i64; N_ATOMS] {
         let (me, them) = if b.white { (0, 1) } else { (1, 0) };
         a[23] = (0..64).filter(|&s| e[me][s] > e[them][s]).count() as i64;
         a[24] = (0..64).filter(|&s| e[them][s] > e[me][s]).count() as i64;
+    }
+    if want(25) || want(26) || want(27) || want(28) {
+        let cheb = |x: usize, y: usize| ((x % 8) as i64 - (y % 8) as i64).abs().max(((x / 8) as i64 - (y / 8) as i64).abs());
+        for (sq, &p) in b.sq.iter().enumerate() {
+            if p.abs() != 1 {
+                continue;
+            }
+            let white = p > 0;
+            let ours = mine(p);
+            let enemy_king = b.king(!white);
+            let own_king = b.king(white);
+            if enemy_king < 0 || own_king < 0 {
+                continue;
+            }
+            // the race: the pawn's path is clear and the enemy king cannot reach the queening node in time
+            // (the side to move gains a tempo)
+            let steps = steps_left(sq, white) - if (white && sq / 8 == 1) || (!white && sq / 8 == 6) { 1 } else { 0 };
+            let queen_node = if white { 56 + sq % 8 } else { sq % 8 };
+            let d = cheb(enemy_king as usize, queen_node);
+            let tempo = if ours { 0 } else { 1 };
+            if clear_path(b, sq, white) && d - tempo > steps {
+                a[if ours { 25 } else { 26 }] += 1;
+            }
+            // key nodes in front of the pawn: the own king standing there escorts it home
+            let (f, r) = ((sq % 8) as i32, (sq / 8) as i32);
+            let rel = if white { r } else { 7 - r };
+            let fwd = if white { 1 } else { -1 };
+            let rows: Vec<i32> = if rel <= 3 { vec![2] } else { vec![1, 2] };
+            let on_key = rows.iter().any(|&k| (f - 1..=f + 1).filter_map(|x| on(x, r + fwd * k)).any(|t| t == own_king));
+            if on_key {
+                a[if ours { 27 } else { 28 }] += 1;
+            }
+        }
     }
     a
 }
@@ -897,6 +986,8 @@ pub fn show_value(v: i64) -> String {
 /// Who moves: the golden function with a formula, or a random legal mover (seeded).
 pub enum Player<'a> {
     Golden(&'a F),
+    /// the supergenius writes a new formula for every position
+    Supergenius,
     Random(u64),
 }
 
@@ -953,12 +1044,19 @@ pub fn play_game(white: &Player, black: &Player, opening: &[&str], max_plies: us
         let side = if b.white { 0 } else { 1 };
         let m = match if b.white { white } else { black } {
             Player::Golden(f) => golden(&b, &history, f).expect("a legal move").mv,
+            Player::Supergenius => golden(&b, &history, &crate::supergenius_golden::function_for(&b).0).expect("a legal move").mv,
             Player::Random(_) => ms[rngs[side].below(ms.len())],
         };
         history.push(b.hash());
         b = b.play(m);
         moves.push(m.uci());
     }
+}
+
+/// A game of the supergenius's golden functions against themselves; (moves, result, how).
+pub fn self_play_supergenius(opening: &[&str], max_plies: usize) -> (Vec<String>, String, String) {
+    let g = play_game(&Player::Supergenius, &Player::Supergenius, opening, max_plies);
+    (g.moves, g.result, g.how)
 }
 
 /// A game of the golden function against itself; (moves, result, how).

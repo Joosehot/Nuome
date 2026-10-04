@@ -206,7 +206,8 @@ fn main() -> Result<()> {
             let fen = if depth.is_some() { cli.words[..cli.words.len() - 1].join(" ") } else { text.clone() };
             let fen = if fen.trim().is_empty() || fen.trim() == "startpos" { nuome::golden::Board::start().fen() } else { fen };
             let b = nuome::golden::Board::from_fen(fen.trim()).map_err(|e| anyhow::anyhow!(e))?;
-            let (formula, from) = nuome::golden::load_formula("out/golden/formula.txt");
+            let (formula, _) = nuome::supergenius_golden::function_for(&b);
+            let from = "written by the supergenius for this position";
             let t0 = std::time::Instant::now();
             match nuome::golden::golden(&b, &[], &formula) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
@@ -221,6 +222,16 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "chess-rules-data" {
+            // chess-rules-data COUNT FILE [SEED]: random legal positions with the rules' exact answers (for Neuras)
+            let count = cli.words.first().and_then(|w| w.replace('_', "").parse().ok()).unwrap_or(100_000);
+            let path = cli.words.get(1).cloned().unwrap_or_else(|| "out/golden/rules_train.bin".into());
+            let seed = cli.words.get(2).and_then(|w| w.parse().ok()).unwrap_or(1);
+            let _ = std::fs::create_dir_all("out/golden");
+            let t0 = std::time::Instant::now();
+            println!("{} ({:.1} s)", nuome::chess_rules_data::write(&path, count, seed).map_err(|e| anyhow::anyhow!(e))?, t0.elapsed().as_secs_f64());
+            return Ok(());
+        }
         if which == "chess-network" {
             // chess-network [fool|scholar|legal|opera|all]: how chess works as a 64-node network, and famous games laid into it
             println!("{}", nuome::chess_network::report(cli.words.first().map(|s| s.as_str()).unwrap_or("all")).map_err(|e| anyhow::anyhow!(e))?);
@@ -229,7 +240,7 @@ fn main() -> Result<()> {
         if which == "supergenius-golden" {
             // supergenius-golden: the supergenius writes the golden function from the rules of chess (no evolution)
             let _ = std::fs::create_dir_all("out/golden");
-            println!("{}", nuome::supergenius_golden::report().map_err(|e| anyhow::anyhow!(e))?);
+            println!("{}", nuome::supergenius_golden::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
         if which == "golden-play" {
@@ -238,15 +249,13 @@ fn main() -> Result<()> {
             let games = n.first().copied().unwrap_or(8);
             let openings = nuome::golden::OPENINGS;
             let _ = std::fs::create_dir_all("out/golden");
-            let (formula, from) = nuome::golden::load_formula("out/golden/formula.txt");
-            println!("formula ({from}): {}", formula.show());
-            let formula = &formula;
+            println!("the supergenius writes a new golden function for every position");
             let results: Vec<(usize, Vec<String>, String, String, f64)> = std::thread::scope(|sc| {
                 let hs: Vec<_> = (0..games).map(|g| {
                     let op = openings[g % openings.len()];
                     sc.spawn(move || {
                         let t0 = std::time::Instant::now();
-                        let (moves, result, how) = nuome::golden::self_play(op, 300, formula);
+                        let (moves, result, how) = nuome::golden::self_play_supergenius(op, 300);
                         (g, moves, result, how, t0.elapsed().as_secs_f64())
                     })
                 }).collect();

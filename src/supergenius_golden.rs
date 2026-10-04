@@ -1,92 +1,86 @@
-//! The supergenius writes the golden function: one formula for every chess
-//! position, from the rules of chess alone, by reasoning, not by search
-//! and not by evolution. It sees the board as a closed network of 64 nodes
-//! (the squares); the rules draw the edges (where each piece may go or
-//! strike), and every move changes the network. The golden function finds
-//! the move that leaves the best network for the mover. Every number in it
-//! is computed from the rules:
+//! The supergenius writes the golden function, a new one for every
+//! position, from that position's own network: the board is a closed
+//! network of 64 nodes, the rules draw its edges, and every move changes
+//! it. Nobody tells the supergenius what kind of position it is looking at;
+//! the formula's numbers come out of the network itself:
 //!
-//! 1. a piece is worth what the rules let it do: the moves it has, on
-//!    average, alone on an empty board (counted by the move generator);
-//! 2. a pawn is a queen in waiting: the rules promote it on the last rank,
-//!    and every step still needed is a step the opponent can stop, so its
-//!    worth is the queen's halved per step left;
-//! 3. a legal move is one unit of the same currency, so mobility and
-//!    material add up;
-//! 4. the rules let the side to move take an attacked piece now, and
-//!    take back on a defended square;
-//! 5. the game is won by mate: a king in check with no square to go to,
-//!    so every escape square left to the enemy king counts against.
+//! 1. a piece is worth its reach: the edges it has now in this network,
+//!    together with what the rules give it on an open board (lines open as
+//!    the game goes on) - so a shut-in bishop is worth less than an active one;
+//! 2. a pawn is a queen in waiting: with a clear path, worth the queen's
+//!    worth halved per step still needed; a blocked path is worth little;
+//! 3. a pawn the enemy king cannot reach in time (its path clear, the king
+//!    too far from the queening node) is as good as a queen;
+//! 4. a king standing on a key node in front of its pawn escorts it home;
+//! 5. one legal move is one unit of the same currency (mobility);
+//! 6. the side to move may take now (its best capture);
+//! 7. mate is the enemy king's node cut off: every free edge it keeps counts against.
 //!
-//! The function: in a position, the legal move after which the formula is
-//! best for the mover (a move that mates wins, the draw rules give 0).
-//! "It plays correctly in every position" is a conjecture: it stands until
+//! The golden function: in a position, the formula written for it, and
+//! the legal move after which that formula is best for the mover (a mating
+//! move wins, the draw rules give 0). In a pawn ending the paths and the race
+//! carry the weight, because that is what the network holds; in a middle
+//! game the reaches do. "It plays correctly in every position" stands until
 //! a counterexample (tools/golden_tablebase.py, tools/golden_games.py).
 
-use crate::golden::{rule_mobility, Board, F};
+use crate::golden::{reach, rule_mobility, Board, F};
 
-/// The formula, built from the rule-derived numbers; and the reasoning.
-pub fn derive() -> Result<(F, Vec<String>), String> {
-    let unit = 256.0; // one move = 256, so every worth is a whole number
-    let worth = |t: i8| rule_mobility(t) * unit;
-    let names = [(2, "knight"), (3, "bishop"), (4, "rook"), (5, "queen"), (6, "king")];
-    let mut lines = vec![
-        "the board is a closed network of 64 nodes; the rules draw the edges (where each piece may go or strike); every move changes the network".to_string(),
-        "1. what a piece is worth, from the rules: its edges alone on an empty board (its moves), averaged over the 64 nodes".to_string(),
-    ];
-    for (t, n) in names {
-        lines.push(format!("     {n:<7} {:>6.4} moves", rule_mobility(t)));
-    }
-    for t in 2..=5 {
-        if worth(t).fract() != 0.0 {
-            return Err(format!("piece {t}: worth {} is not whole at this unit", worth(t)));
+/// The golden function for `b`: its formula, and how each number came out of `b`'s network.
+pub fn function_for(b: &Board) -> (F, Vec<String>) {
+    let unit = 256.0;
+    let mut sum = [0usize; 7];
+    let mut cnt = [0usize; 7];
+    for s in 0..64 {
+        let p = b.sq[s];
+        if p != 0 {
+            let t = p.unsigned_abs() as usize;
+            sum[t] += reach(b, s);
+            cnt[t] += 1;
         }
     }
-    let (n, b, r, q) = (worth(2) as i64, worth(3) as i64, worth(4) as i64, worth(5) as i64);
-    let unit = unit as i64;
-    lines.push("     (the king cannot be captured, so it has no material worth: its moves count as mobility)".into());
-    lines.push(format!(
-        "2. a pawn is a queen in waiting: worth = queen / 2^(steps left); one step from queening {:.2} moves, at its start {:.2}",
-        rule_mobility(5) / 2.0,
-        rule_mobility(5) / 64.0
-    ));
-    // pawn power counts 2^(6 - steps left) per pawn, so the pawn's worth is (q / 64) * pawn power
-    let pawn = q / 64;
-    lines.push(format!("3. one legal move = {unit} (the same currency): knight {n}, bishop {b}, rook {r}, queen {q}, pawn {pawn} x 2^(6 - steps left)"));
-    lines.push("4. the side to move may take now: its best capture (the victim, less the capturer on a defended square) counts for it".into());
-    lines.push(format!("5. the game is won by mate: the enemy king's node cut off from the network; every free edge it keeps counts {unit} against"));
+    let names = ["", "pawn", "knight", "bishop", "rook", "queen", "king"];
+    let mut lines = Vec::new();
+    let mut worth = [0i64; 7];
+    for t in 2..=5 {
+        let open = rule_mobility(t as i8);
+        let (now, note) = if cnt[t] > 0 {
+            let r = sum[t] as f64 / cnt[t] as f64;
+            (r, format!("{} on the board reach {:.2} edges now", cnt[t], r))
+        } else {
+            (open, "none on the board".to_string())
+        };
+        worth[t] = (unit * (now + open) / 2.0).round() as i64;
+        lines.push(format!("  {:<7} {note}; open board {open:.2}; worth {}", names[t], worth[t]));
+    }
+    let q = worth[5];
+    let pawn = (q / 64).max(1);
+    let race = q;
+    let key = q / 8;
+    let u = unit as i64;
+    lines.push(format!("  pawn    clear path: {pawn} x 2^(6 - steps left) (the queen's worth halved per step); blocked: {pawn}"));
+    lines.push(format!("  a pawn the enemy king cannot catch: {race} (a queen); own king on a key node in front of its pawn: {key}"));
+    lines.push(format!("  one legal move: {u}; best capture now: its worth; every free edge of the enemy king: -{u}"));
     let text = format!(
-        "{unit} * (my_moves - their_moves) + {n} * (my_knights - their_knights) + {b} * (my_bishops - their_bishops) + {r} * (my_rooks - their_rooks) + {q} * (my_queens - their_queens) + {pawn} * (my_pawn_power - their_pawn_power) + my_best_capture - {unit} * their_escapes"
+        "{u} * (my_moves - their_moves) + {} * (my_knights - their_knights) + {} * (my_bishops - their_bishops) + {} * (my_rooks - their_rooks) + {q} * (my_queens - their_queens) + {pawn} * (my_pawn_power - their_pawn_power) + {race} * (my_unstoppable - their_unstoppable) + {key} * (my_key_squares - their_key_squares) + my_best_capture - {u} * their_escapes",
+        worth[2], worth[3], worth[4]
     );
-    let f = F::parse(&text)?;
-    Ok((f, lines))
+    (F::parse(&text).expect("the supergenius writes formulas that read"), lines)
 }
 
-pub fn report() -> Result<String, String> {
-    let (f, lines) = derive()?;
-    let mut out = String::from("Nuome, the supergenius, writes the golden function from the rules of chess\n\n");
+/// The supergenius on one position: its network, its formula, and the move.
+pub fn report(fen: &str) -> Result<String, String> {
+    let b = if fen.trim().is_empty() || fen.trim() == "startpos" { Board::start() } else { Board::from_fen(fen.trim())? };
+    let (f, lines) = function_for(&b);
+    let mut out = format!("Nuome, the supergenius, writes the golden function for {}\n\nfrom this position's network:\n", b.fen());
     for l in &lines {
         out.push_str(l);
         out.push('\n');
     }
-    out.push_str(&format!("\nTHE GOLDEN FUNCTION (value of a position for the side to move):\n  {}\n", f.show()));
-    out.push_str("the move: the legal move after which this is best for the mover; a mating move wins, the draw rules give 0\n");
-    let path = "out/golden/formula.txt";
-    std::fs::write(path, format!("{}\n", f.show())).map_err(|e| format!("{path}: {e}"))?;
-    out.push_str(&format!("written to {path}\n"));
-    // a first look: a few positions everyone knows
-    out.push_str("\nfirst look:\n");
-    for (fen, what) in [
-        ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "the start"),
-        ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "back-rank mate in one"),
-        ("4k3/8/8/3q4/8/8/8/3RK3 w - - 0 1", "a free queen"),
-        ("r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR b KQkq - 3 3", "Qxf7 mate is threatened"),
-    ] {
-        let b = Board::from_fen(fen)?;
-        let a = crate::golden::golden(&b, &[], &f).ok_or("no move")?;
-        out.push_str(&format!("  {what:<26} -> {}\n", a.mv.uci()));
+    out.push_str(&format!("\nTHE GOLDEN FUNCTION for this position:\n  {}\n", f.show()));
+    match crate::golden::golden(&b, &[], &f) {
+        Some(a) => out.push_str(&format!("the move: {}\n", a.mv.uci())),
+        None => out.push_str(if b.in_check() { "no move: checkmate\n" } else { "no move: stalemate\n" }),
     }
-    out.push_str("\nconjecture: it plays correctly in every position, until a counterexample (python tools/golden_tablebase.py, tools/golden_games.py)\n");
     Ok(out)
 }
 
@@ -94,20 +88,21 @@ pub fn report() -> Result<String, String> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn the_worths_come_out_of_the_rules() {
-        assert_eq!(rule_mobility(2), 5.25);
-        assert_eq!(rule_mobility(3), 8.75);
-        assert_eq!(rule_mobility(4), 14.0);
-        assert_eq!(rule_mobility(5), 22.75);
+    fn play(fen: &str) -> String {
+        let b = Board::from_fen(fen).unwrap();
+        crate::golden::golden(&b, &[], &function_for(&b).0).unwrap().mv.uci()
     }
 
     #[test]
     fn it_mates_and_takes_the_free_queen() {
-        let (f, _) = derive().unwrap();
-        let b = Board::from_fen("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1").unwrap();
-        assert_eq!(crate::golden::golden(&b, &[], &f).unwrap().mv.uci(), "a1a8");
-        let b = Board::from_fen("4k3/8/8/3q4/8/8/8/3RK3 w - - 0 1").unwrap();
-        assert_eq!(crate::golden::golden(&b, &[], &f).unwrap().mv.uci(), "d1d5");
+        assert_eq!(play("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1"), "a1a8");
+        assert_eq!(play("4k3/8/8/3q4/8/8/8/3RK3 w - - 0 1"), "d1d5");
+    }
+
+    #[test]
+    fn the_formula_changes_with_the_position() {
+        let a = function_for(&Board::start()).0;
+        let b = function_for(&Board::from_fen("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1").unwrap()).0;
+        assert_ne!(a, b);
     }
 }

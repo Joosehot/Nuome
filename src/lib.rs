@@ -24,6 +24,7 @@ pub mod expr;
 pub mod goldbach;
 pub mod golden;
 pub mod chess_network;
+pub mod chess_rules_data;
 pub mod general;
 pub mod goldbach_fi;
 pub mod hodge;
