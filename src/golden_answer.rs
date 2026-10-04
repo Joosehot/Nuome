@@ -484,73 +484,6 @@ pub fn task_of(q: &str) -> Task {
     Task::Unknown
 }
 
-/// The question read loosely, by its key words and its first number: only
-/// for abstract answers, which say they read it so.
-fn task_loose(q: &str) -> Task {
-    let l = q.to_lowercase();
-    let n = number_in(&l);
-    let has = |w: &str| l.contains(w);
-    if has("riemann") {
-        return Task::Statement(Statement::Riemann);
-    }
-    if has("twin prime") {
-        return Task::Statement(Statement::TwinPrimes);
-    }
-    if has("four colo") {
-        return Task::Statement(Statement::FourColour);
-    }
-    if has("catalan") || has("consecutive powers") || has("consecutive perfect powers") {
-        return Task::Statement(Statement::Catalan);
-    }
-    if has("fermat's last") || has("fermats last") || has("x^n + y^n") || has("a^n + b^n") {
-        return Task::Statement(Statement::FermatLast);
-    }
-    if has("infinitely many primes") {
-        return Task::Statement(Statement::InfinitelyManyPrimes);
-    }
-    if has("collatz") || has("3n + 1") || has("3n+1") {
-        return match n {
-            Some(n) if !has("every") && !has("all ") => Task::Collatz(n),
-            _ => Task::Statement(Statement::Collatz),
-        };
-    }
-    if has("sum of two primes") || has("goldbach") {
-        return match n {
-            Some(n) if !has("every") && !has("all ") => Task::Goldbach(n),
-            _ => Task::Statement(Statement::Goldbach),
-        };
-    }
-    if has("sum of two squares") {
-        return n.map_or(Task::Unknown, Task::TwoSquares);
-    }
-    if has("sum of four squares") {
-        return n.map_or(Task::Unknown, Task::FourSquares);
-    }
-    if let Some(e) = arithmetic_of(&l) {
-        return Task::Arithmetic(e);
-    }
-    if let (Some(n), Some(p)) = (n.clone(), prop_of(&l)) {
-        if !l.contains('=') {
-            return Task::Property(n, p);
-        }
-    }
-    let algebra = l.contains('=') || ["solve", "differentiate", "derivative", "integrate", "simplify", "expand", "evaluate", "calculate"].iter().any(|w| has(w));
-    if (has("how many primes") || has("number of primes") || has("count the primes") || has("primes below") || has("primes up to") || has("primes less than")) && n.is_some() {
-        let below = has("below") || has("less than") || has("under");
-        return Task::PrimeCount(n.unwrap(), below);
-    }
-    if (has("factor") || has("divisors")) && !algebra && n.is_some() && !l.chars().any(|c| c == 'x' || c == 'y') {
-        return Task::Factor(n.unwrap());
-    }
-    if has("prime") && n.is_some() && !algebra {
-        return Task::IsPrime(n.unwrap());
-    }
-    if algebra || has("factor") {
-        return Task::Algebra;
-    }
-    Task::Unknown
-}
-
 // ───────────────────────── arithmetic ─────────────────────────
 
 fn mulmod(a: u64, b: u64, m: u64) -> u64 {
@@ -851,39 +784,13 @@ fn form_divisor(b: u64, e: u64, c: i64, limit: usize) -> Option<u64> {
 // ───────────────────────── answering ─────────────────────────
 
 pub fn answer(kind: Kind, question: &str) -> Answer {
-    let mut task = task_of(question);
-    let mut loose = false;
-    if kind == Kind::Abstract && matches!(task, Task::Unknown) {
-        task = task_loose(question);
-        loose = !matches!(task, Task::Unknown);
-    }
-    let mut a = answer_task(kind, question, &task);
+    let task = task_of(question);
+    let a = answer_task(kind, question, &task);
     if kind == Kind::Abstract && a.short.is_none() {
         // an abstract answer always answers: a guess with its reasons
-        a = guess(Answer::new(kind, question), question, &task);
-    }
-    if loose {
-        a.lines.insert(0, format!("the question could not be read whole; read loosely as: {}", describe(&task)));
+        return guess(Answer::new(kind, question), question, &task);
     }
     a
-}
-
-fn describe(t: &Task) -> String {
-    match t {
-        Task::IsPrime(n) => format!("is {} prime", n.text),
-        Task::Factor(n) => format!("factor {}", n.text),
-        Task::PrimeCount(n, _) => format!("how many primes up to {}", n.text),
-        Task::Goldbach(n) => format!("is {} a sum of two primes", n.text),
-        Task::TwoSquares(n) => format!("is {} a sum of two squares", n.text),
-        Task::FourSquares(n) => format!("is {} a sum of four squares", n.text),
-        Task::Collatz(n) => format!("does {} reach 1 under the Collatz map", n.text),
-        Task::Property(n, p) => format!("is {} {}", n.text, p.words()),
-        Task::Arithmetic(e) => format!("the arithmetic {e}"),
-        Task::Exact(x) => format!("{x:?}").chars().take(80).collect(),
-        Task::Statement(s) => format!("{s:?}"),
-        Task::Algebra => "algebra for Nuome".into(),
-        Task::Unknown => "nothing".into(),
-    }
 }
 
 fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
@@ -1360,7 +1267,7 @@ fn algebra(a: Answer, question: &str) -> Answer {
         return a.none("algebra questions are answered logically (Nuome's worked solution with every answer checked)");
     }
     let cfg = crate::config::Config::builtin();
-    let plain_q = crate::golden_exact::plain(&crate::golden_exact::strip_instructions(question)).replace("root(2,", "sqrt(");
+    let plain_q = crate::golden_exact::plain(&crate::golden_exact::rephrase(question)).replace("root(2,", "sqrt(");
     let first = crate::solve(question, &cfg, &crate::Options::default());
     let tried = if first.is_err() && !plain_q.contains('?') { crate::solve(&plain_q, &cfg, &crate::Options::default()) } else { first };
     match tried {

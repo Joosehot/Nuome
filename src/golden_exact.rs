@@ -6,7 +6,7 @@
 //! that is not an exact fraction (sqrt 2, log_2 3) is no value.
 
 use num_bigint::{BigInt, Sign};
-use num_integer::{Integer, Roots};
+use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
 /// An exact fraction n/d, d > 0, in lowest terms.
@@ -514,6 +514,48 @@ pub fn strip_instructions(q: &str) -> String {
     t.trim().trim_end_matches(['?', '.', '!', ':', ',']).trim().to_string()
 }
 
+/// The question in the words the readers know: instructions stripped,
+/// spaces around the math, and the common ways of saying the same task
+/// ("Expand the product", "Factor the following expression:", "Evaluate:",
+/// "in your head") said the one way.
+pub fn rephrase(q: &str) -> String {
+    let t = strip_instructions(q).replace("$$", "$").replace('$', " $ ");
+    let mut t = t.split_whitespace().collect::<Vec<_>>().join(" ");
+    const SAY: &[(&str, &str)] = &[
+        ("without using a calculator, ", ""),
+        ("without a calculator, ", ""),
+        ("evaluate: ", "evaluate "),
+        ("compute: ", "compute "),
+        ("calculate: ", "calculate "),
+        ("simplify: ", "simplify "),
+        ("simplify the following expression: ", "simplify "),
+        ("simplify the expression ", "simplify "),
+        ("what is the value of the expression ", "what is the value of "),
+        ("express the sum as a common fraction: ", "evaluate "),
+        ("express as a common fraction: ", "evaluate "),
+        ("expand the product ", "expand "),
+        ("expand the following expression: ", "expand "),
+        ("expand the expression ", "expand "),
+        ("write the following expression as a polynomial: ", "expand "),
+        ("completely factor the following expression: ", "factor "),
+        ("fully factor the following expression: ", "factor "),
+        ("factor the following expression: ", "factor "),
+        ("factor the expression ", "factor "),
+    ];
+    for _ in 0..2 {
+        let low = t.to_lowercase();
+        if let Some((from, to)) = SAY.iter().find(|(f, _)| low.starts_with(f)) {
+            t = format!("{to}{}", &t[from.len()..]);
+        }
+    }
+    for tail in [" in your head", " without a calculator", " without using a calculator"] {
+        if t.to_lowercase().ends_with(tail) {
+            t.truncate(t.len() - tail.len());
+        }
+    }
+    t.trim().to_string()
+}
+
 fn int_of(tex: &str) -> Option<BigInt> {
     let r = parse(tex)?.eval()?;
     r.is_int().then_some(r.n)
@@ -541,7 +583,7 @@ pub fn read(q: &str) -> Option<Q> {
 }
 
 fn read_whole(q: &str) -> Option<Q> {
-    let t = strip_instructions(q);
+    let t = rephrase(q);
     let t = t.trim();
     let low = t.to_lowercase();
     for ask in ASK {

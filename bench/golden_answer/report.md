@@ -47,17 +47,17 @@ abstract:
 
 logical:
   category                         n  answered        right
-  MATH algebra L1                135        16        16/16
-  MATH algebra L2                201        21        21/21
-  MATH algebra L3                261        19        19/19
+  MATH algebra L1                135        26        26/26
+  MATH algebra L2                201        28        28/28
+  MATH algebra L3                261        21        21/21
   MATH algebra L4                283        12        12/12
   MATH algebra L5                307         2          2/2
   MATH number_theory L1           30         4          4/4
-  MATH number_theory L2           92         9          9/9
+  MATH number_theory L2           92        11        11/11
   MATH number_theory L3          122        13        13/13
-  MATH number_theory L4          142        11        11/11
+  MATH number_theory L4          142        12        12/12
   MATH number_theory L5          154         4          4/4
-  all                           1727       111      111/111
+  all                           1727       133      133/133
 
 theoretical:
   category                         n  answered        right
@@ -75,14 +75,14 @@ theoretical:
 
 abstract:
   category                         n  answered        right
-  MATH algebra L1                135       135        20/24
-  MATH algebra L2                201       201        21/32
-  MATH algebra L3                261       261        17/31
-  MATH algebra L4                283       283        12/30
-  MATH algebra L5                307       307         2/12
-  MATH number_theory L1           30        30         4/11
-  MATH number_theory L2           92        92        11/31
-  MATH number_theory L3          122       122        13/33
-  MATH number_theory L4          142       142        12/37
-  MATH number_theory L5          154       154         4/30
-  all                           1727      1727      116/271
+  MATH algebra L1                135       135        22/26
+  MATH algebra L2                201       201        25/30
+  MATH algebra L3                261       261        17/23
+  MATH algebra L4                283       283        12/17
+  MATH algebra L5                307       307          2/5
+  MATH number_theory L1           30        30          4/4
+  MATH number_theory L2           92        92        11/17
+  MATH number_theory L3          122       122        13/20
+  MATH number_theory L4          142       142        12/18
+  MATH number_theory L5          154       154          4/4
+  all                           1727      1727      122/164
