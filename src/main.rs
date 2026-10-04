@@ -283,6 +283,15 @@ fn main() -> Result<()> {
             println!("{}", nuome::patterns::report(&path, n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "graph-orbits" {
+            // graph-orbits v k l m p [SECONDS]: an srg with an automorphism of prime order p fixing one vertex
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            if n.len() < 5 {
+                bail!("graph-orbits v k l m p [seconds]");
+            }
+            print!("{}", nuome::graph_orbits::report(n[0], n[1], n[2], n[3], n[4], n.get(5).copied().unwrap_or(30) as f64));
+            return Ok(());
+        }
         if which == "graph-function" {
             // graph-function [v k l m]... [SECONDS]: the graph function finds the known graphs again, then tries the given ones
             let nums: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
