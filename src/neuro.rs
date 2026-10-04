@@ -880,8 +880,8 @@ fn material(b: &Board) -> i64 {
 }
 
 pub fn horizon(b: &Board) -> Class {
-    let knight = (rule_mobility(2) * 256.0) as i64;
-    let m = material(b);
+    let knight = crate::supergenius_eval::KNIGHT;
+    let m = crate::supergenius_eval::eval(b);
     if m >= knight {
         Class::Winning
     } else if m <= -knight {
