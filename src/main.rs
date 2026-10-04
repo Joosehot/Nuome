@@ -71,6 +71,11 @@ struct Cli {
     /// to out/eff-deepen.log at once and the list is updated at the end.
     #[arg(long)]
     eff_deepen: Option<u32>,
+    /// Golden Answer: answer the question as "logical" (derived, every step
+    /// checked), "theoretical" (from known results, named) or "abstract"
+    /// (probably right, with its reasons); "bench" runs the fixed test set.
+    #[arg(long)]
+    answer: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -85,6 +90,15 @@ fn main() -> Result<()> {
         Some(p) => Config::load(p)?,
         None => Config::builtin(),
     };
+    if let Some(kind) = &cli.answer {
+        if kind == "bench" {
+            print!("{}", nuome::golden_answer::bench_report());
+            return Ok(());
+        }
+        let Some(k) = nuome::golden_answer::Kind::parse(kind) else { bail!("--answer takes logical, theoretical, abstract or bench") };
+        print!("{}", nuome::golden_answer::answer(k, &cli.words.join(" ")).render());
+        return Ok(());
+    }
     if let Some(bits) = cli.eff_deepen {
         let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("out");
         let path = out_dir.join("eff-candidates.tsv");
