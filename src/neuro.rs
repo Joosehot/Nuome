@@ -1332,9 +1332,32 @@ impl Walker {
         if depth == 0 || ms.is_empty() || b.half >= 100 || b.insufficient() {
             return Some(goldenboy_value(b, ply));
         }
-        // the side to move picks its best; goldenboy sees every move
+        // goldenboy sees every move here; the lumberjack lets only the
+        // forcing ones (checks, captures, promotions) and the best few quiet
+        // ones by its own look grow deeper
+        let mut seen: Vec<(i64, bool, Mv)> = Vec::new();
+        for m in ms {
+            let a = b.play(m);
+            let force = forcing(b, &m) || a.in_check();
+            seen.push((-goldenboy_value(&a, ply + 1), force, m));
+        }
+        if depth == 1 {
+            return Some(seen.iter().map(|x| x.0).max().unwrap());
+        }
+        seen.sort_by(|x, y| y.0.cmp(&x.0));
         let mut best = i64::MIN;
-        for m in ordered(b, ms) {
+        let mut quiet_kept = 0;
+        for (shallow, force, m) in seen {
+            if !force {
+                if quiet_kept >= BEAM {
+                    // not grown: its shallow look stands
+                    if shallow > best {
+                        best = shallow;
+                    }
+                    continue;
+                }
+                quiet_kept += 1;
+            }
             let v = -self.look(&b.play(m), depth - 1, ply + 1)?;
             if v > best {
                 best = v;
@@ -1343,6 +1366,9 @@ impl Walker {
         Some(best)
     }
 }
+
+/// Quiet moves a node grows deeper (the forcing ones always do).
+const BEAM: usize = 6;
 
 pub struct Tree {
     pub mv: Mv,
@@ -1402,6 +1428,8 @@ pub fn goldenboy(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Vec<Tre
                     trees[i].felled = Some((depth, "mated by force"));
                 } else if s.len() >= 3 && s[s.len() - 3..].iter().all(|&x| x <= best_now - knight) && best_now > -WIN + 1000 {
                     trees[i].felled = Some((depth, "a piece behind the best for three plies: leads nowhere"));
+                } else if depth >= 4 && standing.len() > 3 && s[s.len() - 2..].iter().all(|&x| x <= best_now - knight / 2) && best_now > -WIN + 1000 {
+                    trees[i].felled = Some((depth, "half a piece behind the best for two plies: felled"));
                 } else if depth >= FELL_AT && v < best_now {
                     trees[i].felled = Some((depth, "not among the best after 20 plies"));
                 }
@@ -1466,4 +1494,185 @@ mod speed {
         let pieces_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
         eprintln!("per node: moves {moves_us:.1} us, network+worth {net_us:.1} us, network+vision {vis_us:.1} us, pieces_of {pieces_us:.1} us");
     }
+}
+
+
+// ── depth: alpha-beta, the lossless lumberjack ──
+
+/// Goldenboy's deep search. The same search as looking through every tree,
+/// minus the branches that cannot change the choice (alpha-beta): the
+/// result is identical, the depth far greater. Deepening ply by ply inside
+/// the time; the best move of the last ply tried first; captures first by
+/// their victim; positions seen once are remembered (Zobrist key). At the
+/// horizon the captures and promotions are finished before the supergenius's
+/// eval speaks. Mates and the solved classes are exact.
+struct Deep {
+    nodes: u64,
+    budget: u64,
+    history: Vec<u64>,
+    seen: HashMap<u64, (u32, i64, u8, Option<Mv>)>,
+    stopped: bool,
+}
+
+const QUIET_PLIES: u32 = 8;
+
+impl Deep {
+    fn out(&mut self) -> bool {
+        if self.stopped {
+            return true;
+        }
+        if self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up()) {
+            self.stopped = true;
+        }
+        self.stopped
+    }
+
+    /// Mate, the draw rules, a solved class: the rules' verdict, if any.
+    fn verdict(&self, b: &Board, ms: &[Mv], ply: u32) -> Option<i64> {
+        if ms.is_empty() {
+            return Some(if b.in_check() { -WIN + ply as i64 } else { 0 });
+        }
+        if b.half >= 100 || b.insufficient() || self.history.iter().filter(|h| **h == b.hash()).count() >= 2 {
+            return Some(0);
+        }
+        if let Some(t) = crate::retro::table(&crate::retro::pieces_of(b)) {
+            if let Some(i) = t.index(b) {
+                let v = t.val[i];
+                if v != crate::retro::UNSET && v != crate::retro::NONE {
+                    return Some(if v > 0 { WIN - ply as i64 - v as i64 } else if v < 0 { -WIN + ply as i64 + (-v as i64 - 1) } else { 0 });
+                }
+            }
+        }
+        None
+    }
+
+    fn order(b: &Board, ms: Vec<Mv>, first: Option<Mv>) -> Vec<Mv> {
+        let victim = |m: &Mv| match b.sq[m.to as usize].abs() {
+            0 => if m.promo != 0 { 9 } else { 0 },
+            t => t as i32 * 10 - b.sq[m.from as usize].abs() as i32,
+        };
+        let mut v: Vec<(i32, Mv)> = ms.into_iter().map(|m| (if Some(m) == first { 1000 } else { victim(&m) }, m)).collect();
+        v.sort_by_key(|x| -x.0);
+        v.into_iter().map(|x| x.1).collect()
+    }
+
+    /// The horizon: stand pat on the eval, or finish a capture / promotion.
+    fn settle(&mut self, b: &Board, mut alpha: i64, beta: i64, ply: u32, q: u32) -> i64 {
+        self.nodes += 1;
+        if self.out() {
+            return 0;
+        }
+        let ms = b.moves();
+        if let Some(v) = self.verdict(b, &ms, ply) {
+            return v;
+        }
+        let stand = crate::supergenius_eval::eval(b);
+        if q == 0 || stand >= beta {
+            return stand;
+        }
+        if stand > alpha {
+            alpha = stand;
+        }
+        let forcing: Vec<Mv> = ms.into_iter().filter(|m| forcing(b, m)).collect();
+        for m in Self::order(b, forcing, None) {
+            let v = -self.settle(&b.play(m), -beta, -alpha, ply + 1, q - 1);
+            if v >= beta {
+                return v;
+            }
+            if v > alpha {
+                alpha = v;
+            }
+        }
+        alpha
+    }
+
+    fn search(&mut self, b: &Board, depth: u32, mut alpha: i64, beta: i64, ply: u32) -> i64 {
+        self.nodes += 1;
+        if self.out() {
+            return 0;
+        }
+        let ms = b.moves();
+        if let Some(v) = self.verdict(b, &ms, ply) {
+            return v;
+        }
+        if depth == 0 {
+            return self.settle(b, alpha, beta, ply, QUIET_PLIES);
+        }
+        let key = b.hash();
+        let mut first = None;
+        if let Some(&(d, v, kind, m)) = self.seen.get(&key) {
+            first = m;
+            if d >= depth && (kind == 0 || (kind == 1 && v >= beta) || (kind == 2 && v <= alpha)) {
+                return v;
+            }
+        }
+        let alpha0 = alpha;
+        self.history.push(key);
+        let mut best = -WIN - 1;
+        let mut best_move = None;
+        for m in Self::order(b, ms, first) {
+            let v = -self.search(&b.play(m), depth - 1, -beta, -alpha, ply + 1);
+            if self.stopped {
+                self.history.pop();
+                return 0;
+            }
+            if v > best {
+                best = v;
+                best_move = Some(m);
+            }
+            if v > alpha {
+                alpha = v;
+            }
+            if alpha >= beta {
+                break;
+            }
+        }
+        self.history.pop();
+        let kind = if best <= alpha0 { 2 } else if best >= beta { 1 } else { 0 };
+        self.seen.insert(key, (depth, best, kind, best_move));
+        best
+    }
+}
+
+/// Goldenboy with depth: iterative deepening inside the time, every root
+/// move's value at the deepest complete ply.
+pub fn deep(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, i64, Vec<(Mv, i64)>, u64, u32)> {
+    let time_ms = std::env::var("GOLDEN_TIME_MS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
+    let budget = if time_ms > 0 { u64::MAX / 4 } else { budget };
+    set_deadline(time_ms);
+    let ms = b.moves();
+    if ms.is_empty() {
+        return None;
+    }
+    let mut d = Deep { nodes: 0, budget, history: history.to_vec(), seen: HashMap::new(), stopped: false };
+    d.history.push(b.hash());
+    let mut values: Vec<(Mv, i64)> = ms.iter().map(|&m| (m, 0)).collect();
+    let mut reached = 0;
+    for depth in 1..=64 {
+        let mut this: Vec<(Mv, i64)> = Vec::new();
+        let mut alpha = -WIN - 1;
+        // the last ply's best first
+        let order: Vec<Mv> = values.iter().map(|x| x.0).collect();
+        for m in order {
+            let v = -d.search(&b.play(m), depth - 1, -WIN - 1, -alpha, 1);
+            if d.stopped {
+                break;
+            }
+            this.push((m, v));
+            if v > alpha {
+                alpha = v;
+            }
+        }
+        if d.stopped {
+            break;
+        }
+        this.sort_by(|x, y| y.1.cmp(&x.1));
+        values = this;
+        reached = depth;
+        if values[0].1 >= WIN - 1000 {
+            break;
+        }
+    }
+    let nodes = d.nodes;
+    Some((values[0].0, values[0].1, values, nodes, reached))
 }
