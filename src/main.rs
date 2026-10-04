@@ -260,11 +260,6 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
-        if which == "golden-proof" {
-            // golden-proof "<fen>": the move with a proof why it works, checked
-            println!("{}", nuome::neuro::proof_report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
-            return Ok(());
-        }
         if which == "golden-whole" {
             // golden-whole [TRUTH FILES...]: the supergenius writes the whole golden function at once
             let given: Vec<&str> = cli.words.iter().map(|s| s.as_str()).collect();
