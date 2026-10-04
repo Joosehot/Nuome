@@ -15,6 +15,22 @@
 
 use crate::golden::{rule_mobility, Board, Mv};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
+
+static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+static DEADLINE_MS: AtomicU64 = AtomicU64::new(0);
+
+/// Stop every calculation after `ms` milliseconds from now (0 = no time limit).
+pub fn set_deadline(ms: u64) {
+    let start = START.get_or_init(Instant::now);
+    DEADLINE_MS.store(if ms == 0 { 0 } else { start.elapsed().as_millis() as u64 + ms }, Ordering::Relaxed);
+}
+
+fn time_is_up() -> bool {
+    let d = DEADLINE_MS.load(Ordering::Relaxed);
+    d != 0 && START.get().map_or(false, |s| s.elapsed().as_millis() as u64 > d)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -666,7 +682,7 @@ impl Solver {
                 }
             }
         }
-        if depth == 0 || self.nodes > self.budget {
+        if depth == 0 || (self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up())) {
             return (UNKNOWN, false);
         }
         // checks and captures first: proofs are found sooner
@@ -718,7 +734,7 @@ pub fn supergenius(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Proof
     let mut s = Solver { nodes: 0, budget, history: history.to_vec() };
     s.history.push(b.hash());
     let mut depth = 1;
-    while s.nodes < budget && depth <= 40 {
+    while s.nodes < budget && !time_is_up() && depth <= 40 {
         for (i, &m) in ms.iter().enumerate() {
             if proofs[i] != Proof::Unknown {
                 continue;
@@ -854,7 +870,7 @@ impl Prover {
     /// still reaches the goal. None when the budget ran out.
     fn can_reach(&mut self, b: &Board, goal: Class, depth: u32) -> Option<bool> {
         self.nodes += 1;
-        if self.nodes > self.budget {
+        if (self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up())) {
             return None;
         }
         let ms = b.moves();
@@ -883,7 +899,7 @@ impl Prover {
     /// After our move: does every reply of theirs leave us able to reach the goal?
     fn holds_against_every_reply(&mut self, b: &Board, goal: Class, depth: u32) -> Option<bool> {
         self.nodes += 1;
-        if self.nodes > self.budget {
+        if (self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up())) {
             return None;
         }
         let ms = b.moves();
@@ -924,7 +940,7 @@ impl Prover {
     /// that holds against every forcing reply (up to `q` more plies)?
     fn settled(&mut self, b: &Board, goal: Class, q: u32) -> Option<bool> {
         self.nodes += 1;
-        if self.nodes > self.budget {
+        if (self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up())) {
             return None;
         }
         let ms = b.moves();
@@ -952,7 +968,7 @@ impl Prover {
     /// capture or promotion - still leave us the goal?
     fn settled_reply(&mut self, b: &Board, goal: Class, q: u32) -> Option<bool> {
         self.nodes += 1;
-        if self.nodes > self.budget {
+        if (self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up())) {
             return None;
         }
         let ms = b.moves();
@@ -1093,6 +1109,10 @@ pub struct Felled {
 }
 
 pub fn lumberjack(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim, Vec<(Mv, Claim, u32)>, Vec<Felled>, u64)> {
+    // a time budget: a quarter of it for the exact mate calculation, the rest for the trees
+    let time_ms = std::env::var("GOLDEN_TIME_MS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
+    let budget = if time_ms > 0 { u64::MAX / 4 } else { budget };
+    set_deadline(if time_ms > 0 { time_ms / 4 } else { 0 });
     let ms = b.moves();
     if ms.is_empty() {
         return None;
@@ -1116,8 +1136,9 @@ pub fn lumberjack(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim,
     }
     let mut p = Prover { nodes: 0, budget: budget - budget / 4, history: history.to_vec() };
     p.history.push(b.hash());
+    set_deadline(if time_ms > 0 { time_ms - time_ms / 4 } else { 0 });
     let mut depth = 1u32;
-    while p.nodes < p.budget && standing.len() > 1 && depth <= 64 {
+    while p.nodes < p.budget && !time_is_up() && standing.len() > 1 && depth <= 64 {
         let mut next: Vec<(Mv, Claim, u32)> = Vec::new();
         let mut out_of_budget = false;
         for (m, claim, _) in standing.iter().copied() {
