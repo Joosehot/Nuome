@@ -190,6 +190,73 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "addmult6" {
+            // addmult6 [MAX] [COUNT] [SECONDS] [LO] [HI]: Boyer's enigma #6a
+            let n: Vec<f64> = cli.words.iter().filter_map(|w| w.replace(',', "").replace('_', "").parse().ok()).collect();
+            let get = |i: usize, d: f64| n.get(i).copied().unwrap_or(d);
+            let _ = std::fs::create_dir_all("out/addmult");
+            println!("{}", nuome::addmult::campaign(get(3, 1e9) as u128, get(4, 1e12) as u128, get(0, 300.0) as u64, get(1, 20.0) as usize, get(2, 60.0), std::path::Path::new("out/addmult/log.txt")));
+            return Ok(());
+        }
+        if which == "golden" {
+            // golden "<fen>": the golden function's move, with the best moves' values (formula from out/golden/formula.txt);
+            // a trailing number (an old depth) is ignored: the function is one formula, no search
+            let text = cli.words.join(" ");
+            let depth = cli.words.last().and_then(|w| w.parse::<usize>().ok()).filter(|d| *d <= 8);
+            let fen = if depth.is_some() { cli.words[..cli.words.len() - 1].join(" ") } else { text.clone() };
+            let fen = if fen.trim().is_empty() || fen.trim() == "startpos" { nuome::golden::Board::start().fen() } else { fen };
+            let b = nuome::golden::Board::from_fen(fen.trim()).map_err(|e| anyhow::anyhow!(e))?;
+            let (formula, from) = nuome::golden::load_formula("out/golden/formula.txt");
+            let t0 = std::time::Instant::now();
+            match nuome::golden::golden(&b, &[], &formula) {
+                None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
+                Some(a) => {
+                    println!("the golden function on {} ({} to move):", b.fen(), if b.white { "white" } else { "black" });
+                    println!("formula ({from}): {}", formula.show());
+                    for (m, v) in a.ranked.iter().take(5) {
+                        println!("  {:<6} {:>14}", m.uci(), nuome::golden::show_value(*v));
+                    }
+                    println!("move: {} ({}, {:.3} s)", a.mv.uci(), nuome::golden::show_value(a.value), t0.elapsed().as_secs_f64());
+                }
+            }
+            return Ok(());
+        }
+        if which == "supergenius-golden" {
+            // supergenius-golden: the supergenius writes the golden function from the rules of chess (no evolution)
+            let _ = std::fs::create_dir_all("out/golden");
+            println!("{}", nuome::supergenius_golden::report().map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "golden-play" {
+            // golden-play [GAMES]: games of the golden function against itself -> out/golden/games.txt
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let games = n.first().copied().unwrap_or(8);
+            let openings = nuome::golden::OPENINGS;
+            let _ = std::fs::create_dir_all("out/golden");
+            let (formula, from) = nuome::golden::load_formula("out/golden/formula.txt");
+            println!("formula ({from}): {}", formula.show());
+            let formula = &formula;
+            let results: Vec<(usize, Vec<String>, String, String, f64)> = std::thread::scope(|sc| {
+                let hs: Vec<_> = (0..games).map(|g| {
+                    let op = openings[g % openings.len()];
+                    sc.spawn(move || {
+                        let t0 = std::time::Instant::now();
+                        let (moves, result, how) = nuome::golden::self_play(op, 300, formula);
+                        (g, moves, result, how, t0.elapsed().as_secs_f64())
+                    })
+                }).collect();
+                hs.into_iter().map(|h| h.join().expect("game")).collect()
+            });
+            let mut text = String::new();
+            for (g, moves, result, how, secs) in &results {
+                println!("game {}: {} after {} plies ({how}, {secs:.0} s)", g + 1, result, moves.len());
+                text.push_str(&format!("{result}	{how}	{}
+", moves.join(" ")));
+            }
+            std::fs::write("out/golden/games.txt", text)?;
+            println!("games written to out/golden/games.txt (one per line: result, how, UCI moves)");
+            return Ok(());
+        }
         if which == "supergenius-conway" {
             // supergenius-conway [SECONDS]: the supergenius on Conway's 99-graph
             let seconds = cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(300.0);
