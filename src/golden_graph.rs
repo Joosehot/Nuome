@@ -59,11 +59,11 @@ pub fn read(q: &str) -> Option<GraphQ> {
         let words: Vec<String> = t.replace('-', " ").split_whitespace().map(|w| w.trim_matches(|c: char| c == ',' || c == '\'').to_string()).collect();
         const OK: &[&str] = &[
             "make", "build", "construct", "find", "a", "an", "the", "graph", "network", "closed", "vertex", "vertices", "point", "points", "on", "with", "like", "conway", "conways", "conway's", "s", "style", "in", "way",
-            "tee", "rakenna", "pisteinen", "pisteen", "suljettu", "verkko", "conwayn", "tapaan", "is", "there",
+            "tee", "rakenna", "pisteinen", "pisteen", "suljettu", "suljettua", "verkko", "verkkoa", "conwayn", "tapaan", "is", "there", "onko", "olemassa", "exist", "does",
         ];
         let nums: Vec<u64> = words.iter().filter_map(|w| w.parse().ok()).collect();
         if nums.len() == 1 && words.iter().all(|w| w.parse::<u64>().is_ok() || OK.contains(&w.as_str())) {
-            let make = !t.starts_with("is there");
+            let make = !["is there", "onko", "does"].iter().any(|w| t.starts_with(w));
             return Some(GraphQ { v: nums[0], k: None, lambda: 1, mu: 2, make });
         }
         return None;
@@ -327,6 +327,8 @@ mod tests {
         let g = read("is there a strongly regular graph srg(10,3,0,1)").unwrap();
         assert_eq!((g.v, g.k, g.lambda, g.mu, g.make), (10, Some(3), 0, 1, false));
         assert!(read("make a graph on 944 vertices that is planar").is_none());
+        let g = read("onko 999 pisteen verkkoa olemassa conwayn tapaan").unwrap();
+        assert_eq!((g.v, g.make), (999, false));
     }
 
     #[test]

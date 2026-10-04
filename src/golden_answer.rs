@@ -1668,6 +1668,7 @@ fn guess(a: Answer, question: &str, task: &Task) -> Answer {
             .says("probably yes")
             .line("every planar map has a country with at most five neighbours (Euler's formula), so five colours always suffice (Heawood's argument)")
             .line("no map needing five colours has ever been drawn"),
+        Task::Graph(_) => a.says("no evidence either way").line("the question was read whole: the necessary conditions pass, and nothing known decides whether such a graph exists"),
         Task::Property(n, p) => a.says("probably no").line(format!("{} has about {:.0} digits, and numbers that are {} thin out as numbers grow", n.text, n.size + 1.0, p.words())),
         _ => generic_guess(a, question),
     }
