@@ -242,6 +242,27 @@ fn main() -> Result<()> {
             println!("{}", nuome::chess_network::report(cli.words.first().map(|s| s.as_str()).unwrap_or("all")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-selfplay" {
+            // golden-selfplay [ROUNDS] [GAMES]: train the golden function by self-play (a mutant must beat it)
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let (rounds, games) = (n.first().copied().unwrap_or(200), n.get(1).copied().unwrap_or(24));
+            let t0 = std::time::Instant::now();
+            nuome::golden_terms::selfplay(rounds, games, 2026, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
+            println!("({:.0} s)", t0.elapsed().as_secs_f64());
+            return Ok(());
+        }
+        if which == "golden-whole" {
+            // golden-whole [TRUTH FILES...]: the supergenius writes the whole golden function at once
+            let given: Vec<&str> = cli.words.iter().map(|s| s.as_str()).collect();
+            let files: Vec<&str> = if given.is_empty() { vec!["out/golden/truth_cp_s3.txt", "out/golden/truth_cp_s4.txt"] } else { given };
+            let t0 = std::time::Instant::now();
+            let terms = nuome::golden_terms::write_whole(&files, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
+            let text = nuome::golden_terms::written(&nuome::golden::Board::start(), &terms);
+            println!("\nTHE GOLDEN FUNCTION ({} terms, {} characters for the start position), saved to {} ({:.0} s)", terms.len(), text.len(), nuome::golden_terms::TERMS_FILE, t0.elapsed().as_secs_f64());
+            std::fs::write("out/golden/golden_function.txt", &text)?;
+            println!("written in full to out/golden/golden_function.txt");
+            return Ok(());
+        }
         if which == "golden-polish" {
             // golden-polish [MAX_TERMS]: every found term into one golden function, polished on all the exact truth
             // golden-polish [tune] [TRUTH FILES...]: add terms until none helps (no limit); "tune" instead tunes every weight once

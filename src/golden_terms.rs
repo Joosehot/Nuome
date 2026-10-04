@@ -14,7 +14,7 @@
 //! positions of the first half of the data. Every kept term is then tested
 //! on the unseen half and on 5-piece classes the search never saw.
 
-use crate::golden::{attack_edges, value_of, Board};
+use crate::golden::{attack_edges, rule_mobility, value_of, Board};
 use crate::supergenius_golden::function_for;
 
 const NAMES: [&str; 40] = [
@@ -773,4 +773,198 @@ pub fn supergenius_terms() -> Vec<(Term, &'static str)> {
         (Term::Count(And(my_q_hit, th_k)), "the queen strikes the enemy king (checks, forks)"),
         (Term::Count(And(my_r_hit, th_k)), "the rook strikes the enemy king (checks)"),
     ]
+}
+
+// ── the supergenius writes the whole golden function at once ──
+
+/// What the rules say a basic set is worth, in 1/256 moves: the reach of the
+/// pieces in it (knight 5.25, bishop 8.75, rook 14, queen 22.75 moves), a
+/// pawn a queen in waiting (the queen's worth / 64 at its start), a king's
+/// node the game itself (a queen's worth: the goal). Struck nodes, paths,
+/// zones and the board's shape carry one move each. Positive for sets that
+/// are mine or help me, negative for the other side's.
+fn set_worth(i: usize) -> i64 {
+    let q = (rule_mobility(5) * 256.0) as i64;
+    let piece = |t: usize| match t {
+        0 => q / 64,
+        5 => q,
+        t => (rule_mobility(t as i8) * 256.0) as i64,
+    };
+    match i {
+        0..=5 => piece(i),
+        6..=11 => -piece(i - 6),
+        12 => 256,
+        13 => -256,
+        14 => 0,
+        15 | 17 | 19 | 21 | 38 => 256,
+        16 | 18 | 20 | 22 | 39 => -256,
+        23..=28 => 256,
+        29..=34 => -256,
+        _ => 0,
+    }
+}
+
+/// Every term the network offers, with the weight the supergenius reasons
+/// for it: a count of "a that are b" is worth a's worth times b's sign (a
+/// piece of mine struck by them loses, a node of theirs I strike gains); a
+/// difference "a not b" the opposite; the nodes next to a set are worth the
+/// set; a distance between my set and theirs is worth their set (closer to
+/// what I attack is better, closer to what attacks me is worse). All in
+/// 1/256 moves, then one constant found on the truth, like Goldbach's.
+pub fn whole_function() -> Vec<(Term, i64)> {
+    let sign = |i: usize| set_worth(i).signum();
+    let mut out: Vec<(Term, i64)> = Vec::new();
+    for a in 0..N_BASE {
+        let wa = set_worth(a);
+        if wa == 0 {
+            continue;
+        }
+        out.push((Term::Count(Set::Base(a)), wa / 8));
+        out.push((Term::Count(Set::Near(a)), wa / 16));
+        for b in 0..N_BASE {
+            if a == b || sign(b) == 0 {
+                continue;
+            }
+            // a that are b: a's worth, and b's side says whether that helps a
+            out.push((Term::Count(Set::And(a, b)), wa * sign(b) / 4));
+            out.push((Term::Count(Set::Minus(a, b)), -wa * sign(b) / 8));
+            // distance: between my set and theirs, their worth decides the sign
+            if sign(a) > 0 && sign(b) < 0 {
+                out.push((Term::Dist(a, b), set_worth(b) / 8));
+            }
+        }
+    }
+    // the terms file holds weights as seen from the position after the move: flip the sign
+    for x in out.iter_mut() {
+        x.1 = -x.1;
+    }
+    out.retain(|x| x.1 != 0);
+    out
+}
+
+/// Score of the whole function on the truth with every weight scaled by `k` (in 1/16).
+fn scaled(terms: &[(Term, i64)], k: i64) -> Vec<(Term, i64)> {
+    terms.iter().map(|(t, w)| (*t, w * k / 16)).filter(|x| x.1 != 0).collect()
+}
+
+/// The supergenius writes the golden function at once: every term the
+/// network offers with its reasoned weight, then the one constant that the
+/// truth decides (how strong the terms are next to the position formula).
+pub fn write_whole(files: &[&str], log: &mut dyn FnMut(&str)) -> Result<Vec<(Term, i64)>, String> {
+    let terms = whole_function();
+    let mut all = Vec::new();
+    for f in files {
+        all.extend(read(f)?);
+    }
+    let cases: Vec<&Case> = all.iter().collect();
+    log(&format!("the supergenius writes {} terms from the network, weights reasoned from the rules", terms.len()));
+    // the constant, like Goldbach's: the scale at which the whole function plays right most often
+    let mut best = (right(&cases, &[]), 0i64);
+    log(&format!("  the position formula alone: {} of {} right", best.0, cases.len()));
+    for k in [1i64, 2, 4, 8, 16, 32, 64, 128] {
+        let r = right(&cases, &scaled(&terms, k));
+        log(&format!("  constant {}/16: {} right", k, r));
+        if r > best.0 {
+            best = (r, k);
+        }
+    }
+    let chosen = scaled(&terms, best.1);
+    log(&format!("the constant is {}/16: {} of {} right; {} terms", best.1, best.0, cases.len(), chosen.len()));
+    save(&chosen, TERMS_FILE)?;
+    Ok(chosen)
+}
+
+
+// ── training by self-play ──
+
+/// The golden function's move with the given terms (the mutant plays with its own).
+pub fn best_move_with(b: &Board, history: &[u64], terms: &[(Term, i64)]) -> Option<crate::golden::Mv> {
+    let f = function_for(b).0;
+    let mut best: Option<(i64, crate::golden::Mv)> = None;
+    for m in b.moves() {
+        let a = b.play(m);
+        let mut v = value_of(b, m, history, &f);
+        let fixed = a.moves().is_empty() || a.insufficient() || a.half >= 100;
+        if !fixed && !terms.is_empty() {
+            let (s, r) = (base_sets(&a), reaches(&a));
+            v -= terms.iter().map(|(t, w)| w * t.value(&s, &r)).sum::<i64>();
+        }
+        if best.map_or(true, |x| v > x.0) {
+            best = Some((v, m));
+        }
+    }
+    best.map(|x| x.1)
+}
+
+/// Points for `a` from `games` games of a against b, both colours, the
+/// openings in turn: win 2, draw 1.
+fn duel(a: &[(Term, i64)], b: &[(Term, i64)], games: usize, round: u64) -> (u32, u32, u32) {
+    use crate::golden::{play_game, Player, OPENINGS};
+    let (mut w, mut d, mut l) = (0, 0, 0);
+    let results: Vec<i32> = std::thread::scope(|sc| {
+        let hs: Vec<_> = (0..games)
+            .map(|g| {
+                sc.spawn(move || {
+                    let op = OPENINGS[(g as u64 + round) as usize % OPENINGS.len()];
+                    let (pa, pb) = (Player::Terms(a), Player::Terms(b));
+                    let game = if g % 2 == 0 { play_game(&pa, &pb, op, 200) } else { play_game(&pb, &pa, op, 200) };
+                    if g % 2 == 0 { game.score } else { -game.score }
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().expect("game")).collect()
+    });
+    for s in results {
+        match s {
+            1 => w += 1,
+            -1 => l += 1,
+            _ => d += 1,
+        }
+    }
+    (w, d, l)
+}
+
+/// Train the golden function by self-play, (1+1) evolution: each round a
+/// mutant (a few weights scaled by 1/2, 3/4, 3/2, 2 or flipped, a few
+/// others zeroed, one zero revived) plays the current function; it stays
+/// if it scores more points over `games` games. Saved after every win.
+pub fn selfplay(rounds: usize, games: usize, seed: u64, log: &mut dyn FnMut(&str)) -> Result<Vec<(Term, i64)>, String> {
+    let mut cur = load(TERMS_FILE);
+    if cur.is_empty() {
+        return Err("no golden function yet: run --ideas golden-whole first".into());
+    }
+    let whole = whole_function();
+    let mut r = crate::evolve::Rng(seed);
+    let mut wins = 0;
+    for round in 1..=rounds {
+        let mut mutant = cur.clone();
+        let changes = 1 + r.below(8);
+        for _ in 0..changes {
+            let i = r.below(mutant.len());
+            let k = [0.5, 0.75, 1.5, 2.0, -1.0, 0.0][r.below(6)];
+            mutant[i].1 = (mutant[i].1 as f64 * k).round() as i64;
+        }
+        // revive one term the supergenius wrote that has been zeroed away
+        if r.unit() < 0.3 {
+            let (t, w) = whole[r.below(whole.len())];
+            if let Some(x) = mutant.iter_mut().find(|x| x.0 == t) {
+                if x.1 == 0 {
+                    x.1 = w / 8;
+                }
+            }
+        }
+        let (w, d, l) = duel(&mutant, &cur, games, round as u64);
+        if 2 * w + d > 2 * l + d {
+            cur = mutant;
+            wins += 1;
+            save(&cur, TERMS_FILE)?;
+            log(&format!("round {round}: the mutant wins {w}-{d}-{l} and stays ({changes} changes)"));
+        } else if round % 10 == 0 {
+            log(&format!("round {round}: {wins} improvements so far"));
+        }
+    }
+    cur.retain(|x| x.1 != 0);
+    save(&cur, TERMS_FILE)?;
+    log(&format!("{rounds} rounds, {wins} improvements; {} terms left", cur.len()));
+    Ok(cur)
 }

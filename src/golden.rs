@@ -988,6 +988,8 @@ pub enum Player<'a> {
     Golden(&'a F),
     /// the supergenius writes a new formula for every position
     Supergenius,
+    /// the golden function with these terms (a mutant in training)
+    Terms(&'a [(crate::golden_terms::Term, i64)]),
     Random(u64),
 }
 
@@ -1045,6 +1047,7 @@ pub fn play_game(white: &Player, black: &Player, opening: &[&str], max_plies: us
         let m = match if b.white { white } else { black } {
             Player::Golden(f) => golden(&b, &history, f).expect("a legal move").mv,
             Player::Supergenius => crate::golden_terms::best_move(&b, &history).expect("a legal move"),
+            Player::Terms(t) => crate::golden_terms::best_move_with(&b, &history, t).expect("a legal move"),
             Player::Random(_) => ms[rngs[side].below(ms.len())],
         };
         history.push(b.hash());
