@@ -358,6 +358,9 @@ pub enum Task {
     Property(Num, Prop),
     /// plain arithmetic: numbers and + - * / ^ ( ) sqrt
     Arithmetic(String),
+    /// an exact calculation read from written mathematics (LaTeX): a value,
+    /// a remainder, a units digit, gcd, lcm, an inverse mod m, a base
+    Exact(crate::golden_exact::Q),
     /// handed to Nuome's worked-solution engine
     Algebra,
     Unknown,
@@ -399,6 +402,9 @@ fn frame(t: &str, prefixes: &[&str], suffixes: &[&str]) -> Option<Num> {
 /// question it cannot read whole is Unknown (or Nuome's algebra), so an
 /// answer that claims to be right never answers a question it misread.
 pub fn task_of(q: &str) -> Task {
+    if let Some(x) = crate::golden_exact::read(q) {
+        return Task::Exact(x);
+    }
     let t = normal(q);
     const IS: &[&str] = &["is ", "check if ", "check whether ", "determine whether ", "determine if ", "decide whether ", "can "];
     if let Some(n) = frame(&t, IS, &[" prime", " a prime", " a prime number", " prime or composite"]) {
@@ -873,6 +879,7 @@ fn describe(t: &Task) -> String {
         Task::Collatz(n) => format!("does {} reach 1 under the Collatz map", n.text),
         Task::Property(n, p) => format!("is {} {}", n.text, p.words()),
         Task::Arithmetic(e) => format!("the arithmetic {e}"),
+        Task::Exact(x) => format!("{x:?}").chars().take(80).collect(),
         Task::Statement(s) => format!("{s:?}"),
         Task::Algebra => "algebra for Nuome".into(),
         Task::Unknown => "nothing".into(),
@@ -884,6 +891,17 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
     match task.clone() {
         Task::Property(n, p) => property(a, &n, p),
         Task::Arithmetic(e) => arithmetic(a, &e),
+        Task::Exact(x) => match (a.kind, crate::golden_exact::solve(&x)) {
+            (Kind::Theoretical, _) => a.none("a direct calculation, not a known result; ask logical"),
+            (_, None) => a.none("the value is not an exact fraction, or too large to write"),
+            (_, Some((short, lines))) => {
+                let mut a = a.says(short);
+                for l in lines {
+                    a = a.line(l);
+                }
+                a
+            }
+        },
         Task::IsPrime(n) => is_prime(a, &n),
         Task::Factor(n) => factor(a, &n),
         Task::PrimeCount(n, below) => prime_count(a, &n, below),
@@ -1342,7 +1360,10 @@ fn algebra(a: Answer, question: &str) -> Answer {
         return a.none("algebra questions are answered logically (Nuome's worked solution with every answer checked)");
     }
     let cfg = crate::config::Config::builtin();
-    match crate::solve(question, &cfg, &crate::Options::default()) {
+    let plain_q = crate::golden_exact::plain(&crate::golden_exact::strip_instructions(question)).replace("root(2,", "sqrt(");
+    let first = crate::solve(question, &cfg, &crate::Options::default());
+    let tried = if first.is_err() && !plain_q.contains('?') { crate::solve(&plain_q, &cfg, &crate::Options::default()) } else { first };
+    match tried {
         Err(d) => a.none(format!("Nuome could not read or solve it: {}", d.first().map_or(String::new(), |d| format!("{d:?}")))),
         Ok(s) => {
             let checks = s.outcome.checks();
@@ -1350,6 +1371,21 @@ fn algebra(a: Answer, question: &str) -> Answer {
                 return a.none("Nuome's working did not pass every check");
             }
             let short = crate::render::answer(&s.request, &s.outcome, &cfg, crate::print::Style::default());
+            if short.contains('~') || short.contains('≈') {
+                return a.none("Nuome's answer is an approximation, not an exact value");
+            }
+            // "simplify" asks for fewer pieces: the variables must occur less often than in the question
+            if question.to_lowercase().starts_with("simplify") {
+                let vars = |t: &str| {
+                    let t = t.split(", for ").next().unwrap_or(t);
+                    let t = ["sqrt", "frac", "cdot", "left", "right", "times", "log", "sin", "cos", "tan", "dfrac"].iter().fold(t.to_string(), |acc, w| acc.replace(w, ""));
+                    t.chars().filter(|c| c.is_ascii_alphabetic()).count()
+                };
+                let math: String = crate::golden_exact::strip_instructions(question).split('$').skip(1).step_by(2).collect();
+                if !math.is_empty() && vars(&short) >= vars(&math) {
+                    return a.none("Nuome's answer does not simplify the expression (its variables occur as often as in the question)");
+                }
+            }
             let mut a = a.says(short.trim_start_matches("Answer: ").to_string());
             for l in s.text.lines().filter(|l| !l.trim().is_empty()) {
                 a = a.line(l.trim_end().to_string());

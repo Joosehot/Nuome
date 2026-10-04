@@ -47,18 +47,17 @@ abstract:
 
 logical:
   category                         n  answered        right
-  MATH algebra L1                135         7          7/7
-  MATH algebra L2                201         9          8/9
-  MATH algebra L3                261         5          5/5
-  MATH algebra L4                283         5          5/5
-  MATH algebra L5                307         1          1/1
-  MATH number_theory L1           30         0          0/0
-  MATH number_theory L2           92         0          0/0
-  MATH number_theory L3          122         0          0/0
-  MATH number_theory L4          142         0          0/0
-  MATH number_theory L5          154         0          0/0
-  all                           1727        27        26/27
-  WRONG: 'Evaluate $(-125)^{4/3}$.' answered '(-125)^(4/3)', truth '625'
+  MATH algebra L1                135        16        16/16
+  MATH algebra L2                201        21        21/21
+  MATH algebra L3                261        19        19/19
+  MATH algebra L4                283        12        12/12
+  MATH algebra L5                307         2          2/2
+  MATH number_theory L1           30         4          4/4
+  MATH number_theory L2           92         9          9/9
+  MATH number_theory L3          122        13        13/13
+  MATH number_theory L4          142        11        11/11
+  MATH number_theory L5          154         4          4/4
+  all                           1727       111      111/111
 
 theoretical:
   category                         n  answered        right
@@ -76,14 +75,14 @@ theoretical:
 
 abstract:
   category                         n  answered        right
-  MATH algebra L1                135       135        17/21
-  MATH algebra L2                201       201        12/24
-  MATH algebra L3                261       261        10/24
-  MATH algebra L4                283       283         7/25
+  MATH algebra L1                135       135        20/24
+  MATH algebra L2                201       201        21/32
+  MATH algebra L3                261       261        17/31
+  MATH algebra L4                283       283        12/30
   MATH algebra L5                307       307         2/12
-  MATH number_theory L1           30        30         3/10
-  MATH number_theory L2           92        92         4/26
-  MATH number_theory L3          122       122         1/25
-  MATH number_theory L4          142       142         1/26
-  MATH number_theory L5          154       154         0/26
-  all                           1727      1727       57/219
+  MATH number_theory L1           30        30         4/11
+  MATH number_theory L2           92        92        11/31
+  MATH number_theory L3          122       122        13/33
+  MATH number_theory L4          142       142        12/37
+  MATH number_theory L5          154       154         4/30
+  all                           1727      1727      116/271

@@ -27,7 +27,7 @@ NUOME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXE = os.path.join(NUOME, "target", "release", "nuome.exe")
 DIR = os.path.join(NUOME, "bench", "golden_answer")
 KINDS = ["logical", "theoretical", "abstract"]
-MATH_URL = "https://huggingface.co/datasets/EleutherAI/hendrycks_math/resolve/refs%2Fconvert%2Fparquet/{c}/test/0000.parquet"
+MATH_URL = "https://huggingface.co/datasets/EleutherAI/hendrycks_math/resolve/refs%2Fconvert%2Fparquet/{c}/{split}/0000.parquet"
 MATH_SUBJECTS = ["number_theory", "algebra"]
 
 
@@ -137,13 +137,13 @@ def boxed(s):
     return None
 
 
-def math_set():
+def math_set(split="test"):
     import pandas as pd
     qs = []
     for c in MATH_SUBJECTS:
-        path = os.path.join(DIR, f"math_{c}_test.parquet")
+        path = os.path.join(DIR, f"math_{c}_{split}.parquet")
         if not os.path.exists(path):
-            urllib.request.urlretrieve(MATH_URL.format(c=c), path)
+            urllib.request.urlretrieve(MATH_URL.format(c=c, split=split), path)
         for _, r in pd.read_parquet(path).iterrows():
             t = boxed(r["solution"])
             if t is not None:
@@ -178,6 +178,7 @@ def ask(kind, q):
 
 
 def number(s):
+    s = re.sub(r"\\[dt]?frac(\d)(\d)", r"\\frac{\1}{\2}", s)
     s = s.strip().strip("$").replace("\\!", "").replace(",", "").replace(" ", "")
     s = re.sub(r"\\[dt]?frac\{([^{}]+)\}\{([^{}]+)\}", r"(\1)/(\2)", s)
     s = s.replace("\\left", "").replace("\\right", "").replace("^\\circ", "").replace("\\%", "")
@@ -209,7 +210,12 @@ def agrees(short, truth):
     squeeze = lambda x: x.replace(" ", "").replace(r"\left", "").replace(r"\right", "").strip("$")
     if "=" not in truth and re.fullmatch(r"[a-z] = .+", s):
         s = s.split(" = ", 1)[1]
-    if squeeze(s) == squeeze(truth):
+    # notation only: a domain note ", for x != 0", base subscripts 4210_{7}, -inf for -\infty,
+    # and an interval answer given after its inequality ("r < 0, in interval notation (-inf, 0)")
+    s = re.sub(r", for [a-z] != .*$", "", s)
+    s = re.sub(r"^.*, in interval notation ", "", s)
+    t = re.sub(r"_\{(\w+)\}", r"_\1", truth).replace(r"\infty", "inf")
+    if squeeze(s) == squeeze(t):
         return True
     if "*" in truth:
         return sorted(norm(s).replace(" ", "").split("*")) == sorted(norm(truth).replace(" ", "").split("*"))
@@ -264,7 +270,7 @@ def run(name, qs, jobs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="all", choices=["oracle", "math", "all"])
+    ap.add_argument("--set", default="all", choices=["oracle", "math", "train", "all"], help="train: the MATH train split, for development; math: the MATH test split, the held-out measure")
     ap.add_argument("--per", type=int, default=100)
     ap.add_argument("--jobs", type=int, default=8)
     a = ap.parse_args()
@@ -272,6 +278,8 @@ def main():
     report = ["# Golden Answer benchmark", "", "answered = the kind gave an answer; right = agrees with the truth, of the answers that can be judged (an abstract \"no evidence either way\" is not judged)."]
     if a.set in ("oracle", "all"):
         report.append(run("oracle", fixed("oracle", lambda: oracle_set(a.per)), a.jobs))
+    if a.set == "train":
+        report.append(run("math_train", fixed("math_train", lambda: math_set("train")), a.jobs))
     if a.set in ("math", "all"):
         report.append(run("math", fixed("math", math_set), a.jobs))
     text = "\n".join(report) + "\n"

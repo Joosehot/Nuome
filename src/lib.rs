@@ -25,6 +25,7 @@ pub mod expr;
 pub mod goldbach;
 pub mod golden;
 pub mod golden_answer;
+pub mod golden_exact;
 pub mod neuro;
 pub mod patterns;
 pub mod retro;
