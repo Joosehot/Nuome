@@ -21,6 +21,8 @@ pub struct GraphQ {
     pub make: bool,
     /// asked which orders v have such graphs at all (v is then 0)
     pub list: bool,
+    /// asked to invent a function (a formula) for it: golden_invent
+    pub invent: bool,
 }
 
 fn word_number(w: &str) -> Option<u64> {
@@ -54,7 +56,7 @@ pub fn read(q: &str) -> Option<GraphQ> {
             return None;
         }
         let make = ["make", "construct", "build", "find", "give"].iter().any(|w| rest.split_whitespace().any(|x| x == *w));
-        return Some(GraphQ { v: nums[0], k: Some(nums[1]), lambda: nums[2], mu: nums[3], make, list: false });
+        return Some(GraphQ { v: nums[0], k: Some(nums[1]), lambda: nums[2], mu: nums[3], make, list: false, invent: false });
     }
     // Conway's way: "make a 944-point closed network like Conway's", "tee 944 pisteinen suljettu verkko conwayn tapaan"
     if t.contains("conway") {
@@ -62,6 +64,7 @@ pub fn read(q: &str) -> Option<GraphQ> {
         const OK: &[&str] = &[
             "make", "build", "construct", "find", "a", "an", "the", "graph", "network", "closed", "vertex", "vertices", "point", "points", "on", "with", "like", "conway", "conways", "conway's", "s", "style", "in", "way",
             "tee", "rakenna", "pisteinen", "pisteen", "suljettu", "suljettua", "verkko", "verkkoa", "conwayn", "tapaan", "is", "there", "onko", "olemassa", "exist", "does",
+            "keksi", "funktio", "verkolle", "suljetulle", "invent", "function", "formula", "for", "kaava",
         ];
         let nums: Vec<u64> = words.iter().filter_map(|w| w.parse().ok()).collect();
         // which orders: "minkälaisia verkkoja on olemassa conwayn tapaan", "which graphs exist in conway's way"
@@ -70,11 +73,12 @@ pub fn read(q: &str) -> Option<GraphQ> {
             "minkälaisia", "mitkä", "mitä", "millaisia", "verkkoja", "verkot", "on", "ovat", "olemassa", "conwayn", "tapaan", "which", "what", "list", "all", "graphs", "networks", "exist", "are", "there", "in", "conway's", "conways", "way", "style", "like", "conway", "s", "the",
         ];
         if nums.is_empty() && words.iter().any(|w| LIST.contains(&w.as_str())) && words.iter().all(|w| LIST_OK.contains(&w.as_str())) {
-            return Some(GraphQ { v: 0, k: None, lambda: 1, mu: 2, make: false, list: true });
+            return Some(GraphQ { v: 0, k: None, lambda: 1, mu: 2, make: false, list: true, invent: false });
         }
         if nums.len() == 1 && words.iter().all(|w| w.parse::<u64>().is_ok() || OK.contains(&w.as_str())) {
             let make = !["is there", "onko", "does"].iter().any(|w| t.starts_with(w));
-            return Some(GraphQ { v: nums[0], k: None, lambda: 1, mu: 2, make, list: false });
+            let invent = words.iter().any(|w| ["keksi", "invent", "funktio", "function", "formula", "kaava"].contains(&w.as_str()));
+            return Some(GraphQ { v: nums[0], k: None, lambda: 1, mu: 2, make, list: false, invent });
         }
         return None;
     }
@@ -99,7 +103,7 @@ pub fn read(q: &str) -> Option<GraphQ> {
     if !["", "common neighbours", "common neighbors"].contains(&tail.trim()) {
         return None;
     }
-    Some(GraphQ { v, k: None, lambda, mu, make, list: false })
+    Some(GraphQ { v, k: None, lambda, mu, make, list: false, invent: false })
 }
 
 /// The whole degrees k with k(k - 1 - λ) = μ(v - 1 - k), 0 < k <= v - 1.
@@ -215,6 +219,35 @@ pub fn check(adj: &[Vec<bool>], k: u64, lambda: u64, mu: u64) -> Result<usize, S
     Ok(pairs)
 }
 
+/// Golden invents a function for the graph, from nothing but the forced frame.
+fn invent_answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<String>)> {
+    if !matches!(kind, Kind3::Logical) || g.lambda != 1 || g.mu != 2 {
+        return None;
+    }
+    let ks = degrees(g.v, 1, 2);
+    let mut lines = Vec::new();
+    let Some(&k) = ks.first() else {
+        lines.push(format!("no whole k solves k(k - 2) = 2({} - k): there is no graph to invent a function for", g.v - 1));
+        return Some(("no such graph exists".into(), lines, vec![]));
+    };
+    let secs = if cfg!(test) { 2.0 } else { std::env::var("GOLDEN_INVENT_SECONDS").ok().and_then(|x| x.parse().ok()).unwrap_or(60.0) };
+    let q = k / 2;
+    lines.push(format!("the frame the conditions force (nothing else is given): x, its {k} neighbours (i, s) with triangle i in Z_{q} and corner s in {{0,1}}, and the far vertices, the pairs {{(i1,s1),(j1,t1)}} with i1 < j1"));
+    lines.push(format!("invented: a rule f ~ g when E(f, g) + E(g, f) ≡ 0 (mod {q}), E(i1,s1,j1,t1, i2,s2,j2,t2) from +, -, × and constants, starting from random formulas"));
+    let Some(inv) = crate::golden_invent::invent(k as usize, secs, 0x2545_f491_4f6c_dd1d) else {
+        return None;
+    };
+    lines.push(format!("{} formulas tried in {:.0} s", inv.tried, inv.seconds));
+    if inv.verified {
+        lines.push(format!("E = {}", inv.best.text()));
+        lines.push(format!("checked from scratch: the graph it gives is srg({},{k},1,2) on every pair", g.v));
+        return Some((format!("invented: f ~ g when E(f,g) + E(g,f) ≡ 0 (mod {q}), E = {}", inv.best.text()), lines, vec![]));
+    }
+    lines.push(format!("best formula: E = {} — its graph meets {:.1}% of the pair conditions ({} units of error left)", inv.best.text(), 100.0 * inv.pairs_met_share, inv.unmet));
+    UNDECIDED.with(|u| *u.borrow_mut() = lines.clone());
+    None
+}
+
 /// How long the logical answer may search the forced structure's last choice (GOLDEN_FORCED_SECONDS overrides).
 pub const FORCED_SECONDS: f64 = 20.0;
 
@@ -284,9 +317,19 @@ pub fn forced(v: u64, k: u64, seconds: f64) -> (Forced, Vec<String>) {
         best_rows: &mut usize, nodes: &mut u64, t0: &std::time::Instant, seconds: f64, timed_out: &mut bool,
     ) -> bool {
         *nodes += 1;
-        if *nodes % 4096 == 0 && t0.elapsed().as_secs_f64() > seconds {
-            *timed_out = true;
-            return false;
+        if *nodes % 4096 == 0 {
+            let el = t0.elapsed().as_secs_f64();
+            if el > seconds {
+                *timed_out = true;
+                return false;
+            }
+            // progress once a minute on long searches
+            static LAST: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let minute = (el / 60.0) as u64;
+            if seconds > 120.0 && minute > LAST.load(std::sync::atomic::Ordering::Relaxed) {
+                LAST.store(minute, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[{minute} min] {nodes} steps, best {best_rows} of {n} far vertices fixed, now at row {f}", nodes = *nodes, best_rows = *best_rows);
+            }
         }
         if f == n {
             return true;
@@ -445,6 +488,9 @@ fn family(kind: Kind3) -> Option<(String, Vec<String>, Vec<String>)> {
 pub fn answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<String>)> {
     if g.list {
         return family(kind);
+    }
+    if g.invent {
+        return invent_answer(kind, g);
     }
     let GraphQ { v, lambda, mu, make, .. } = g.clone();
     let mut lines = Vec::new();
