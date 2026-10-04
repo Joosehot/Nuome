@@ -67,9 +67,9 @@ def main():
                     ok = False
             right += ok
             if not ok:
-                misses.append(f"    {pid} ({rating}): played {mv}, solution {moves[1]}  {why[:120]}")
+                misses.append(f"    {pid} ({rating}): played {mv}, solution {moves[1]}  {b.fen()}")
         print(f"{t}: {right}/{len(want[t])}")
-        for m in misses[:3]:
+        for m in misses:
             print(m)
         total[0] += right
         total[1] += len(want[t])

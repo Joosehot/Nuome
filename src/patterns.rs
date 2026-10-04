@@ -19,7 +19,7 @@
 use crate::golden::{atoms, Board, Mv, ATOMS};
 
 /// The facts of a move, each a yes/no the rules decide.
-pub const FACTS: [&str; 58] = [
+pub const FACTS: [&str; 64] = [
     "pawn moves", "knight moves", "bishop moves", "rook moves", "queen moves", "king moves",
     "captures", "promotes", "gives check", "castles",
     "lands where they strike", "lands where they do not strike", "lands guarded by me", "lands unguarded",
@@ -38,6 +38,8 @@ pub const FACTS: [&str; 58] = [
     "rook behind a passed pawn", "rook check from afar", "rook on the file next to their king",
     "guards a piece of mine that hung", "moves a struck piece to safety", "develops toward the centre",
     "blocks a line to my king", "attacks a pinned piece",
+    "lands where only their pinned pieces strike", "skewers two of their pieces", "pawn break: steps to strike their pawn",
+    "king strikes their pawn", "pawn outruns their king", "creates a passed pawn",
 ];
 pub const N_FACTS: usize = FACTS.len();
 
@@ -343,6 +345,69 @@ pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
                 set(&mut f, "blocks a line to my king");
             }
         }
+        // ── the clear words: pins that do not guard, skewers, pawn endings ──
+        let pin_a = pinned(&a, !b.white);
+        if e_after[them][to] > 0 {
+            let free = (0..64).any(|n| a.sq[n] != 0 && ((a.sq[n] > 0) != b.white) && pin_a >> n & 1 == 0 && crate::golden::strikes_of(&a, n) >> to & 1 == 1);
+            if !free {
+                set(&mut f, "lands where only their pinned pieces strike");
+            }
+        }
+        if (3..=5).contains(&t) {
+            let dirs: &[(i32, i32)] = match t {
+                3 => &[(1, 1), (1, -1), (-1, 1), (-1, -1)],
+                4 => &[(1, 0), (-1, 0), (0, 1), (0, -1)],
+                _ => &[(1, 1), (1, -1), (-1, 1), (-1, -1), (1, 0), (-1, 0), (0, 1), (0, -1)],
+            };
+            let (tf, tr) = ((to % 8) as i32, (to / 8) as i32);
+            'dirs: for &(df, dr) in dirs {
+                let (mut x, mut y) = (tf + df, tr + dr);
+                let mut first: i8 = 0;
+                while (0..8).contains(&x) && (0..8).contains(&y) {
+                    let q = a.sq[(y * 8 + x) as usize];
+                    if q != 0 {
+                        if (q > 0) == b.white {
+                            continue 'dirs;
+                        }
+                        if first == 0 {
+                            if q.abs() < 4 {
+                                continue 'dirs;
+                            }
+                            first = q;
+                        } else {
+                            if q.abs() != 1 && (first.abs() == 6 || worth(first) > worth(q)) {
+                                set(&mut f, "skewers two of their pieces");
+                                break 'dirs;
+                            }
+                            continue 'dirs;
+                        }
+                    }
+                    x += df;
+                    y += dr;
+                }
+            }
+        }
+        if t == 1 && crate::golden::strikes_of(&a, to) & (0..64).filter(|&n| a.sq[n] == their_pawn).fold(0u64, |acc, n| acc | 1 << n) != 0 {
+            set(&mut f, "pawn break: steps to strike their pawn");
+        }
+        if t == 6 && crate::golden::strikes_of(&a, to) & (0..64).filter(|&n| a.sq[n] == their_pawn).fold(0u64, |acc, n| acc | 1 << n) != 0 {
+            set(&mut f, "king strikes their pawn");
+        }
+        let passed_a = passed_pawns(&a, b.white);
+        if passed_a.len() > my_passed.len() {
+            set(&mut f, "creates a passed pawn");
+        }
+        let their_pieces = (0..64).any(|n| a.sq[n] != 0 && ((a.sq[n] > 0) != b.white) && a.sq[n].abs() != 1 && a.sq[n].abs() != 6);
+        if t == 1 && !their_pieces {
+            if let Some(&(_, q)) = passed_a.iter().find(|(pn, _)| *pn == to) {
+                let start = if b.white { 1 } else { 6 };
+                let steps = cheb(to, q) - if to / 8 == start { 1 } else { 0 };
+                let k = a.king(!b.white);
+                if k >= 0 && cheb(k as usize, q) > steps {
+                    set(&mut f, "pawn outruns their king");
+                }
+            }
+        }
         out.push((m, f));
     }
     out
@@ -440,7 +505,7 @@ pub fn discover(path: &str, n: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<F
             candidates.push(Pattern(1 << i | 1 << j));
         }
     }
-    let min_support = (a.len() / 100).max(30);
+    let min_support = 200; // rare tactics count too; the unseen half still checks every one
     let chunk = candidates.len().div_ceil(12).max(1);
     let mut found: Vec<Found> = std::thread::scope(|sc| {
         let hs: Vec<_> = candidates
@@ -522,7 +587,7 @@ pub fn play(b: &Board, history: &[u64], patterns: &[(Pattern, f64)]) -> Option<(
         .filter(|(m, _)| !losing.contains(m) || losing.len() == fs.len())
         .map(|&(m, f)| {
             let hits: Vec<Pattern> = patterns.iter().filter(|(p, _)| p.holds(f)).map(|x| x.0).collect();
-            let w: f64 = patterns.iter().filter(|(p, _)| p.holds(f)).map(|(_, l)| l.ln()).sum();
+            let w: f64 = patterns.iter().filter(|(p, _)| p.holds(f)).map(|(_, l)| l.ln()).fold(0.0, f64::max);
             (m, w, hits)
         })
         .collect();
