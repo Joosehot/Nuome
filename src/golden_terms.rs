@@ -968,3 +968,11 @@ pub fn selfplay(rounds: usize, games: usize, seed: u64, log: &mut dyn FnMut(&str
     log(&format!("{rounds} rounds, {wins} improvements; {} terms left", cur.len()));
     Ok(cur)
 }
+
+
+/// The terms' weighted sum on `b` (weights as the terms file holds them: seen
+/// from the position after a move, so a caller valuing `b` itself subtracts it).
+pub fn term_sum(b: &Board, terms: &[(Term, i64)]) -> i64 {
+    let (s, r) = (base_sets(b), reaches(b));
+    terms.iter().map(|(t, w)| w * t.value(&s, &r)).sum()
+}

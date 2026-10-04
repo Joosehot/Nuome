@@ -61,6 +61,7 @@ pub mod supergenius_shortcut;
 pub mod three_cubes;
 pub mod supergenius_conway;
 pub mod supergenius_golden;
+pub mod supergenius_eval;
 pub mod addmult;
 pub mod words;
 pub mod yang_mills;

@@ -1308,8 +1308,9 @@ fn goldenboy_value(b: &Board, ply: u32) -> i64 {
             }
         }
     }
-    let n = Network::write(b);
-    n.worth()
+    // nothing decided here: goldenboy asks the supergenius's eval
+    let _ = ms;
+    crate::supergenius_eval::eval(b)
 }
 
 /// One root move's tree as goldenboy sees it: grown full width to `depth`
