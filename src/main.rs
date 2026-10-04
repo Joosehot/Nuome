@@ -208,12 +208,22 @@ fn main() -> Result<()> {
             let b = nuome::golden::Board::from_fen(fen.trim()).map_err(|e| anyhow::anyhow!(e))?;
             // FEN -> NEURO (the position as a network, by the rules) -> GOLDEN (the move that leaves the best network)
             let t0 = std::time::Instant::now();
+            // the supergenius solves the puzzle: the whole class from the rules (exact) when it can,
+            // else the forward calculation, proofs only - never a function
+            if let Some((mv, v, rows)) = nuome::retro::exact_move(&b) {
+                println!("the supergenius solved the whole class {} from the rules: {} positions", nuome::retro::key_of(&nuome::retro::pieces_of(&b)), b.fen());
+                for (m, val) in rows.iter().take(5) {
+                    println!("  {:<6} {}", m.uci(), nuome::retro::show(*val));
+                }
+                println!("move: {} (exact: {}, {:.3} s)", mv.uci(), nuome::retro::show(v), t0.elapsed().as_secs_f64());
+                return Ok(());
+            }
             match nuome::neuro::supergenius(&b, &[], 400_000) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
                 Some((mv, proof, rows, nodes)) => {
-                    println!("the supergenius solves {} ({} to move) in NEURO's network: {nodes} positions calculated", b.fen(), if b.white { "white" } else { "black" });
-                    for (m, p, w) in rows.iter().take(5) {
-                        println!("  {:<6} {:<34} network {w:+}", m.uci(), nuome::neuro::show_proof(*p));
+                    println!("the supergenius calculates {} ({} to move) in NEURO's network: {nodes} positions, proofs only", b.fen(), if b.white { "white" } else { "black" });
+                    for (m, p, _) in rows.iter().take(5) {
+                        println!("  {:<6} {}", m.uci(), nuome::neuro::show_proof(*p));
                     }
                     println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_proof(proof), t0.elapsed().as_secs_f64());
                 }

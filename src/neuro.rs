@@ -656,6 +656,15 @@ impl Solver {
         if b.half >= 100 || b.insufficient() || self.history.iter().filter(|x| **x == h).count() >= 2 {
             return (0, true);
         }
+        // a class the supergenius has solved whole: the exact verdict
+        if let Some(t) = crate::retro::table(&crate::retro::pieces_of(b)) {
+            if let Some(i) = t.index(b) {
+                let v = t.val[i];
+                if v != crate::retro::UNSET && v != crate::retro::NONE {
+                    return (if v > 0 { WIN - ply as i64 - v as i64 } else if v < 0 { -WIN + ply as i64 + (-v as i64 - 1) } else { 0 }, true);
+                }
+            }
+        }
         if depth == 0 || self.nodes > self.budget {
             return (UNKNOWN, false);
         }
@@ -729,11 +738,8 @@ pub fn supergenius(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Proof
         depth += 1;
     }
     // the network's judgement for what is not proven
-    let worth = |m: Mv| {
-        let a = b.play(m);
-        let n = Network::write(&a);
-        -(n.worth() + n.vision_worth(&a))
-    };
+    // no function: an unproven move carries no number (0); proofs decide, then the rules' order
+    let worth = |_m: Mv| 0i64;
     // proofs first; an unproven move stands above a proven draw only when the network sees it ahead
     let rank = |p: Proof, w: i64| match p {
         Proof::Win(n) => (4i64, -(n as i64)),
