@@ -1,6 +1,6 @@
 # Golden Answer benchmark
 
-answered = the kind gave an answer; right = agrees with the truth, of the answers that can be judged (an abstract "no evidence either way" is not judged).
+answered = the kind gave an answer; right = agrees with the truth, of the answers that can be judged. Abstract answers claim nothing and are never scored.
 
 ## oracle (900 questions, fixed in bench/golden_answer/oracle.jsonl)
 
@@ -32,16 +32,16 @@ theoretical:
 
 abstract:
   category                         n  answered        right
-  arithmetic                     100       100      100/100
-  collatz                        100       100      100/100
-  factoring                      100       100      100/100
-  goldbach                       100       100      100/100
-  mersenne                       100       100      100/100
-  primality                      100       100      100/100
-  prime counting                 100       100      100/100
-  properties                     100       100      100/100
-  sums of squares                100       100      100/100
-  all                            900       900      900/900
+  arithmetic                     100       100          0/0
+  collatz                        100       100          0/0
+  factoring                      100       100          0/0
+  goldbach                       100       100          0/0
+  mersenne                       100       100          0/0
+  primality                      100       100          0/0
+  prime counting                 100       100          0/0
+  properties                     100       100          0/0
+  sums of squares                100       100          0/0
+  all                            900       900          0/0
 
 ## math (1727 questions, fixed in bench/golden_answer/math.jsonl)
 
@@ -75,14 +75,14 @@ theoretical:
 
 abstract:
   category                         n  answered        right
-  MATH algebra L1                135       135        22/26
-  MATH algebra L2                201       201        25/30
-  MATH algebra L3                261       261        17/23
-  MATH algebra L4                283       283        12/17
-  MATH algebra L5                307       307          2/5
-  MATH number_theory L1           30        30          4/4
-  MATH number_theory L2           92        92        11/17
-  MATH number_theory L3          122       122        13/20
-  MATH number_theory L4          142       142        12/18
-  MATH number_theory L5          154       154          4/4
-  all                           1727      1727      122/164
+  MATH algebra L1                135       135          0/0
+  MATH algebra L2                201       201          0/0
+  MATH algebra L3                261       261          0/0
+  MATH algebra L4                283       283          0/0
+  MATH algebra L5                307       307          0/0
+  MATH number_theory L1           30        30          0/0
+  MATH number_theory L2           92        92          0/0
+  MATH number_theory L3          122       122          0/0
+  MATH number_theory L4          142       142          0/0
+  MATH number_theory L5          154       154          0/0
+  all                           1727      1727          0/0

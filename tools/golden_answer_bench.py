@@ -242,7 +242,8 @@ def run(name, qs, jobs):
         answers = list(ex.map(lambda t: ask(t[0], t[1]["question"]), tasks))
     rows = []
     for (k, q), a in zip(tasks, answers):
-        judged = a is not None and not (k == "abstract" and a == "no evidence either way")
+        # an abstract answer claims nothing, so it is never scored right or wrong
+        judged = a is not None and k != "abstract"
         rows.append({**q, "kind": k, "answer": a, "right": (agrees(a, q["truth"]) if judged else None)})
     out = [f"\n## {name} ({len(qs)} questions, fixed in bench/golden_answer/{name}.jsonl)"]
     for k in KINDS:
@@ -275,7 +276,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=8)
     a = ap.parse_args()
     os.makedirs(DIR, exist_ok=True)
-    report = ["# Golden Answer benchmark", "", "answered = the kind gave an answer; right = agrees with the truth, of the answers that can be judged (an abstract \"no evidence either way\" is not judged)."]
+    report = ["# Golden Answer benchmark", "", "answered = the kind gave an answer; right = agrees with the truth, of the answers that can be judged. Abstract answers claim nothing and are never scored."]
     if a.set in ("oracle", "all"):
         report.append(run("oracle", fixed("oracle", lambda: oracle_set(a.per)), a.jobs))
     if a.set == "train":

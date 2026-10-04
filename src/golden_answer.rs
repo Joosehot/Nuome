@@ -1642,20 +1642,10 @@ fn guess(a: Answer, question: &str, task: &Task) -> Answer {
     }
 }
 
-/// The last resort: Nuome's own working even if not every check passed,
-/// then arithmetic, then a plain statement that nothing could be tested.
-fn generic_guess(a: Answer, question: &str) -> Answer {
-    let cfg = crate::config::Config::builtin();
-    if let Ok(s) = crate::solve(question, &cfg, &crate::Options { lenient: true, ..Default::default() }) {
-        let short = crate::render::answer(&s.request, &s.outcome, &cfg, crate::print::Style::default());
-        let passed = s.outcome.checks().iter().filter(|c| c.ok).count();
-        return a.says(format!("probably {}", short.trim_start_matches("Answer: "))).line(format!("Nuome's worked solution, read leniently; {passed} of {} checks passed", s.outcome.checks().len()));
-    }
-    if let Some(e) = arithmetic_of(&question.to_lowercase()) {
-        if let Some((v, _)) = calc(&e) {
-            return a.says(format!("about {}", v.f)).line(format!("{e} evaluated"));
-        }
-    }
+/// The last resort when the question could not be read whole: no loose
+/// reading (it answered questions that were not asked), only the plain
+/// statement that nothing could be tested.
+fn generic_guess(a: Answer, _question: &str) -> Answer {
     a.says("no evidence either way").line("nothing in the question could be read as something to compute or test, so this guess carries no information (a coin flip)")
 }
 
@@ -1748,7 +1738,9 @@ pub fn run_bench() -> Vec<BenchRow> {
             let a = answer(kind, question);
             let right = match (&a.short, truth) {
                 (None, _) => None,
-                (Some(s), "open") => Some(s == "open" || kind == Kind::Abstract && s.starts_with("probably")).filter(|_| kind != Kind::Abstract),
+                // an abstract answer claims nothing, so it is never scored right or wrong
+                _ if kind == Kind::Abstract => None,
+                (Some(s), "open") => Some(s == "open"),
                 (Some(s), t) => Some(agrees(s, t)),
             };
             rows.push(BenchRow { kind, category, question, truth, short: a.short, right });
