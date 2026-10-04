@@ -219,17 +219,21 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             let budget: u64 = std::env::var("GOLDEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(400_000);
-            match nuome::neuro::lumberjack(&b, &[], budget) {
+            match nuome::neuro::goldenboy(&b, &[], budget) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, claim, standing, felled, nodes)) => {
-                    println!("the lumberjack on {} ({} to move): {nodes} positions; {} trees standing, {} felled", b.fen(), if b.white { "white" } else { "black" }, standing.len(), felled.len());
-                    for (m, c, d) in standing.iter().take(5) {
-                        println!("  {:<6} {} (grown to {d} plies)", m.uci(), nuome::neuro::show_claim(*c));
+                Some((mv, trees, nodes, depth)) => {
+                    let standing = trees.iter().filter(|t| t.felled.is_none()).count();
+                    println!("goldenboy looked through every tree of {} ({} to move) to {depth} plies, {nodes} positions; {standing} standing, {} felled", b.fen(), if b.white { "white" } else { "black" }, trees.len() - standing);
+                    let mut shown: Vec<&nuome::neuro::Tree> = trees.iter().filter(|t| t.felled.is_none()).collect();
+                    shown.sort_by_key(|t| -*t.seen.last().unwrap_or(&i64::MIN));
+                    for t in shown.iter().take(5) {
+                        println!("  {:<6} {}  (seen: {})", t.mv.uci(), nuome::neuro::show_tree_value(*t.seen.last().unwrap_or(&0)), t.seen.iter().map(|v| nuome::neuro::show_tree_value(*v)).collect::<Vec<_>>().join(" "));
                     }
-                    for f in felled.iter().take(4) {
-                        println!("  felled {:<6} at {} plies: {}", f.mv.uci(), f.at_depth, f.why);
+                    for t in trees.iter().filter(|t| t.felled.is_some()).take(4) {
+                        let (d, why) = t.felled.unwrap();
+                        println!("  felled {:<6} at {d} plies: {why}", t.mv.uci());
                     }
-                    println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_claim(claim), t0.elapsed().as_secs_f64());
+                    println!("move: {} ({:.3} s)", mv.uci(), t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());

@@ -1220,3 +1220,151 @@ pub fn lumberjack(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Claim,
         }
     }
 }
+
+
+// ── goldenboy looks through every tree first; then the lumberjack fells ──
+
+/// Goldenboy's view of a position after a move: the supergenius's function
+/// over NEURO's network, from the mover's side. Mate and the draw rules
+/// speak first; a class the supergenius has solved whole gives its verdict.
+fn goldenboy_value(b: &Board, ply: u32) -> i64 {
+    let ms = b.moves();
+    if ms.is_empty() {
+        return if b.in_check() { -WIN + ply as i64 } else { 0 };
+    }
+    if b.half >= 100 || b.insufficient() {
+        return 0;
+    }
+    if let Some(t) = crate::retro::table(&crate::retro::pieces_of(b)) {
+        if let Some(i) = t.index(b) {
+            let v = t.val[i];
+            if v != crate::retro::UNSET && v != crate::retro::NONE {
+                return if v > 0 { WIN - ply as i64 - v as i64 } else if v < 0 { -WIN + ply as i64 + (-v as i64 - 1) } else { 0 };
+            }
+        }
+    }
+    let n = Network::write(b);
+    n.worth() + n.vision_worth(b)
+}
+
+/// One root move's tree as goldenboy sees it: grown full width to `depth`
+/// plies, every node valued; what comes back is the value the line holds
+/// against every reply (the worst reply, our best answer), and whether the
+/// budget ran out.
+struct Walker {
+    nodes: u64,
+    budget: u64,
+}
+
+impl Walker {
+    fn look(&mut self, b: &Board, depth: u32, ply: u32) -> Option<i64> {
+        self.nodes += 1;
+        if self.nodes > self.budget || (self.nodes % 256 == 0 && time_is_up()) {
+            return None;
+        }
+        let ms = b.moves();
+        if depth == 0 || ms.is_empty() || b.half >= 100 || b.insufficient() {
+            return Some(goldenboy_value(b, ply));
+        }
+        // the side to move picks its best; goldenboy sees every move
+        let mut best = i64::MIN;
+        for m in ordered(b, ms) {
+            let v = -self.look(&b.play(m), depth - 1, ply + 1)?;
+            if v > best {
+                best = v;
+            }
+        }
+        Some(best)
+    }
+}
+
+pub struct Tree {
+    pub mv: Mv,
+    /// goldenboy's value of the tree at each depth it reached (mover's side)
+    pub seen: Vec<i64>,
+    pub felled: Option<(u32, &'static str)>,
+}
+
+/// Goldenboy grows every tree together, a ply at a time, and values every
+/// node. After each ply the lumberjack fells: a tree whose value fell to a
+/// forced mate against us, a tree that is a piece or more behind every other
+/// standing tree for three plies running (it leads nowhere), and after
+/// FELL_AT plies every tree not among the best. Goldenboy plays the best
+/// tree left: a proven mate first, else the highest value at the deepest
+/// ply every standing tree reached.
+pub fn goldenboy(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Vec<Tree>, u64, u32)> {
+    let time_ms = std::env::var("GOLDEN_TIME_MS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
+    let budget = if time_ms > 0 { u64::MAX / 4 } else { budget };
+    set_deadline(time_ms);
+    let ms = b.moves();
+    if ms.is_empty() {
+        return None;
+    }
+    let _ = history;
+    let mut trees: Vec<Tree> = ms.iter().map(|&m| Tree { mv: m, seen: Vec::new(), felled: None }).collect();
+    let mut w = Walker { nodes: 0, budget };
+    let knight = (rule_mobility(2) * 256.0) as i64;
+    let mut depth = 1u32;
+    let mut reached = 0u32;
+    'grow: while depth <= 64 {
+        let mut values: Vec<Option<i64>> = Vec::new();
+        for t in trees.iter() {
+            if t.felled.is_some() {
+                values.push(None);
+                continue;
+            }
+            // our move is made; the reply side moves at depth - 1
+            match w.look(&b.play(t.mv), depth - 1, 1) {
+                Some(v) => values.push(Some(-v)),
+                None => break 'grow,
+            }
+        }
+        for (t, v) in trees.iter_mut().zip(&values) {
+            if let Some(v) = v {
+                t.seen.push(*v);
+            }
+        }
+        reached = depth;
+        // the lumberjack
+        let standing: Vec<usize> = (0..trees.len()).filter(|&i| trees[i].felled.is_none()).collect();
+        if standing.len() > 1 {
+            let best_now = standing.iter().map(|&i| *trees[i].seen.last().unwrap()).max().unwrap();
+            for &i in &standing {
+                let s = &trees[i].seen;
+                let v = *s.last().unwrap();
+                if v <= -WIN + 1000 {
+                    trees[i].felled = Some((depth, "mated by force"));
+                } else if s.len() >= 3 && s[s.len() - 3..].iter().all(|&x| x <= best_now - knight) && best_now > -WIN + 1000 {
+                    trees[i].felled = Some((depth, "a piece behind the best for three plies: leads nowhere"));
+                } else if depth >= FELL_AT && v < best_now {
+                    trees[i].felled = Some((depth, "not among the best after 20 plies"));
+                }
+            }
+            // never fell the last one
+            if trees.iter().all(|t| t.felled.is_some()) {
+                let i = standing.iter().copied().max_by_key(|&i| *trees[i].seen.last().unwrap()).unwrap();
+                trees[i].felled = None;
+            }
+        }
+        if trees.iter().filter(|t| t.felled.is_none()).count() <= 1 {
+            break;
+        }
+        depth += 1;
+    }
+    // goldenboy plays: the best standing tree at the deepest ply they all reached
+    let standing: Vec<&Tree> = trees.iter().filter(|t| t.felled.is_none()).collect();
+    let pick: &Tree = standing.iter().copied().max_by_key(|t| *t.seen.last().unwrap_or(&i64::MIN)).or_else(|| trees.iter().max_by_key(|t| *t.seen.last().unwrap_or(&i64::MIN)))?;
+    let mv = pick.mv;
+    let nodes = w.nodes;
+    Some((mv, trees, nodes, reached))
+}
+
+pub fn show_tree_value(v: i64) -> String {
+    if v >= WIN - 1000 {
+        format!("mate in {}", (WIN - v + 1) / 2)
+    } else if v <= -WIN + 1000 {
+        format!("mated in {}", (v + WIN + 1) / 2)
+    } else {
+        format!("{v:+}")
+    }
+}
