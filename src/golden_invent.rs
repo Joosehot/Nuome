@@ -152,11 +152,12 @@ impl Frame {
         let v = 1 + k + far.len();
         Frame { k, q, far, v }
     }
-    /// The whole graph a formula gives, as adjacency rows of bits (v <= 512).
-    fn graph(&self, e: &Ex) -> Vec<[u64; 8]> {
+    /// The whole graph a formula gives under a naming of the triangles and
+    /// corners, as adjacency rows of bits (v <= 512).
+    fn graph(&self, e: &Ex, nm: &Naming) -> Vec<[u64; 8]> {
         let v = self.v;
         let mut r = vec![[0u64; 8]; v];
-        let mut link = |a: usize, b: usize, r: &mut Vec<[u64; 8]>| {
+        let link = |a: usize, b: usize, r: &mut Vec<[u64; 8]>| {
             r[a][b / 64] |= 1 << (b % 64);
             r[b][a / 64] |= 1 << (a % 64);
         };
@@ -171,15 +172,24 @@ impl Frame {
             link(base + f, nb(i, s), &mut r);
             link(base + f, nb(j, t), &mut r);
         }
+        // the far vertices as the formula sees them: named, the smaller triangle name first
+        let named: Vec<[u64; 4]> = self
+            .far
+            .iter()
+            .map(|&((i, s), (j, t))| {
+                let a = (nm.tri[i as usize], s ^ nm.flip[i as usize]);
+                let b = (nm.tri[j as usize], t ^ nm.flip[j as usize]);
+                let (a, b) = if a.0 <= b.0 { (a, b) } else { (b, a) };
+                [a.0, a.1, b.0, b.1]
+            })
+            .collect();
         for f in 0..self.far.len() {
             for g in f + 1..self.far.len() {
-                let (a, b) = self.far[f];
-                let (c, d) = self.far[g];
+                let (x, y) = (named[f], named[g]);
                 // symmetric by construction: E(f, g) + E(g, f) ≡ 0
-                let fg = [a.0, a.1, b.0, b.1, c.0, c.1, d.0, d.1];
-                let gf = [c.0, c.1, d.0, d.1, a.0, a.1, b.0, b.1];
-                let adj = (e.eval(&fg, self.q) + e.eval(&gf, self.q)) % self.q == 0;
-                if adj {
+                let fg = [x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3]];
+                let gf = [y[0], y[1], y[2], y[3], x[0], x[1], x[2], x[3]];
+                if (e.eval(&fg, self.q) + e.eval(&gf, self.q)) % self.q == 0 {
                     link(base + f, base + g, &mut r);
                 }
             }
@@ -187,8 +197,8 @@ impl Frame {
         r
     }
     /// (unmet conditions, all conditions): degree at every vertex, the common count at every pair.
-    fn score(&self, e: &Ex) -> (u64, u64) {
-        let r = self.graph(e);
+    fn score(&self, e: &Ex, nm: &Naming) -> (u64, u64) {
+        let r = self.graph(e, nm);
         let v = self.v;
         let mut bad = 0u64;
         for x in 0..v {
@@ -204,24 +214,58 @@ impl Frame {
         }
         (bad, (v + v * (v - 1) / 2) as u64)
     }
-    pub fn adjacency(&self, e: &Ex) -> Vec<Vec<bool>> {
-        let r = self.graph(e);
+    pub fn adjacency(&self, e: &Ex, nm: &Naming) -> Vec<Vec<bool>> {
+        let r = self.graph(e, nm);
         (0..self.v).map(|x| (0..self.v).map(|y| r[x][y / 64] >> (y % 64) & 1 == 1).collect()).collect()
+    }
+}
+
+/// How the triangles and corners are named for the formula: the forced frame
+/// gives no names, so the names are invented together with the formula.
+#[derive(Clone, Debug)]
+pub struct Naming {
+    /// triangle i is called tri[i] (a permutation of Z_q)
+    pub tri: Vec<u64>,
+    /// the corners of triangle i are swapped when flip[i] = 1
+    pub flip: Vec<u64>,
+}
+
+impl Naming {
+    fn plain(q: u64) -> Naming {
+        Naming { tri: (0..q).collect(), flip: vec![0; q as usize] }
+    }
+    fn mutate(&self, r: &mut Rng) -> Naming {
+        let mut n = self.clone();
+        let q = n.tri.len() as u64;
+        if r.below(2) == 0 {
+            let (a, b) = (r.below(q) as usize, r.below(q) as usize);
+            n.tri.swap(a, b);
+        } else {
+            let a = r.below(q) as usize;
+            n.flip[a] ^= 1;
+        }
+        n
     }
 }
 
 pub struct Invented {
     pub best: Ex,
+    pub naming: Naming,
     pub unmet: u64,
     pub conditions: u64,
     pub pairs_met_share: f64,
     pub verified: bool,
     pub tried: u64,
     pub seconds: f64,
+    pub islands: usize,
 }
 
-/// Invent for at most `seconds`, from random formulas.
+/// Invent for at most `seconds` on every core: each island evolves its own
+/// formulas and namings from random ones; the first that meets every
+/// condition stops them all.
 pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use std::sync::Mutex;
     if k % 2 != 0 || k < 4 {
         return None;
     }
@@ -230,46 +274,81 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
         return None;
     }
     let t0 = std::time::Instant::now();
-    let mut r = Rng(seed | 1);
-    let pop_n = 300;
-    let fit = |e: &Ex| {
-        let (bad, _) = fr.score(e);
-        bad * 64 + e.size() as u64 // shorter is better among equals
-    };
-    let mut pop: Vec<(u64, Ex)> = (0..pop_n).map(|_| {
-        let e = random_ex(&mut r, 4, fr.q);
-        (fit(&e), e)
-    }).collect();
-    let mut tried = pop_n as u64;
-    pop.sort_by_key(|p| p.0);
-    while t0.elapsed().as_secs_f64() < seconds && pop[0].0 / 64 > 0 {
-        let mut next: Vec<(u64, Ex)> = pop[..10].to_vec();
-        while next.len() < pop_n {
-            let pick = |r: &mut Rng| -> &Ex {
-                let a = r.below(pop_n as u64) as usize;
-                let b = r.below(pop_n as u64) as usize;
-                &pop[a.min(b)].1
-            };
-            let child = if r.below(5) == 0 {
-                let (a, b) = (pick(&mut r).clone(), pick(&mut r).clone());
-                crossover(&a, &b, &mut r)
-            } else {
-                let a = pick(&mut r).clone();
-                mutate(&a, &mut r, fr.q)
-            };
-            if child.size() > 40 {
-                continue;
-            }
-            tried += 1;
-            next.push((fit(&child), child));
+    let islands = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(16);
+    let done = AtomicBool::new(false);
+    let tried = AtomicU64::new(0);
+    let best: Mutex<Option<(u64, Ex, Naming)>> = Mutex::new(None);
+    std::thread::scope(|sc| {
+        for isl in 0..islands {
+            let (fr, done, tried, best) = (&fr, &done, &tried, &best);
+            sc.spawn(move || {
+                let mut r = Rng((seed ^ (isl as u64 + 1).wrapping_mul(0x9e37_79b9_7f4a_7c15)) | 1);
+                let pop_n = 200;
+                let fit = |e: &Ex, nm: &Naming| fr.score(e, nm).0 * 64 + e.size() as u64; // shorter is better among equals
+                let mut pop: Vec<(u64, Ex, Naming)> = (0..pop_n)
+                    .map(|_| {
+                        let e = random_ex(&mut r, 4, fr.q);
+                        let mut nm = Naming::plain(fr.q);
+                        for _ in 0..fr.q * 2 {
+                            nm = nm.mutate(&mut r);
+                        }
+                        (fit(&e, &nm), e, nm)
+                    })
+                    .collect();
+                pop.sort_by_key(|p| p.0);
+                let mut my_tried = pop_n as u64;
+                while !done.load(Ordering::Relaxed) && t0.elapsed().as_secs_f64() < seconds {
+                    let mut next: Vec<(u64, Ex, Naming)> = pop[..8].to_vec();
+                    while next.len() < pop_n {
+                        let pick = |r: &mut Rng| -> usize {
+                            let a = r.below(pop_n as u64) as usize;
+                            let b = r.below(pop_n as u64) as usize;
+                            a.min(b)
+                        };
+                        let pa = pick(&mut r);
+                        let (e, nm) = match r.below(10) {
+                            0 | 1 => {
+                                let pb = pick(&mut r);
+                                (crossover(&pop[pa].1, &pop[pb].1, &mut r), pop[pa].2.clone())
+                            }
+                            2 | 3 | 4 => (pop[pa].1.clone(), pop[pa].2.mutate(&mut r)),
+                            _ => (mutate(&pop[pa].1, &mut r, fr.q), pop[pa].2.clone()),
+                        };
+                        if e.size() > 40 {
+                            continue;
+                        }
+                        my_tried += 1;
+                        next.push((fit(&e, &nm), e, nm));
+                    }
+                    next.sort_by_key(|p| p.0);
+                    pop = next;
+                    let mut b = best.lock().unwrap();
+                    if b.as_ref().map_or(true, |x| pop[0].0 < x.0) {
+                        *b = Some(pop[0].clone());
+                    }
+                    // progress every 5 minutes on long runs, from island 0
+                    if isl == 0 && seconds > 600.0 {
+                        static LAST: AtomicU64 = AtomicU64::new(0);
+                        let slot = (t0.elapsed().as_secs_f64() / 300.0) as u64;
+                        if slot > LAST.load(Ordering::Relaxed) {
+                            LAST.store(slot, Ordering::Relaxed);
+                            if let Some((fit, e, _)) = b.as_ref() {
+                                eprintln!("[{} min] best error {} (formula size {}), {} tried by island 0: {}", slot * 5, fit / 64, e.size(), my_tried, e.text());
+                            }
+                        }
+                    }
+                    if pop[0].0 / 64 == 0 {
+                        done.store(true, Ordering::Relaxed);
+                    }
+                }
+                tried.fetch_add(my_tried, Ordering::Relaxed);
+            });
         }
-        next.sort_by_key(|p| p.0);
-        pop = next;
-    }
-    let best = pop[0].1.clone();
-    let (unmet, conditions) = fr.score(&best);
+    });
+    let (_, best, naming) = best.into_inner().unwrap()?;
+    let (unmet, conditions) = fr.score(&best, &naming);
     let pairs = fr.v * (fr.v - 1) / 2;
-    let adj = fr.adjacency(&best);
+    let adj = fr.adjacency(&best, &naming);
     let met_pairs = {
         let mut m = 0;
         for x in 0..fr.v {
@@ -281,5 +360,5 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
         m
     };
     let verified = unmet == 0 && crate::golden_graph::check(&adj, k as u64, 1, 2).is_ok();
-    Some(Invented { best, unmet, conditions, pairs_met_share: met_pairs as f64 / pairs as f64, verified, tried, seconds: t0.elapsed().as_secs_f64() })
+    Some(Invented { best, naming, unmet, conditions, pairs_met_share: met_pairs as f64 / pairs as f64, verified, tried: tried.load(Ordering::Relaxed), seconds: t0.elapsed().as_secs_f64(), islands })
 }

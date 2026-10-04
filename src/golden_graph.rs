@@ -237,9 +237,11 @@ fn invent_answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<St
     let Some(inv) = crate::golden_invent::invent(k as usize, secs, 0x2545_f491_4f6c_dd1d) else {
         return None;
     };
-    lines.push(format!("{} formulas tried in {:.0} s", inv.tried, inv.seconds));
+    lines.push("the frame gives no names, so the names of the triangles and corners are invented with the formula".into());
+    lines.push(format!("{} formulas and namings tried in {:.0} s on {} islands", inv.tried, inv.seconds, inv.islands));
     if inv.verified {
         lines.push(format!("E = {}", inv.best.text()));
+        lines.push(format!("naming: triangle i is called {:?}, corners swapped in triangles {:?}", inv.naming.tri, (0..inv.naming.flip.len()).filter(|&i| inv.naming.flip[i] == 1).collect::<Vec<_>>()));
         lines.push(format!("checked from scratch: the graph it gives is srg({},{k},1,2) on every pair", g.v));
         return Some((format!("invented: f ~ g when E(f,g) + E(g,f) ≡ 0 (mod {q}), E = {}", inv.best.text()), lines, vec![]));
     }
