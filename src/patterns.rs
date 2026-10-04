@@ -19,7 +19,7 @@
 use crate::golden::{atoms, Board, Mv, ATOMS};
 
 /// The facts of a move, each a yes/no the rules decide.
-pub const FACTS: [&str; 44] = [
+pub const FACTS: [&str; 58] = [
     "pawn moves", "knight moves", "bishop moves", "rook moves", "queen moves", "king moves",
     "captures", "promotes", "gives check", "castles",
     "lands where they strike", "lands where they do not strike", "lands guarded by me", "lands unguarded",
@@ -33,6 +33,11 @@ pub const FACTS: [&str; 44] = [
     "takes an unstruck piece", "takes a cheaper piece", "takes a dearer or equal piece",
     "rook to a file without my pawns", "minor off the back rank", "king move with pieces on",
     "pawn to the 6th or 7th", "passed pawn advance", "a piece to where their pawn can step and strike", "lands where their cheaper piece strikes",
+    "pins a piece of theirs", "strikes two of their pieces", "check and strikes another piece",
+    "king nearer my passed pawn", "king into the square of their passed pawn", "takes the opposition",
+    "rook behind a passed pawn", "rook check from afar", "rook on the file next to their king",
+    "guards a piece of mine that hung", "moves a struck piece to safety", "develops toward the centre",
+    "blocks a line to my king", "attacks a pinned piece",
 ];
 pub const N_FACTS: usize = FACTS.len();
 
@@ -44,6 +49,65 @@ fn worth(t: i8) -> i64 {
         5 => 975,
         _ => 0,
     }
+}
+
+/// The pieces of `white` pinned to their king (a slider of the other side
+/// behind exactly one piece on a line to the king), as a bitboard.
+fn pinned(b: &Board, white: bool) -> u64 {
+    let k = b.king(white);
+    if k < 0 {
+        return 0;
+    }
+    let (kf, kr) = (k % 8, k / 8);
+    let mut out = 0u64;
+    for (dirs, kinds) in [([(1, 0), (-1, 0), (0, 1), (0, -1)], [4i8, 5]), ([(1, 1), (1, -1), (-1, 1), (-1, -1)], [3i8, 5])] {
+        for (df, dr) in dirs {
+            let (mut x, mut y, mut own, mut own_n) = (kf + df, kr + dr, 0, 0usize);
+            while (0..8).contains(&x) && (0..8).contains(&y) {
+                let n = (y * 8 + x) as usize;
+                let p = b.sq[n];
+                if p != 0 {
+                    if (p > 0) == white {
+                        own += 1;
+                        own_n = n;
+                        if own > 1 {
+                            break;
+                        }
+                    } else {
+                        if own == 1 && kinds.contains(&p.abs()) {
+                            out |= 1 << own_n;
+                        }
+                        break;
+                    }
+                }
+                x += df;
+                y += dr;
+            }
+        }
+    }
+    out
+}
+
+fn cheb(a: usize, b: usize) -> i32 {
+    ((a % 8) as i32 - (b % 8) as i32).abs().max(((a / 8) as i32 - (b / 8) as i32).abs())
+}
+
+/// My passed pawns (nodes) and their queening nodes, for `white`.
+fn passed_pawns(b: &Board, white: bool) -> Vec<(usize, usize)> {
+    let (mine, theirs) = if white { (1i8, -1i8) } else { (-1, 1) };
+    let mut out = Vec::new();
+    for n in 0..64 {
+        if b.sq[n] != mine {
+            continue;
+        }
+        let (f, r) = ((n % 8) as i32, (n / 8) as i32);
+        let dir = if white { 1 } else { -1 };
+        let passed = !(0..64).any(|m| b.sq[m] == theirs && ((m % 8) as i32 - f).abs() <= 1 && ((m / 8) as i32 - r) * dir > 0);
+        if passed {
+            out.push((n, if white { 56 + f as usize } else { f as usize }));
+        }
+    }
+    out
 }
 
 /// The facts of every legal move of `b`, as bit masks (bit i = FACTS[i]).
@@ -70,6 +134,13 @@ pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
             }
         }
     }
+    let their_pinned_before = pinned(b, !b.white).count_ones();
+    let my_king = b.king(b.white).max(0) as usize;
+    let their_king = b.king(!b.white).max(0) as usize;
+    let my_passed = passed_pawns(b, b.white);
+    let their_passed = passed_pawns(b, !b.white);
+    // my pieces struck by them and unguarded by me, before
+    let hung_before: Vec<usize> = (0..64).filter(|&n| b.sq[n] != 0 && ((b.sq[n] > 0) == b.white) && b.sq[n].abs() != 6 && e_before[them][n] > 0 && e_before[me][n] == 0).collect();
     let mut out = Vec::with_capacity(ms.len());
     for &m in &ms {
         let mut f = 0u64;
@@ -193,6 +264,85 @@ pub fn facts_of(b: &Board) -> Vec<(Mv, u64)> {
                 set(&mut f, "passed pawn advance");
             }
         }
+        // ── the themes' words ──
+        // pins: a piece of theirs newly pinned to their king
+        if pinned(&a, !b.white).count_ones() > their_pinned_before {
+            set(&mut f, "pins a piece of theirs");
+        }
+        if t != 6 && t != 1 {
+            let hits = crate::golden::strikes_of(&a, to);
+            let targets = (0..64).filter(|&n| hits >> n & 1 == 1 && a.sq[n] != 0 && ((a.sq[n] > 0) != b.white) && a.sq[n].abs() != 1).count();
+            if targets >= 2 {
+                set(&mut f, "strikes two of their pieces");
+            }
+            if a.in_check() && targets >= 2 {
+                set(&mut f, "check and strikes another piece");
+            }
+            // attacks a pinned piece of theirs
+            let pin_a = pinned(&a, !b.white);
+            if hits & pin_a != 0 {
+                set(&mut f, "attacks a pinned piece");
+            }
+        }
+        if t == 6 {
+            if let Some(&(pn, _)) = my_passed.iter().min_by_key(|(pn, _)| cheb(my_king, *pn)) {
+                if cheb(to, pn) < cheb(my_king, pn) {
+                    set(&mut f, "king nearer my passed pawn");
+                }
+            }
+            for &(pn, qn) in &their_passed {
+                let steps = cheb(pn, qn);
+                if cheb(to, qn) <= steps && cheb(my_king, qn) > steps {
+                    set(&mut f, "king into the square of their passed pawn");
+                    break;
+                }
+            }
+            // the opposition: kings on one file or rank, one node between, and they must move
+            let (tf2, tr2) = (to % 8, to / 8);
+            let (kf2, kr2) = (their_king % 8, their_king / 8);
+            if (tf2 == kf2 && (tr2 as i32 - kr2 as i32).abs() == 2) || (tr2 == kr2 && (tf2 as i32 - kf2 as i32).abs() == 2) {
+                set(&mut f, "takes the opposition");
+            }
+        }
+        if t == 4 {
+            // behind a passed pawn of either side on the same file
+            let dir_w = |white: bool| if white { 1i32 } else { -1 };
+            for &(pn, _) in my_passed.iter().chain(their_passed.iter()) {
+                if pn % 8 == to % 8 {
+                    let pawn_white = b.sq[pn] > 0 || a.sq[pn] > 0;
+                    let behind = ((pn / 8) as i32 - (to / 8) as i32) * dir_w(pawn_white) > 0;
+                    if behind {
+                        set(&mut f, "rook behind a passed pawn");
+                        break;
+                    }
+                }
+            }
+            if a.in_check() && cheb(to, their_king) >= 4 {
+                set(&mut f, "rook check from afar");
+            }
+            if ((to % 8) as i32 - (their_king % 8) as i32).abs() == 1 {
+                set(&mut f, "rook on the file next to their king");
+            }
+        }
+        if !hung_before.is_empty() {
+            let hung_after = hung_before.iter().filter(|&&n| n != m.from as usize && e_after[me][n] > 0).count();
+            if hung_after > 0 {
+                set(&mut f, "guards a piece of mine that hung");
+            }
+            if hung_before.contains(&(m.from as usize)) && e_after[them][to] == 0 {
+                set(&mut f, "moves a struck piece to safety");
+            }
+        }
+        if (t == 2 || t == 3) && (m.from / 8) as i32 == home && ring <= 1 {
+            set(&mut f, "develops toward the centre");
+        }
+        // blocks a line to my king: a slider of theirs had my king in sight, and now the moved piece stands between
+        if t != 6 {
+            let my_pinned_after = pinned(&a, b.white);
+            if my_pinned_after >> to & 1 == 1 {
+                set(&mut f, "blocks a line to my king");
+            }
+        }
         out.push((m, f));
     }
     out
@@ -301,6 +451,13 @@ pub fn discover(path: &str, n: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<F
                     let mut out = Vec::new();
                     for &p in part {
                         let (la, support) = lift(a, p);
+                        // the themes' words (facts 44 on) always stand in the roster as singles, however simple
+                        let theme_single = p.0.count_ones() == 1 && p.0 >> 44 != 0 && support > 0;
+                        if theme_single {
+                            let (lb, _) = lift(b, p);
+                            out.push(Found { pattern: p, lift_a: la, lift_b: lb, support });
+                            continue;
+                        }
                         if support < min_support || la < 1.5 {
                             continue;
                         }
@@ -317,7 +474,7 @@ pub fn discover(path: &str, n: usize, log: &mut dyn FnMut(&str)) -> Result<Vec<F
     });
     found.sort_by(|x, y| y.lift_b.partial_cmp(&x.lift_b).unwrap());
     // a pair stays only when it beats both of its parts on the unseen positions
-    let singles: std::collections::HashMap<u64, f64> = found.iter().filter(|f| f.pattern.0.count_ones() == 1).map(|f| (f.pattern.0, f.lift_b)).collect();
+    let singles: std::collections::HashMap<u64, f64> = found.iter().filter(|f| f.pattern.0.count_ones() == 1 && f.lift_b >= 1.3).map(|f| (f.pattern.0, f.lift_b)).collect();
     found.retain(|f| {
         if f.pattern.0.count_ones() == 1 {
             return true;

@@ -58,6 +58,13 @@ def main():
             b.push_uci(moves[0])  # the opponent's move; the solution starts with moves[1]
             mv, why = ask(b.fen(), a.ms)
             ok = mv == moves[1]
+            if not ok and mv and t.startswith("mateIn"):
+                c = b.copy()
+                try:
+                    c.push_uci(mv)
+                    ok = c.is_checkmate() and t == "mateIn1"
+                except Exception:
+                    ok = False
             right += ok
             if not ok:
                 misses.append(f"    {pid} ({rating}): played {mv}, solution {moves[1]}  {why[:120]}")
