@@ -363,7 +363,124 @@ pub enum Task {
     Unknown,
 }
 
+/// The question as words to match: lower case, no TeX dollars or
+/// backslashes, no closing ? or ., single spaces.
+fn normal(q: &str) -> String {
+    let t = q.to_lowercase().replace(['$', '\\'], "");
+    let t = t.trim().trim_end_matches(['?', '.', '!']).trim();
+    let t = t.strip_prefix("is it true that ").unwrap_or(t);
+    t.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// The text is exactly one number expression, nothing else.
+fn whole_number(t: &str) -> Option<Num> {
+    let n = number_in(t)?;
+    let squeeze = |x: &str| x.chars().filter(|c| !c.is_whitespace() && *c != ',').collect::<String>();
+    (squeeze(t) == squeeze(&n.text)).then_some(n)
+}
+
+/// One of the prefixes, a number, one of the suffixes: the whole text.
+fn frame(t: &str, prefixes: &[&str], suffixes: &[&str]) -> Option<Num> {
+    for p in prefixes {
+        let Some(rest) = t.strip_prefix(p) else { continue };
+        for x in suffixes {
+            if let Some(mid) = rest.strip_suffix(x) {
+                if let Some(n) = whole_number(mid.trim()) {
+                    return Some(n);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The question read strictly: a task only when the whole question is one
+/// of the forms Golden Answer knows, word for word around the number. A
+/// question it cannot read whole is Unknown (or Nuome's algebra), so an
+/// answer that claims to be right never answers a question it misread.
 pub fn task_of(q: &str) -> Task {
+    let t = normal(q);
+    const IS: &[&str] = &["is ", "check if ", "check whether ", "determine whether ", "determine if ", "decide whether ", "can "];
+    if let Some(n) = frame(&t, IS, &[" prime", " a prime", " a prime number", " prime or composite"]) {
+        return Task::IsPrime(n);
+    }
+    if let Some(n) = frame(&t, &["factor ", "factorise ", "factorize ", "find the prime factorization of ", "find the prime factorisation of ", "the prime factorization of ", "what is the prime factorization of ", "what are the prime factors of ", "prime factors of "], &[""]) {
+        return Task::Factor(n);
+    }
+    let count_pre = &["how many primes are there below ", "how many primes are below ", "how many primes below ", "how many primes are less than ", "how many primes less than ", "how many prime numbers are less than ", "how many prime numbers are below ", "count the primes below ", "the number of primes below ", "number of primes below "];
+    if let Some(n) = frame(&t, count_pre, &[""]) {
+        return Task::PrimeCount(n, true);
+    }
+    if let Some(n) = frame(&t, &["how many primes are there up to ", "how many primes are up to ", "how many primes up to ", "count the primes up to ", "number of primes up to ", "how many primes are at most "], &[""]) {
+        return Task::PrimeCount(n, false);
+    }
+    if let Some(n) = frame(&t, IS, &[" a sum of two primes", " the sum of two primes", " be written as a sum of two primes", " be written as the sum of two primes"]) {
+        return Task::Goldbach(n);
+    }
+    if let Some(n) = frame(&t, IS, &[" a sum of two squares", " the sum of two squares", " be written as a sum of two squares", " be written as the sum of two squares"]) {
+        return Task::TwoSquares(n);
+    }
+    if let Some(n) = frame(&t, IS, &[" a sum of four squares", " the sum of four squares", " be written as a sum of four squares"]) {
+        return Task::FourSquares(n);
+    }
+    if let Some(n) = frame(&t, &["does ", "will "], &[" reach 1 under the collatz map", " reach 1 under collatz", " reach 1 in the collatz sequence", " reach 1 under the 3n + 1 map", " reach 1 under the 3n+1 map"]) {
+        return Task::Collatz(n);
+    }
+    let props: &[(&str, Prop)] = &[
+        (" a perfect square", Prop::Square),
+        (" a square number", Prop::Square),
+        (" a square", Prop::Square),
+        (" a perfect cube", Prop::Cube),
+        (" a cube", Prop::Cube),
+        (" a perfect number", Prop::Perfect),
+        (" perfect", Prop::Perfect),
+        (" a triangular number", Prop::Triangular),
+        (" triangular", Prop::Triangular),
+        (" a fibonacci number", Prop::Fibonacci),
+        (" a palindrome", Prop::Palindrome),
+        (" a power of two", Prop::PowerOfTwo),
+        (" a power of 2", Prop::PowerOfTwo),
+        (" even", Prop::Even),
+        (" odd", Prop::Odd),
+    ];
+    for &(suffix, prop) in props {
+        if let Some(n) = frame(&t, IS, &[suffix]) {
+            return Task::Property(n, prop);
+        }
+    }
+    if let Some((left, k)) = t.rsplit_once(" divisible by ") {
+        if let (Ok(k), Some(n)) = (k.trim().parse::<u64>(), frame(left, IS, &[""])) {
+            return Task::Property(n, Prop::DivisibleBy(k));
+        }
+    }
+    if let Some(e) = arithmetic_of(&t) {
+        return Task::Arithmetic(e);
+    }
+    let statements: &[(&[&str], Statement)] = &[
+        (&["are there infinitely many primes", "is the number of primes infinite", "are there infinitely many prime numbers"], Statement::InfinitelyManyPrimes),
+        (&["are there infinitely many twin primes", "is the twin prime conjecture true", "are there infinitely many twin prime pairs"], Statement::TwinPrimes),
+        (&["is the riemann hypothesis true", "is riemann's hypothesis true"], Statement::Riemann),
+        (&["is goldbach's conjecture true", "is every even number above 2 a sum of two primes", "is every even number greater than 2 a sum of two primes", "is every even number above 2 the sum of two primes"], Statement::Goldbach),
+        (&["is the collatz conjecture true", "does every number reach 1 under the collatz map", "does every positive integer reach 1 under the collatz map"], Statement::Collatz),
+        (&["is fermat's last theorem true", "does x^n + y^n = z^n have solutions for n > 2", "does a^n + b^n = c^n have solutions for n > 2"], Statement::FermatLast),
+        (&["is the four colour theorem true", "is the four color theorem true", "can every map be coloured with four colours", "can every map be colored with four colors"], Statement::FourColour),
+        (&["which consecutive powers are there", "catalan: which consecutive powers are there", "is catalan's conjecture true", "which perfect powers are consecutive"], Statement::Catalan),
+    ];
+    for (forms, st) in statements {
+        if forms.contains(&t.as_str()) {
+            return Task::Statement(*st);
+        }
+    }
+    let algebra = ["solve ", "differentiate ", "integrate ", "simplify ", "expand ", "factor ", "evaluate ", "find the derivative", "find the integral"].iter().any(|w| t.starts_with(w)) || (t.contains('=') && !t.contains(" is ") && t.split_whitespace().count() <= 12);
+    if algebra {
+        return Task::Algebra;
+    }
+    Task::Unknown
+}
+
+/// The question read loosely, by its key words and its first number: only
+/// for abstract answers, which say they read it so.
+fn task_loose(q: &str) -> Task {
     let l = q.to_lowercase();
     let n = number_in(&l);
     let has = |w: &str| l.contains(w);
@@ -728,13 +845,38 @@ fn form_divisor(b: u64, e: u64, c: i64, limit: usize) -> Option<u64> {
 // ───────────────────────── answering ─────────────────────────
 
 pub fn answer(kind: Kind, question: &str) -> Answer {
-    let task = task_of(question);
-    let a = answer_task(kind, question, &task);
+    let mut task = task_of(question);
+    let mut loose = false;
+    if kind == Kind::Abstract && matches!(task, Task::Unknown) {
+        task = task_loose(question);
+        loose = !matches!(task, Task::Unknown);
+    }
+    let mut a = answer_task(kind, question, &task);
     if kind == Kind::Abstract && a.short.is_none() {
         // an abstract answer always answers: a guess with its reasons
-        return guess(Answer::new(kind, question), question, &task);
+        a = guess(Answer::new(kind, question), question, &task);
+    }
+    if loose {
+        a.lines.insert(0, format!("the question could not be read whole; read loosely as: {}", describe(&task)));
     }
     a
+}
+
+fn describe(t: &Task) -> String {
+    match t {
+        Task::IsPrime(n) => format!("is {} prime", n.text),
+        Task::Factor(n) => format!("factor {}", n.text),
+        Task::PrimeCount(n, _) => format!("how many primes up to {}", n.text),
+        Task::Goldbach(n) => format!("is {} a sum of two primes", n.text),
+        Task::TwoSquares(n) => format!("is {} a sum of two squares", n.text),
+        Task::FourSquares(n) => format!("is {} a sum of four squares", n.text),
+        Task::Collatz(n) => format!("does {} reach 1 under the Collatz map", n.text),
+        Task::Property(n, p) => format!("is {} {}", n.text, p.words()),
+        Task::Arithmetic(e) => format!("the arithmetic {e}"),
+        Task::Statement(s) => format!("{s:?}"),
+        Task::Algebra => "algebra for Nuome".into(),
+        Task::Unknown => "nothing".into(),
+    }
 }
 
 fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
@@ -877,7 +1019,7 @@ fn factor(a: Answer, n: &Num) -> Answer {
             a
         }
         Kind::Theoretical => a.says(words).line("each factor is prime by the Miller-Rabin test with the first 12 primes as bases").source("no composite below 3.18 x 10^23 passes Miller-Rabin with the bases 2..37 (Sorenson & Webster 2015); this covers every 64-bit number"),
-        Kind::Abstract => a.none("factoring has an exact answer; an abstract guess adds nothing (ask logical or theoretical)"),
+        Kind::Abstract => a.says(format!("probably {words}")).line("trial division to 1000, then Pollard's rho; each factor passed Miller-Rabin, which a composite can fool"),
     }
 }
 
@@ -1797,6 +1939,23 @@ mod tests {
         for q in ["is the moon made of cheese", "what is the best number", "is 10^5000000 + 7 a perfect square", "factor 10^1000 + 1", "how many primes are below 10^1000"] {
             assert!(answer(Kind::Abstract, q).short.is_some(), "{q}");
         }
+    }
+
+    #[test]
+    fn a_question_read_only_in_part_gets_no_claimed_answer() {
+        for q in [
+            "Find the sum of the smallest and largest prime factors of $10101$.",
+            "Factor $r^2+10r+25$.",
+            "How many perfect square factors does the number 46,656 have?",
+            "Three consecutive prime numbers, each less than $100$, have a sum that is a multiple of 5. What is the greatest possible sum?",
+            "There are finitely many primes $p$ for which the congruence $$8x\\equiv 1\\pmod{p}$$ has no solutions $x$.",
+        ] {
+            assert!(answer(Kind::Logical, q).short.is_none() || matches!(task_of(q), Task::Algebra), "{q}");
+            assert!(answer(Kind::Theoretical, q).short.is_none(), "{q}");
+            assert!(answer(Kind::Abstract, q).short.is_some(), "{q}");
+        }
+        assert!(matches!(task_of("Is $1000003$ prime?"), Task::IsPrime(_)));
+        assert!(matches!(task_of("How many primes are below 10^6?"), Task::PrimeCount(_, true)));
     }
 
     #[test]
