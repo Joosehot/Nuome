@@ -1124,7 +1124,7 @@ pub fn play_game(white: &Player, black: &Player, opening: &[&str], max_plies: us
         let side = if b.white { 0 } else { 1 };
         let m = match if b.white { white } else { black } {
             Player::Golden(f) => golden(&b, &history, f).expect("a legal move").mv,
-            Player::Supergenius => crate::neuro::golden_move(&b, &history, 400_000).expect("a legal move").0,
+            Player::Supergenius => crate::neuro::goldenboy(&b, &history, 400_000).expect("a legal move").0,
             Player::Terms(t) => crate::golden_terms::best_move_with(&b, &history, t).expect("a legal move"),
             Player::Random(_) => ms[rngs[side].below(ms.len())],
         };

@@ -1447,7 +1447,14 @@ pub fn goldenboy(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Vec<Tre
     }
     // goldenboy plays: the best standing tree at the deepest ply they all reached
     let standing: Vec<&Tree> = trees.iter().filter(|t| t.felled.is_none()).collect();
-    let pick: &Tree = standing.iter().copied().max_by_key(|t| *t.seen.last().unwrap_or(&i64::MIN)).or_else(|| trees.iter().max_by_key(|t| *t.seen.last().unwrap_or(&i64::MIN)))?;
+    // ties go to the first in the rules' order
+    let first_max = |ts: &[&Tree]| -> Option<Mv> {
+        let best = ts.iter().map(|t| *t.seen.last().unwrap_or(&i64::MIN)).max()?;
+        ts.iter().find(|t| *t.seen.last().unwrap_or(&i64::MIN) == best).map(|t| t.mv)
+    };
+    let all: Vec<&Tree> = trees.iter().collect();
+    let pick_mv = first_max(&standing).or_else(|| first_max(&all))?;
+    let pick: &Tree = trees.iter().find(|t| t.mv == pick_mv)?;
     let mv = pick.mv;
     let nodes = w.nodes;
     Some((mv, trees, nodes, reached))

@@ -219,14 +219,17 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             let budget: u64 = std::env::var("GOLDEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(400_000);
-            match nuome::neuro::golden_move(&b, &[], budget) {
+            match nuome::neuro::goldenboy(&b, &[], budget) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, proof, v, rows, nodes)) => {
-                    println!("goldenboy: {} ({} to move): the supergenius calculated {nodes} positions, then the eval", b.fen(), if b.white { "white" } else { "black" });
-                    for (m, p, val) in rows.iter().take(5) {
-                        println!("  {:<6} {:<12} {}", m.uci(), nuome::neuro::show_tree_value(*val), nuome::neuro::show_proof(*p));
+                Some((mv, trees, nodes, depth)) => {
+                    let standing = trees.iter().filter(|t| t.felled.is_none()).count();
+                    println!("goldenboy looked through every tree of {} ({} to move) to {depth} plies, the heart at every leaf, {nodes} positions; {standing} standing, {} felled", b.fen(), if b.white { "white" } else { "black" }, trees.len() - standing);
+                    let mut shown: Vec<&nuome::neuro::Tree> = trees.iter().filter(|t| t.felled.is_none()).collect();
+                    shown.sort_by_key(|t| -*t.seen.last().unwrap_or(&i64::MIN));
+                    for t in shown.iter().take(3) {
+                        println!("  {:<6} {}  (seen: {})", t.mv.uci(), nuome::neuro::show_tree_value(*t.seen.last().unwrap_or(&0)), t.seen.iter().map(|v| nuome::neuro::show_tree_value(*v)).collect::<Vec<_>>().join(" "));
                     }
-                    println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_tree_value(v), t0.elapsed().as_secs_f64());
+                    println!("move: {} ({:.3} s)", mv.uci(), t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());
