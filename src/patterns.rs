@@ -663,6 +663,44 @@ fn load_file(file: &str) -> Vec<(Pattern, f64)> {
         .collect()
 }
 
+const MATE: i64 = 100_000;
+
+/// The exact calculation of the forcing lines: the material (the heart's
+/// Kaufman values) the side to move ends with when the attacker plays its
+/// captures, promotions and checks and the defender its captures and
+/// promotions (in check: every reply), each side free to stop when going on
+/// would lose. Every line is followed to its end within `depth` plies (no
+/// pruning); `nodes` bounds the whole calculation.
+fn forced(b: &Board, depth: u32, attacker: bool, nodes: &mut usize) -> i64 {
+    *nodes += 1;
+    let ms = b.moves();
+    let check = b.in_check();
+    if ms.is_empty() {
+        return if check { -MATE } else { 0 };
+    }
+    let stand = crate::supergenius_eval::material(b);
+    if depth == 0 || *nodes > FORCED_NODES {
+        return stand;
+    }
+    let mut best = if check { -MATE } else { stand };
+    for m in ms {
+        let capture = b.sq[m.to as usize] != 0 || (b.sq[m.from as usize].abs() == 1 && Some(m.to) == b.ep);
+        let a = b.play(m);
+        let gives_check = attacker && a.in_check();
+        if !(check || capture || m.promo != 0 || gives_check) {
+            continue;
+        }
+        let v = -forced(&a, depth - 1, !attacker, nodes);
+        if v > best {
+            best = v;
+        }
+    }
+    best
+}
+
+const FORCED_NODES: usize = 60_000;
+const FORCED_DEPTH: u32 = 6;
+
 /// Golden Boy's move by the patterns: a forced mate first (the exact
 /// calculation); moves proved lost are left alone; among the rest the one
 /// whose matching patterns weigh most (the sum of unseen log-lifts); ties
@@ -673,11 +711,27 @@ pub fn play(b: &Board, history: &[u64], rosters: &Rosters) -> Option<(Mv, f64, V
         return Some((*m, f64::INFINITY, vec![]));
     }
     let losing: Vec<Mv> = rows.iter().filter(|r| matches!(r.1, crate::neuro::Proof::Loss(_))).map(|r| r.0).collect();
-    let fs = facts_of(b);
+    let mut fs = facts_of(b);
+    fs.retain(|(m, _)| !losing.contains(m) || losing.len() == rows.len());
+    // the forcing lines, calculated to their end: a move that wins material by
+    // force leaves only its equals; a move that loses it by force is left out
+    let reached: Vec<i64> = fs
+        .iter()
+        .map(|(m, _)| {
+            let mut nodes = 0;
+            -forced(&b.play(*m), FORCED_DEPTH - 1, false, &mut nodes)
+        })
+        .collect();
+    if let Some(&top) = reached.iter().max() {
+        let mut i = 0;
+        fs.retain(|_| {
+            i += 1;
+            reached[i - 1] >= top - 90
+        });
+    }
     let patterns = rosters.for_board(b);
     let mut scored: Vec<(Mv, f64, Vec<Pattern>)> = fs
         .iter()
-        .filter(|(m, _)| !losing.contains(m) || losing.len() == fs.len())
         .map(|&(m, f)| {
             let hits: Vec<Pattern> = patterns.iter().filter(|(p, _)| p.holds(f)).map(|x| x.0).collect();
             let w: f64 = patterns.iter().filter(|(p, _)| p.holds(f)).map(|(_, l)| l.ln()).fold(0.0, f64::max);
