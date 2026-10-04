@@ -208,14 +208,14 @@ fn main() -> Result<()> {
             let b = nuome::golden::Board::from_fen(fen.trim()).map_err(|e| anyhow::anyhow!(e))?;
             // FEN -> NEURO (the position as a network, by the rules) -> GOLDEN (the move that leaves the best network)
             let t0 = std::time::Instant::now();
-            match nuome::neuro::golden(&b, &[]) {
+            match nuome::neuro::supergenius(&b, &[], 400_000) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, v, ranked)) => {
-                    println!("the golden function on {} ({} to move): NEURO writes the network, GOLDEN solves it", b.fen(), if b.white { "white" } else { "black" });
-                    for (m, val) in ranked.iter().take(5) {
-                        println!("  {:<6} {:>14}", m.uci(), val);
+                Some((mv, proof, rows, nodes)) => {
+                    println!("the supergenius solves {} ({} to move) in NEURO's network: {nodes} positions calculated", b.fen(), if b.white { "white" } else { "black" });
+                    for (m, p, w) in rows.iter().take(5) {
+                        println!("  {:<6} {:<34} network {w:+}", m.uci(), nuome::neuro::show_proof(*p));
                     }
-                    println!("move: {} ({v}, {:.3} s)", mv.uci(), t0.elapsed().as_secs_f64());
+                    println!("move: {} ({}, {:.3} s)", mv.uci(), nuome::neuro::show_proof(proof), t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());

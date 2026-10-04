@@ -185,9 +185,13 @@ impl Network {
         let best_capture = self.edges.iter().filter(|e| e.mine && e.kind == Kind::Capture).map(|e| victim(e.to as usize)).max().unwrap_or(0);
         v += best_capture;
         // the goal: the enemy king's room counts against, mine for
-        v += unit * (self.region[0].count_ones() as i64 - self.region[1].count_ones() as i64);
+        // the kings' room: at most a piece's worth over the whole board (unit / 8 per node)
+        v += unit / 8 * (self.region[0].count_ones() as i64 - self.region[1].count_ones() as i64);
         // my pieces under strike lose, theirs under my strike gain
-        v -= (0..64).filter(|&n| self.piece[n] > 0 && self.piece[n] != 6 && self.struck[1][n] > 0 && self.struck[0][n] == 0).map(victim).sum::<i64>();
+        // my pieces struck and unguarded: the side to move answers the largest threat (it moves first)
+        let mut hanging: Vec<i64> = (0..64).filter(|&n| self.piece[n] > 0 && self.piece[n] != 6 && self.struck[1][n] > 0 && self.struck[0][n] == 0).map(victim).collect();
+        hanging.sort_unstable_by(|a, b| b.cmp(a));
+        v -= hanging.iter().skip(1).sum::<i64>();
         v
     }
 }
@@ -612,5 +616,143 @@ impl Network {
             total += sg * pos;
         }
         total
+    }
+}
+
+
+// ── the supergenius solves the position as a puzzle ──
+
+/// What the calculation proved about a move: a forced win in n plies, a
+/// forced draw, a forced loss in n plies, or nothing within the budget.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Proof {
+    Win(u32),
+    Draw,
+    Loss(u32),
+    Unknown,
+}
+
+struct Solver {
+    nodes: u64,
+    budget: u64,
+    history: Vec<u64>,
+}
+
+const WIN: i64 = 1_000_000;
+const UNKNOWN: i64 = 0;
+
+impl Solver {
+    /// Exact value from the side to move: +WIN - ply for a forced mate, 0 for
+    /// a forced draw, and UNKNOWN (0, marked) when the budget runs out.
+    /// Only the rules decide: mate, stalemate, repetition, 50 moves,
+    /// insufficient material. Returns (value, fully proven).
+    fn solve(&mut self, b: &Board, depth: u32, mut alpha: i64, beta: i64, ply: u32) -> (i64, bool) {
+        self.nodes += 1;
+        let ms = b.moves();
+        if ms.is_empty() {
+            return (if b.in_check() { -WIN + ply as i64 } else { 0 }, true);
+        }
+        let h = b.hash();
+        if b.half >= 100 || b.insufficient() || self.history.iter().filter(|x| **x == h).count() >= 2 {
+            return (0, true);
+        }
+        if depth == 0 || self.nodes > self.budget {
+            return (UNKNOWN, false);
+        }
+        // checks and captures first: proofs are found sooner
+        let mut ordered: Vec<(i32, Mv)> = ms
+            .into_iter()
+            .map(|m| {
+                let a = b.play(m);
+                let key = (a.in_check() as i32) * 2 + (b.sq[m.to as usize] != 0) as i32;
+                (-key, m)
+            })
+            .collect();
+        ordered.sort_by_key(|x| x.0);
+        self.history.push(h);
+        let mut best = -WIN - 1;
+        let mut all_proven = true;
+        for (_, m) in ordered {
+            let (v, proven) = self.solve(&b.play(m), depth - 1, -beta, -alpha, ply + 1);
+            let v = -v;
+            if !proven {
+                all_proven = false;
+            }
+            if v > best {
+                best = v;
+            }
+            if v > alpha {
+                alpha = v;
+            }
+            if alpha >= beta {
+                // a cut: the value is proven at least this good when the cutting line is proven
+                self.history.pop();
+                return (best, proven || best >= WIN - 1000);
+            }
+        }
+        self.history.pop();
+        // a forced mate found is a proof on its own: no other move needs to be known
+        (best, all_proven || best >= WIN - 1000)
+    }
+}
+
+/// The supergenius on a position: every root move calculated to the end
+/// within `budget` nodes (deepening), proofs first; unproven moves are
+/// judged by the network they leave (NEURO + the board vision).
+pub fn supergenius(b: &Board, history: &[u64], budget: u64) -> Option<(Mv, Proof, Vec<(Mv, Proof, i64)>, u64)> {
+    let ms = b.moves();
+    if ms.is_empty() {
+        return None;
+    }
+    let mut proofs: Vec<Proof> = vec![Proof::Unknown; ms.len()];
+    let mut s = Solver { nodes: 0, budget, history: history.to_vec() };
+    s.history.push(b.hash());
+    let mut depth = 1;
+    while s.nodes < budget && depth <= 40 {
+        for (i, &m) in ms.iter().enumerate() {
+            if proofs[i] != Proof::Unknown {
+                continue;
+            }
+            let a = b.play(m);
+            let (v, proven) = s.solve(&a, depth, -WIN - 1, WIN + 1, 1);
+            let v = -v;
+            if proven {
+                proofs[i] = if v >= WIN - 100 { Proof::Win((WIN - v) as u32) } else if v <= -WIN + 100 { Proof::Loss((v + WIN) as u32) } else { Proof::Draw };
+            }
+            if s.nodes > budget {
+                break;
+            }
+        }
+        if proofs.iter().all(|p| *p != Proof::Unknown) {
+            break;
+        }
+        depth += 1;
+    }
+    // the network's judgement for what is not proven
+    let worth = |m: Mv| {
+        let a = b.play(m);
+        let n = Network::write(&a);
+        -(n.worth() + n.vision_worth(&a))
+    };
+    // proofs first; an unproven move stands above a proven draw only when the network sees it ahead
+    let rank = |p: Proof, w: i64| match p {
+        Proof::Win(n) => (4i64, -(n as i64)),
+        Proof::Unknown if w >= 0 => (3, w),
+        Proof::Draw => (2, 0),
+        Proof::Unknown => (1, w),
+        Proof::Loss(n) => (0, n as i64),
+    };
+    let mut rows: Vec<(Mv, Proof, i64)> = ms.iter().enumerate().map(|(i, &m)| (m, proofs[i], worth(m))).collect();
+    rows.sort_by(|x, y| rank(y.1, y.2).cmp(&rank(x.1, x.2)));
+    let nodes = s.nodes;
+    Some((rows[0].0, rows[0].1, rows, nodes))
+}
+
+pub fn show_proof(p: Proof) -> String {
+    match p {
+        Proof::Win(n) => format!("proved: mate in {}", (n + 1) / 2),
+        Proof::Draw => "proved: draw".into(),
+        Proof::Loss(n) => format!("proved: mated in {}", (n + 1) / 2),
+        Proof::Unknown => "not proved: judged by the network".into(),
     }
 }
