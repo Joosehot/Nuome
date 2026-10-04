@@ -28,6 +28,7 @@ pub mod golden_answer;
 pub mod golden_exact;
 pub mod golden_graph;
 pub mod golden_invent;
+pub mod golden_symbols;
 pub mod graph_function;
 pub mod graph_orbits;
 pub mod neuro;

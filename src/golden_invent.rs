@@ -155,6 +155,11 @@ impl Frame {
     /// The whole graph a formula gives under a naming of the triangles and
     /// corners, as adjacency rows of bits (v <= 512).
     fn graph(&self, e: &Ex, nm: &Naming) -> Vec<[u64; 8]> {
+        let q = self.q;
+        self.graph_with(nm, |fg, gf| (e.eval(fg, q) + e.eval(gf, q)) % q == 0)
+    }
+    /// The graph any symmetric rule on the named far vertices gives: `adj(E-inputs for (f,g), for (g,f))`.
+    pub fn graph_with(&self, nm: &Naming, adj: impl Fn(&[u64; 8], &[u64; 8]) -> bool) -> Vec<[u64; 8]> {
         let v = self.v;
         let mut r = vec![[0u64; 8]; v];
         let link = |a: usize, b: usize, r: &mut Vec<[u64; 8]>| {
@@ -189,7 +194,7 @@ impl Frame {
                 // symmetric by construction: E(f, g) + E(g, f) ≡ 0
                 let fg = [x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3]];
                 let gf = [y[0], y[1], y[2], y[3], x[0], x[1], x[2], x[3]];
-                if (e.eval(&fg, self.q) + e.eval(&gf, self.q)) % self.q == 0 {
+                if adj(&fg, &gf) {
                     link(base + f, base + g, &mut r);
                 }
             }
@@ -198,7 +203,11 @@ impl Frame {
     }
     /// (unmet conditions, all conditions): degree at every vertex, the common count at every pair.
     fn score(&self, e: &Ex, nm: &Naming) -> (u64, u64) {
-        let r = self.graph(e, nm);
+        let q = self.q;
+        self.score_with(nm, |fg, gf| (e.eval(fg, q) + e.eval(gf, q)) % q == 0)
+    }
+    pub fn score_with(&self, nm: &Naming, adj: impl Fn(&[u64; 8], &[u64; 8]) -> bool) -> (u64, u64) {
+        let r = self.graph_with(nm, adj);
         let v = self.v;
         let mut bad = 0u64;
         for x in 0..v {
@@ -215,7 +224,11 @@ impl Frame {
         (bad, (v + v * (v - 1) / 2) as u64)
     }
     pub fn adjacency(&self, e: &Ex, nm: &Naming) -> Vec<Vec<bool>> {
-        let r = self.graph(e, nm);
+        let q = self.q;
+        self.adjacency_with(nm, |fg, gf| (e.eval(fg, q) + e.eval(gf, q)) % q == 0)
+    }
+    pub fn adjacency_with(&self, nm: &Naming, adj: impl Fn(&[u64; 8], &[u64; 8]) -> bool) -> Vec<Vec<bool>> {
+        let r = self.graph_with(nm, adj);
         (0..self.v).map(|x| (0..self.v).map(|y| r[x][y / 64] >> (y % 64) & 1 == 1).collect()).collect()
     }
 }
@@ -233,6 +246,17 @@ pub struct Naming {
 impl Naming {
     fn plain(q: u64) -> Naming {
         Naming { tri: (0..q).collect(), flip: vec![0; q as usize] }
+    }
+    pub fn shuffled(q: u64, seed: u64) -> Naming {
+        let mut r = Rng(seed | 1);
+        let mut n = Naming::plain(q);
+        for _ in 0..q * 2 {
+            n = n.mutate(&mut r);
+        }
+        n
+    }
+    pub fn mutate_seeded(&self, seed: u64) -> Naming {
+        self.mutate(&mut Rng(seed | 1))
     }
     fn mutate(&self, r: &mut Rng) -> Naming {
         let mut n = self.clone();

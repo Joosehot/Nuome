@@ -232,20 +232,19 @@ fn invent_answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<St
     };
     let secs = if cfg!(test) { 2.0 } else { std::env::var("GOLDEN_INVENT_SECONDS").ok().and_then(|x| x.parse().ok()).unwrap_or(60.0) };
     let q = k / 2;
-    lines.push(format!("the frame the conditions force (nothing else is given): x, its {k} neighbours (i, s) with triangle i in Z_{q} and corner s in {{0,1}}, and the far vertices, the pairs {{(i1,s1),(j1,t1)}} with i1 < j1"));
-    lines.push(format!("invented: a rule f ~ g when E(f, g) + E(g, f) ≡ 0 (mod {q}), E(i1,s1,j1,t1, i2,s2,j2,t2) from +, -, × and constants, starting from random formulas"));
-    let Some(inv) = crate::golden_invent::invent(k as usize, secs, 0x2545_f491_4f6c_dd1d) else {
+    lines.push(format!("the frame the conditions force (nothing else is given): x, its {k} neighbours (i, s) with triangle i among {q} names and corner s in {{0,1}}, and the far vertices, the pairs {{(i1,s1),(j1,t1)}}"));
+    lines.push("no learned mathematics: Golden invents its own symbols ◇ ★ ⊛ (binary) and † ‡ (unary), their meanings as tables, an expression E in them, and the names of the triangles and corners; f ~ g when E(f, g) = E(g, f)".into());
+    let Some(inv) = crate::golden_symbols::invent(k as usize, secs, 0x2545_f491_4f6c_dd1d) else {
         return None;
     };
-    lines.push("the frame gives no names, so the names of the triangles and corners are invented with the formula".into());
-    lines.push(format!("{} formulas and namings tried in {:.0} s on {} islands", inv.tried, inv.seconds, inv.islands));
+    lines.push(format!("{} languages and expressions tried in {:.0} s on {} islands", inv.tried, inv.seconds, inv.islands));
+    lines.push(format!("E = {}", inv.expr.text()));
+    lines.extend(crate::golden_symbols::glossary(&inv).into_iter().map(|g| format!("invented symbol {g}")));
     if inv.verified {
-        lines.push(format!("E = {}", inv.best.text()));
-        lines.push(format!("naming: triangle i is called {:?}, corners swapped in triangles {:?}", inv.naming.tri, (0..inv.naming.flip.len()).filter(|&i| inv.naming.flip[i] == 1).collect::<Vec<_>>()));
         lines.push(format!("checked from scratch: the graph it gives is srg({},{k},1,2) on every pair", g.v));
-        return Some((format!("invented: f ~ g when E(f,g) + E(g,f) ≡ 0 (mod {q}), E = {}", inv.best.text()), lines, vec![]));
+        return Some((format!("invented: f ~ g when E(f,g) = E(g,f), E = {}", inv.expr.text()), lines, vec![]));
     }
-    lines.push(format!("best formula: E = {} — its graph meets {:.1}% of the pair conditions ({} units of error left)", inv.best.text(), 100.0 * inv.pairs_met_share, inv.unmet));
+    lines.push(format!("its graph meets {:.1}% of the pair conditions; not found", 100.0 * inv.pairs_met_share));
     UNDECIDED.with(|u| *u.borrow_mut() = lines.clone());
     None
 }
