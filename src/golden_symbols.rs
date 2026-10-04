@@ -20,58 +20,95 @@
 
 use crate::golden_invent::{Frame, Naming};
 
-const BIN: [&str; 3] = ["◇", "★", "⊛"];
-const UN: [&str; 2] = ["†", "‡"];
+/// Names for the symbols Golden invents (as many as it wants up to these).
+const BIN: [&str; 16] = ["◇", "★", "⊛", "⊕", "⊗", "△", "▽", "◆", "♦", "♣", "♠", "♥", "☉", "☽", "⊞", "⊠"];
+const UN: [&str; 8] = ["†", "‡", "§", "¶", "∂", "∇", "♮", "♯"];
+const TER: [(&str, &str); 4] = [("⟨", "⟩"), ("⟦", "⟧"), ("⦃", "⦄"), ("⦉", "⦊")];
+/// The old ones it may use when it wants: +, -, × mod q.
+const KNOWN: [&str; 3] = ["+", "-", "×"];
 const VARS: [&str; 8] = ["i1", "s1", "j1", "t1", "i2", "s2", "j2", "t2"];
 
 #[derive(Clone, Debug)]
 pub enum Sx {
     Var(u8),
+    Const(u8),
+    Known(u8, Box<Sx>, Box<Sx>),
     Un(u8, Box<Sx>),
     Bin(u8, Box<Sx>, Box<Sx>),
+    Ter(u8, Box<Sx>, Box<Sx>, Box<Sx>),
 }
 
-/// The invented symbols' meanings: tables over Z_q.
+/// The invented symbols' meanings: tables over the q names.
 #[derive(Clone, Debug)]
 pub struct Lang {
     pub q: usize,
     pub bin: Vec<Vec<u8>>,
     pub un: Vec<Vec<u8>>,
+    pub ter: Vec<Vec<u8>>,
+    /// the invented relation ≈ that decides adjacency: f ~ g when E(f,g) ≈ E(g,f) (a symmetric q x q table of 0/1)
+    pub rel: Vec<u8>,
 }
 
 impl Sx {
     fn eval(&self, v: &[u64; 8], l: &Lang) -> u8 {
+        let q = l.q;
         match self {
-            Sx::Var(i) => (v[*i as usize] % l.q as u64) as u8,
+            Sx::Var(i) => (v[*i as usize] % q as u64) as u8,
+            Sx::Const(c) => (*c as usize % q) as u8,
+            Sx::Known(o, a, b) => {
+                let (x, y) = (a.eval(v, l) as usize, b.eval(v, l) as usize);
+                (match o {
+                    0 => (x + y) % q,
+                    1 => (x + q - y) % q,
+                    _ => x * y % q,
+                }) as u8
+            }
             Sx::Un(o, a) => l.un[*o as usize][a.eval(v, l) as usize],
-            Sx::Bin(o, a, b) => l.bin[*o as usize][a.eval(v, l) as usize * l.q + b.eval(v, l) as usize],
+            Sx::Bin(o, a, b) => l.bin[*o as usize][a.eval(v, l) as usize * q + b.eval(v, l) as usize],
+            Sx::Ter(o, a, b, c) => l.ter[*o as usize][(a.eval(v, l) as usize * q + b.eval(v, l) as usize) * q + c.eval(v, l) as usize],
         }
     }
     fn size(&self) -> usize {
         match self {
-            Sx::Var(_) => 1,
+            Sx::Var(_) | Sx::Const(_) => 1,
             Sx::Un(_, a) => 1 + a.size(),
-            Sx::Bin(_, a, b) => 1 + a.size() + b.size(),
+            Sx::Known(_, a, b) | Sx::Bin(_, a, b) => 1 + a.size() + b.size(),
+            Sx::Ter(_, a, b, c) => 1 + a.size() + b.size() + c.size(),
         }
     }
     pub fn text(&self) -> String {
         match self {
             Sx::Var(i) => VARS[*i as usize].into(),
+            Sx::Const(c) => c.to_string(),
+            Sx::Known(o, a, b) => format!("({} {} {})", a.text(), KNOWN[*o as usize], b.text()),
             Sx::Un(o, a) => format!("{}{}", UN[*o as usize], a.text()),
             Sx::Bin(o, a, b) => format!("({} {} {})", a.text(), BIN[*o as usize], b.text()),
+            Sx::Ter(o, a, b, c) => format!("{}{}, {}, {}{}", TER[*o as usize].0, a.text(), b.text(), c.text(), TER[*o as usize].1),
         }
     }
-    fn uses(&self, out: &mut [bool; 5]) {
+    /// The symbols used: (arity, index), and whether old ones are used.
+    fn uses(&self, out: &mut Vec<(u8, u8)>, known: &mut [bool; 3]) {
         match self {
-            Sx::Var(_) => {}
+            Sx::Var(_) | Sx::Const(_) => {}
+            Sx::Known(o, a, b) => {
+                known[*o as usize] = true;
+                a.uses(out, known);
+                b.uses(out, known);
+            }
             Sx::Un(o, a) => {
-                out[3 + *o as usize] = true;
-                a.uses(out);
+                out.push((1, *o));
+                a.uses(out, known);
             }
             Sx::Bin(o, a, b) => {
-                out[*o as usize] = true;
-                a.uses(out);
-                b.uses(out);
+                out.push((2, *o));
+                a.uses(out, known);
+                b.uses(out, known);
+            }
+            Sx::Ter(o, a, b, c) => {
+                out.push((3, *o));
+                a.uses(out, known);
+                b.uses(out, known);
+                c.uses(out, known);
             }
         }
     }
@@ -90,58 +127,135 @@ impl Rng {
     }
 }
 
-fn random_sx(r: &mut Rng, depth: u32) -> Sx {
-    if depth == 0 || r.below(10) < 3 {
-        return Sx::Var(r.below(8) as u8);
-    }
-    if r.below(4) == 0 {
-        Sx::Un(r.below(2) as u8, Box::new(random_sx(r, depth - 1)))
-    } else {
-        Sx::Bin(r.below(3) as u8, Box::new(random_sx(r, depth - 1)), Box::new(random_sx(r, depth - 1)))
-    }
-}
-
-fn mutate_sx(e: &Sx, r: &mut Rng) -> Sx {
-    if r.below(4) == 0 {
-        return random_sx(r, 3);
-    }
-    match e {
-        Sx::Var(_) => Sx::Var(r.below(8) as u8),
-        Sx::Un(o, a) => {
-            if r.below(3) == 0 {
-                Sx::Un(1 - *o, a.clone())
-            } else {
-                Sx::Un(*o, Box::new(mutate_sx(a, r)))
-            }
-        }
-        Sx::Bin(o, a, b) => match r.below(4) {
-            0 => Sx::Bin(r.below(3) as u8, a.clone(), b.clone()),
-            1 => Sx::Bin(*o, b.clone(), a.clone()),
-            2 => Sx::Bin(*o, Box::new(mutate_sx(a, r)), b.clone()),
-            _ => Sx::Bin(*o, a.clone(), Box::new(mutate_sx(b, r))),
-        },
-    }
-}
-
 impl Lang {
-    fn random(q: usize, r: &mut Rng) -> Lang {
-        Lang { q, bin: (0..3).map(|_| (0..q * q).map(|_| r.below(q as u64) as u8).collect()).collect(), un: (0..2).map(|_| (0..q).map(|_| r.below(q as u64) as u8).collect()).collect() }
+    fn empty(q: usize) -> Lang {
+        Lang { q, bin: Vec::new(), un: Vec::new(), ter: Vec::new(), rel: (0..q * q).map(|c| (c / q == c % q) as u8).collect() }
+    }
+    fn start(q: usize, r: &mut Rng) -> Lang {
+        let mut l = Lang::empty(q);
+        if r.below(2) == 0 {
+            // grown from an old relation: a + b ≡ 0
+            l.rel = (0..q * q).map(|c| ((c / q + c % q) % q == 0) as u8).collect();
+        }
+        l
+    }
+    pub fn related(&self, a: u8, b: u8) -> bool {
+        self.rel[a as usize * self.q + b as usize] == 1
+    }
+    /// A new table: random, or copied from an old operation to grow from (Golden's choice).
+    fn new_table(&self, arity: u32, r: &mut Rng) -> Vec<u8> {
+        let q = self.q;
+        let n = q.pow(arity);
+        match (arity, r.below(3)) {
+            (2, 0) => (0..n).map(|c| ((c / q + c % q) % q) as u8).collect(),
+            (2, 1) => (0..n).map(|c| ((c / q) * (c % q) % q) as u8).collect(),
+            _ => (0..n).map(|_| r.below(q as u64) as u8).collect(),
+        }
+    }
+    /// Invent a new symbol of this arity, if there is room; its index.
+    fn invent(&mut self, arity: u32, r: &mut Rng) -> Option<u8> {
+        let t = self.new_table(arity, r);
+        let (list, cap) = match arity {
+            1 => (&mut self.un, UN.len()),
+            2 => (&mut self.bin, BIN.len()),
+            _ => (&mut self.ter, TER.len()),
+        };
+        if list.len() >= cap {
+            return None;
+        }
+        list.push(t);
+        Some((list.len() - 1) as u8)
     }
     fn mutate(&self, r: &mut Rng) -> Lang {
         let mut l = self.clone();
         let q = l.q as u64;
+        let total = l.un.len() + l.bin.len() + l.ter.len();
+        if total == 0 || r.below(4) == 0 {
+            // the relation: flip one symmetric pair
+            let (a, b) = (r.below(q) as usize, r.below(q) as usize);
+            let x = 1 - l.rel[a * l.q + b];
+            l.rel[a * l.q + b] = x;
+            l.rel[b * l.q + a] = x;
+            return l;
+        }
         for _ in 0..1 + r.below(3) {
-            if r.below(4) == 0 {
-                let o = r.below(2) as usize;
-                let c = r.below(q) as usize;
-                l.un[o][c] = r.below(q) as u8;
+            let pick = r.below(total as u64) as usize;
+            let table = if pick < l.un.len() {
+                &mut l.un[pick]
+            } else if pick < l.un.len() + l.bin.len() {
+                &mut l.bin[pick - l.un.len()]
             } else {
-                let o = r.below(3) as usize;
-                let c = r.below(q * q) as usize;
-                l.bin[o][c] = r.below(q) as u8;
-            }
+                &mut l.ter[pick - l.un.len() - l.bin.len()]
+            };
+            let c = r.below(table.len() as u64) as usize;
+            table[c] = r.below(q) as u8;
         }
         l
+    }
+}
+
+/// A random expression; it may invent new symbols on the way (into `l`) or use old ones.
+fn random_sx(r: &mut Rng, depth: u32, l: &mut Lang) -> Sx {
+    if depth == 0 || r.below(10) < 3 {
+        return if r.below(10) < 8 { Sx::Var(r.below(8) as u8) } else { Sx::Const(r.below(l.q as u64) as u8) };
+    }
+    let sub = |r: &mut Rng, l: &mut Lang| Box::new(random_sx(r, depth - 1, l));
+    // which kind of node: an old operation, or an invented symbol (an existing one, or a new one)
+    match r.below(10) {
+        0..=2 => Sx::Known(r.below(3) as u8, sub(r, l), sub(r, l)),
+        3 | 4 => {
+            let o = if l.un.is_empty() || r.below(5) == 0 { l.invent(1, r) } else { None }.unwrap_or_else(|| r.below(l.un.len().max(1) as u64) as u8);
+            if l.un.is_empty() {
+                return Sx::Var(r.below(8) as u8);
+            }
+            Sx::Un(o, sub(r, l))
+        }
+        5..=8 => {
+            let o = if l.bin.is_empty() || r.below(5) == 0 { l.invent(2, r) } else { None }.unwrap_or_else(|| r.below(l.bin.len().max(1) as u64) as u8);
+            if l.bin.is_empty() {
+                return Sx::Var(r.below(8) as u8);
+            }
+            Sx::Bin(o, sub(r, l), sub(r, l))
+        }
+        _ => {
+            let o = if l.ter.is_empty() || r.below(5) == 0 { l.invent(3, r) } else { None }.unwrap_or_else(|| r.below(l.ter.len().max(1) as u64) as u8);
+            if l.ter.is_empty() {
+                return Sx::Var(r.below(8) as u8);
+            }
+            Sx::Ter(o, sub(r, l), sub(r, l), sub(r, l))
+        }
+    }
+}
+
+fn mutate_sx(e: &Sx, r: &mut Rng, l: &mut Lang) -> Sx {
+    if r.below(4) == 0 {
+        return random_sx(r, 3, l);
+    }
+    match e {
+        Sx::Var(_) => Sx::Var(r.below(8) as u8),
+        Sx::Const(_) => Sx::Const(r.below(l.q as u64) as u8),
+        Sx::Known(o, a, b) => match r.below(4) {
+            0 => Sx::Known(r.below(3) as u8, a.clone(), b.clone()),
+            1 => Sx::Known(*o, b.clone(), a.clone()),
+            2 => Sx::Known(*o, Box::new(mutate_sx(a, r, l)), b.clone()),
+            _ => Sx::Known(*o, a.clone(), Box::new(mutate_sx(b, r, l))),
+        },
+        Sx::Un(o, a) => match r.below(3) {
+            0 => Sx::Un(r.below(l.un.len().max(1) as u64) as u8, a.clone()),
+            _ => Sx::Un(*o, Box::new(mutate_sx(a, r, l))),
+        },
+        Sx::Bin(o, a, b) => match r.below(4) {
+            0 => Sx::Bin(r.below(l.bin.len().max(1) as u64) as u8, a.clone(), b.clone()),
+            1 => Sx::Bin(*o, b.clone(), a.clone()),
+            2 => Sx::Bin(*o, Box::new(mutate_sx(a, r, l)), b.clone()),
+            _ => Sx::Bin(*o, a.clone(), Box::new(mutate_sx(b, r, l))),
+        },
+        Sx::Ter(o, a, b, c) => match r.below(4) {
+            0 => Sx::Ter(r.below(l.ter.len().max(1) as u64) as u8, a.clone(), b.clone(), c.clone()),
+            1 => Sx::Ter(*o, Box::new(mutate_sx(a, r, l)), b.clone(), c.clone()),
+            2 => Sx::Ter(*o, a.clone(), Box::new(mutate_sx(b, r, l)), c.clone()),
+            _ => Sx::Ter(*o, a.clone(), b.clone(), Box::new(mutate_sx(c, r, l))),
+        },
     }
 }
 
@@ -214,11 +328,11 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
             sc.spawn(move || {
                 let mut r = Rng((seed ^ (isl as u64 + 1).wrapping_mul(0x9e37_79b9_7f4a_7c15)) | 1);
                 let pop_n = 200;
-                let fit = |e: &Sx, l: &Lang, nm: &Naming| fr.score_with(nm, |f, g| e.eval(f, l) == e.eval(g, l)).0 * 64 + e.size() as u64;
+                let fit = |e: &Sx, l: &Lang, nm: &Naming| fr.score_with(nm, |f, g| l.related(e.eval(f, l), e.eval(g, l))).0 * 64 + e.size() as u64;
                 let mut pop: Vec<Ind> = (0..pop_n)
                     .map(|_| {
-                        let e = random_sx(&mut r, 4);
-                        let l = Lang::random(q, &mut r);
+                        let mut l = Lang::start(q, &mut r);
+                        let e = random_sx(&mut r, 4, &mut l);
                         let nm = Naming::shuffled(fr.q, r.next());
                         (fit(&e, &l, &nm), e, l, nm)
                     })
@@ -231,7 +345,10 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
                         let a = (r.below(pop_n as u64) as usize).min(r.below(pop_n as u64) as usize);
                         let (_, e, l, nm) = &pop[a];
                         let (e, l, nm) = match r.below(10) {
-                            0..=3 => (mutate_sx(e, &mut r), l.clone(), nm.clone()),
+                            0..=3 => {
+                                let mut l2 = l.clone();
+                                (mutate_sx(e, &mut r, &mut l2), l2, nm.clone())
+                            }
                             4..=7 => (e.clone(), l.mutate(&mut r), nm.clone()),
                             _ => (e.clone(), l.clone(), nm.mutate_seeded(r.next())),
                         };
@@ -266,7 +383,7 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
         }
     });
     let (_, expr, lang, naming) = best.into_inner().unwrap()?;
-    let adj = fr.adjacency_with(&naming, |f, g| expr.eval(f, &lang) == expr.eval(g, &lang));
+    let adj = fr.adjacency_with(&naming, |f, g| lang.related(expr.eval(f, &lang), expr.eval(g, &lang)));
     let (mut met, pairs) = (0usize, fr.v * (fr.v - 1) / 2);
     for x in 0..fr.v {
         for y in x + 1..fr.v {
@@ -278,25 +395,44 @@ pub fn invent(k: usize, seconds: f64, seed: u64) -> Option<Invented> {
     Some(Invented { expr, lang, naming, pairs_met_share: met as f64 / pairs as f64, verified, tried: tried.load(Ordering::Relaxed), seconds: t0.elapsed().as_secs_f64(), islands })
 }
 
-/// The invented symbols the expression uses, each with its table and what it is like.
+/// The symbols the expression uses, each invented one with its table and what it is like.
 pub fn glossary(inv: &Invented) -> Vec<String> {
-    let mut used = [false; 5];
-    inv.expr.uses(&mut used);
+    let mut used = Vec::new();
+    let mut known = [false; 3];
+    inv.expr.uses(&mut used, &mut known);
+    used.sort();
+    used.dedup();
     let q = inv.lang.q;
     let mut out = Vec::new();
-    for o in 0..3 {
-        if used[o] {
-            let rows: Vec<String> = (0..q).map(|a| inv.lang.bin[o][a * q..(a + 1) * q].iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",")).collect();
-            out.push(format!("{}: table rows [{}] — {}", BIN[o], rows.join(" | "), describe_bin(&inv.lang.bin[o], q)));
-        }
-    }
-    for o in 0..2 {
-        if used[3 + o] {
-            let perm = {
+    let old: Vec<&str> = (0..3).filter(|&o| known[o]).map(|o| KNOWN[o]).collect();
+    out.push(if old.is_empty() { "old operations used: none".to_string() } else { format!("old operations used: {} (mod {q})", old.join(" ")) });
+    let rel = &inv.lang.rel;
+    let eq = (0..q * q).all(|c| rel[c] == (c / q == c % q) as u8);
+    let sum0 = (0..q * q).all(|c| rel[c] == ((c / q + c % q) % q == 0) as u8);
+    let pairs: Vec<String> = (0..q).flat_map(|a| (a..q).map(move |b| (a, b))).filter(|&(a, b)| rel[a * q + b] == 1).map(|(a, b)| format!("{a}≈{b}")).collect();
+    out.push(format!(
+        "adjacency relation ≈: {}",
+        if eq { "equality (old)".to_string() } else if sum0 { "a + b ≡ 0 (old)".to_string() } else { format!("invented, {} related pairs: {}", pairs.len(), pairs.join(" ")) }
+    ));
+    for (arity, o) in used {
+        let o = o as usize;
+        match arity {
+            1 => {
+                let t = &inv.lang.un[o];
                 let mut seen = vec![false; q];
-                inv.lang.un[o].iter().all(|&x| !std::mem::replace(&mut seen[x as usize], true))
-            };
-            out.push(format!("{}: {:?} — {}", UN[o], inv.lang.un[o], if perm { "a permutation of the names" } else { "not a permutation" }));
+                let perm = t.iter().all(|&x| !std::mem::replace(&mut seen[x as usize], true));
+                out.push(format!("invented {}: {:?} — {}", UN[o], t, if perm { "a permutation of the names" } else { "not a permutation" }));
+            }
+            2 => {
+                let t = &inv.lang.bin[o];
+                let rows: Vec<String> = (0..q).map(|a| t[a * q..(a + 1) * q].iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",")).collect();
+                out.push(format!("invented {}: table rows [{}] — {}", BIN[o], rows.join(" | "), describe_bin(t, q)));
+            }
+            _ => {
+                let t = &inv.lang.ter[o];
+                let sym = (0..q).all(|a| (0..q).all(|b| (0..q).all(|c| t[(a * q + b) * q + c] == t[(b * q + a) * q + c] && t[(a * q + b) * q + c] == t[(a * q + c) * q + b])));
+                out.push(format!("invented {}a, b, c{}: a three-place symbol, table of {} values — {}", TER[o].0, TER[o].1, t.len(), if sym { "symmetric in its three places" } else { "not symmetric" }));
+            }
         }
     }
     out
