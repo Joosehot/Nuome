@@ -221,6 +221,11 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "chess-network" {
+            // chess-network [fool|scholar|legal|opera|all]: how chess works as a 64-node network, and famous games laid into it
+            println!("{}", nuome::chess_network::report(cli.words.first().map(|s| s.as_str()).unwrap_or("all")).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "supergenius-golden" {
             // supergenius-golden: the supergenius writes the golden function from the rules of chess (no evolution)
             let _ = std::fs::create_dir_all("out/golden");

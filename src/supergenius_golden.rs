@@ -6,8 +6,6 @@
 //! the move that leaves the best network for the mover. Every number in it
 //! is computed from the rules:
 //!
-//! 0. the nodes a side holds: more of its edges point at a node than the
-//!    other side's; every node held is one node of the network won;
 //! 1. a piece is worth what the rules let it do: the moves it has, on
 //!    average, alone on an empty board (counted by the move generator);
 //! 2. a pawn is a queen in waiting: the rules promote it on the last rank,
@@ -34,7 +32,6 @@ pub fn derive() -> Result<(F, Vec<String>), String> {
     let names = [(2, "knight"), (3, "bishop"), (4, "rook"), (5, "queen"), (6, "king")];
     let mut lines = vec![
         "the board is a closed network of 64 nodes; the rules draw the edges (where each piece may go or strike); every move changes the network".to_string(),
-        "0. a node is held by the side with more edges pointing at it: every node held counts one unit (256)".to_string(),
         "1. what a piece is worth, from the rules: its edges alone on an empty board (its moves), averaged over the 64 nodes".to_string(),
     ];
     for (t, n) in names {
@@ -59,7 +56,7 @@ pub fn derive() -> Result<(F, Vec<String>), String> {
     lines.push("4. the side to move may take now: its best capture (the victim, less the capturer on a defended square) counts for it".into());
     lines.push(format!("5. the game is won by mate: the enemy king's node cut off from the network; every free edge it keeps counts {unit} against"));
     let text = format!(
-        "{unit} * (my_moves - their_moves) + {n} * (my_knights - their_knights) + {b} * (my_bishops - their_bishops) + {r} * (my_rooks - their_rooks) + {q} * (my_queens - their_queens) + {pawn} * (my_pawn_power - their_pawn_power) + my_best_capture - {unit} * their_escapes + {unit} * (my_nodes - their_nodes)"
+        "{unit} * (my_moves - their_moves) + {n} * (my_knights - their_knights) + {b} * (my_bishops - their_bishops) + {r} * (my_rooks - their_rooks) + {q} * (my_queens - their_queens) + {pawn} * (my_pawn_power - their_pawn_power) + my_best_capture - {unit} * their_escapes"
     );
     let f = F::parse(&text)?;
     Ok((f, lines))

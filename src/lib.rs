@@ -23,6 +23,7 @@ pub mod explain;
 pub mod expr;
 pub mod goldbach;
 pub mod golden;
+pub mod chess_network;
 pub mod general;
 pub mod goldbach_fi;
 pub mod hodge;
