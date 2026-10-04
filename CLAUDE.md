@@ -14,6 +14,22 @@ theorem, the number of divisors by τ(n) = ∏(eᵢ + 1), sums of roots by
 Vieta, a factorial mod p by Wilson) need their own module for theoretical
 answers; the exact calculator is not that module.
 
+## Open problems: one way of thinking for every one
+
+In every theoretical or open problem, assume the object has no known
+relatives: no family, no symmetry, no construction it is known to come
+from (Conway's 99-graph has been searched for through its relatives for
+decades). Then, in Golden Answer's logical kind:
+
+1. derive what the conditions force, step by checkable step;
+2. state exactly the choice that is left;
+3. search that choice exactly, for a short time (no long runs);
+4. say plainly which of three it is: built and checked, impossible (the
+   search ran to its end), or undecided, with how far the forcing went.
+
+Validate on a case that is known first (srg(9,4,1,2) must come out of the
+forcing alone before srg(99,14,1,2) is tried).
+
 ## Golden Answer
 
 `src/golden_answer.rs` (and `src/golden_exact.rs`) answer a mathematical

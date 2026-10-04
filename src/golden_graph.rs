@@ -215,6 +215,169 @@ pub fn check(adj: &[Vec<bool>], k: u64, lambda: u64, mu: u64) -> Result<usize, S
     Ok(pairs)
 }
 
+/// How long the logical answer may search the forced structure's last choice (GOLDEN_FORCED_SECONDS overrides).
+pub const FORCED_SECONDS: f64 = 20.0;
+
+thread_local! {
+    /// The working of the last undecided forced search, for the "no answer" text.
+    pub static UNDECIDED: std::cell::RefCell<Vec<String>> = std::cell::RefCell::new(Vec::new());
+}
+
+pub enum Forced {
+    Built(Vec<Vec<bool>>),
+    None,
+    Undecided,
+}
+
+/// Conway's kind (λ = 1, μ = 2) with degree k, assuming nothing else: the
+/// structure every vertex x forces, then the one choice left, searched
+/// exactly for at most `seconds`.
+///
+/// x's k neighbours pair into k/2 triangles through x (λ = 1). Each vertex at
+/// distance 2 has exactly two neighbours among them (μ = 2), not adjacent to
+/// each other (an edge in two triangles would break λ = 1), and each of the
+/// k(k-2)/2 non-adjacent pairs of neighbours has exactly one common neighbour
+/// besides x: so the far vertices ARE those pairs. What is left: which far
+/// vertices are adjacent. For a far vertex f = {a, b} and a neighbour u of
+/// x, f has exactly t(f, u) far neighbours that contain u, t = 1 when u is in
+/// f or is the partner of an end of f, else 2; and two far vertices f, g
+/// have 1 - |f ∩ g| far common neighbours when adjacent, 2 - |f ∩ g| when not.
+pub fn forced(v: u64, k: u64, seconds: f64) -> (Forced, Vec<String>) {
+    let mut lines = Vec::new();
+    let k = k as usize;
+    let far: Vec<(usize, usize)> = (0..k).flat_map(|a| (a + 1..k).map(move |b| (a, b))).filter(|&(a, b)| b != (a ^ 1)).collect();
+    let n = far.len();
+    lines.push(format!("fix a vertex x: its {k} neighbours pair into {} triangles through x (each neighbour has exactly λ = 1 common neighbour with x)", k / 2));
+    lines.push(format!("a vertex at distance 2 has exactly μ = 2 neighbours among them, and they are not adjacent (an edge in two triangles would break λ = 1)"));
+    lines.push(format!("the {k}·{}/2 = {n} non-adjacent pairs of x's neighbours each need exactly one common neighbour besides x, so the {} vertices at distance 2 are exactly these pairs", k - 2, v as usize - 1 - k));
+    if n != v as usize - 1 - k {
+        lines.push("the counts do not match".into());
+        return (Forced::None, lines);
+    }
+    lines.push(format!("left to choose: the edges among the {n} far vertices, each far vertex having {} of them, with the star and common-neighbour counts these conditions fix", k - 2));
+    if n > 128 * 8 {
+        return (Forced::Undecided, lines);
+    }
+    let words = n.div_ceil(64);
+    let has = |f: usize, u: usize| far[f].0 == u || far[f].1 == u;
+    // t(f, u)
+    let target: Vec<Vec<u8>> = (0..n)
+        .map(|f| (0..k).map(|u| if has(f, u) || has(f, u ^ 1) { 1 } else { 2 }).collect())
+        .collect();
+    let shared: Vec<Vec<u8>> = (0..n).map(|f| (0..n).map(|g| (has(g, far[f].0) as u8) + (has(g, far[f].1) as u8)).collect()).collect();
+    let need = k - 2;
+    let t0 = std::time::Instant::now();
+    let mut adj = vec![vec![0u64; words]; n];
+    let mut deg = vec![0usize; n];
+    let mut star = vec![vec![0u8; k]; n];
+    let mut best_rows = 0usize;
+    let mut nodes = 0u64;
+    let mut timed_out = false;
+
+    // depth-first over the pairs (f, g), f < g, row by row
+    fn bit(r: &[u64], i: usize) -> bool {
+        r[i / 64] >> (i % 64) & 1 == 1
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn go(
+        f: usize, g: usize, n: usize, k: usize, need: usize, far: &[(usize, usize)], target: &[Vec<u8>], shared: &[Vec<u8>], adj: &mut Vec<Vec<u64>>, deg: &mut Vec<usize>, star: &mut Vec<Vec<u8>>,
+        best_rows: &mut usize, nodes: &mut u64, t0: &std::time::Instant, seconds: f64, timed_out: &mut bool,
+    ) -> bool {
+        *nodes += 1;
+        if *nodes % 4096 == 0 && t0.elapsed().as_secs_f64() > seconds {
+            *timed_out = true;
+            return false;
+        }
+        if f == n {
+            return true;
+        }
+        if g == n {
+            // row f is complete: its degree, its stars, and every earlier pair's common count
+            if deg[f] != need || (0..k).any(|u| star[f][u] != target[f][u]) {
+                return false;
+            }
+            for h in 0..f {
+                let common: u32 = adj[f].iter().zip(&adj[h]).map(|(a, b)| (a & b).count_ones()).sum();
+                let want = if bit(&adj[f], h) { 1 } else { 2 } as i32 - shared[f][h] as i32;
+                if common as i32 != want {
+                    return false;
+                }
+            }
+            if f + 1 > *best_rows {
+                *best_rows = f + 1;
+            }
+            return go(f + 1, f + 2, n, k, need, far, target, shared, adj, deg, star, best_rows, nodes, t0, seconds, timed_out);
+        }
+        // f and g adjacent? Not when they share an end (λ = 1 would break: the shared end is a common neighbour already... allowed only if no other)
+        let (a, b) = far[g];
+        let (c, d) = far[f];
+        let can = deg[f] < need && deg[g] < need && star[f][a] < target[f][a] && star[f][b] < target[f][b] && star[g][c] < target[g][c] && star[g][d] < target[g][d] && shared[f][g] <= 1;
+        if can {
+            adj[f][g / 64] |= 1 << (g % 64);
+            adj[g][f / 64] |= 1 << (f % 64);
+            deg[f] += 1;
+            deg[g] += 1;
+            star[f][a] += 1;
+            star[f][b] += 1;
+            star[g][c] += 1;
+            star[g][d] += 1;
+            if go(f, g + 1, n, k, need, far, target, shared, adj, deg, star, best_rows, nodes, t0, seconds, timed_out) {
+                return true;
+            }
+            adj[f][g / 64] &= !(1 << (g % 64));
+            adj[g][f / 64] &= !(1 << (f % 64));
+            deg[f] -= 1;
+            deg[g] -= 1;
+            star[f][a] -= 1;
+            star[f][b] -= 1;
+            star[g][c] -= 1;
+            star[g][d] -= 1;
+        }
+        if *timed_out {
+            return false;
+        }
+        // not adjacent: row f must still be able to reach its degree
+        if deg[f] + (n - g - 1) < need {
+            return false;
+        }
+        go(f, g + 1, n, k, need, far, target, shared, adj, deg, star, best_rows, nodes, t0, seconds, timed_out)
+    }
+
+    let found = go(0, 1, n, k, need, &far, &target, &shared, &mut adj, &mut deg, &mut star, &mut best_rows, &mut nodes, &t0, seconds, &mut timed_out);
+    if found {
+        // the whole graph: x = 0, neighbours 1..=k, far vertices after
+        let vv = 1 + k + n;
+        let mut m = vec![vec![false; vv]; vv];
+        let mut link = |p: usize, q: usize| {
+            m[p][q] = true;
+            m[q][p] = true;
+        };
+        for u in 0..k {
+            link(0, 1 + u);
+        }
+        for u in (0..k).step_by(2) {
+            link(1 + u, 2 + u);
+        }
+        for (f, &(a, b)) in far.iter().enumerate() {
+            link(1 + k + f, 1 + a);
+            link(1 + k + f, 1 + b);
+            for g in f + 1..n {
+                if bit(&adj[f], g) {
+                    link(1 + k + f, 1 + k + g);
+                }
+            }
+        }
+        lines.push(format!("the exact search over that last choice found one ({nodes} steps)"));
+        return (Forced::Built(m), lines);
+    }
+    if timed_out {
+        lines.push(format!("the exact search over that last choice was stopped after {seconds:.0} s ({nodes} steps): at most {best_rows} of the {n} far vertices had all their edges fixed consistently; undecided"));
+        return (Forced::Undecided, lines);
+    }
+    lines.push(format!("the exact search over that last choice ran to its end ({nodes} steps) and found no way to complete it"));
+    (Forced::None, lines)
+}
+
 /// Conway's family λ = 1, μ = 2: the only v the integrality condition allows, and what is known.
 fn conway_state(v: u64) -> Option<(&'static str, &'static str)> {
     match v {
@@ -314,6 +477,34 @@ pub fn answer(kind: Kind3, g: &GraphQ) -> Option<(String, Vec<String>, Vec<Strin
                     lines.push("they differ, so no such graph exists".into());
                     return Some((no(), lines, vec![]));
                 }
+            }
+            // Conway's kind (λ = 1, μ = 2): no relatives assumed, only what the conditions force
+            if lambda == 1 && mu == 2 && ks.len() == 1 && v <= 1000 {
+                let k = ks[0];
+                let secs = if cfg!(test) { 1.0 } else { std::env::var("GOLDEN_FORCED_SECONDS").ok().and_then(|x| x.parse().ok()).unwrap_or(FORCED_SECONDS) };
+                let (verdict, more) = forced(v, k, secs);
+                lines.extend(more);
+                return match verdict {
+                    Forced::Built(adj) => {
+                        let pairs = check(&adj, k, 1, 2).ok()?;
+                        lines.push(format!("checked: every vertex has degree {k}; every one of the {pairs} pairs has 1 common neighbour when adjacent and 2 when not"));
+                        if make && v <= 30 {
+                            for (i, row) in adj.iter().enumerate() {
+                                let ns: Vec<String> = (0..adj.len()).filter(|&j| row[j]).map(|j| j.to_string()).collect();
+                                lines.push(format!("vertex {i}: {}", ns.join(" ")));
+                            }
+                        }
+                        Some((if make { format!("constructed: srg({v},{k},1,2)") } else { "yes".into() }, lines, vec![]))
+                    }
+                    Forced::None => {
+                        lines.push(format!("so no graph on {v} vertices has these properties"));
+                        Some((no(), lines, vec![]))
+                    }
+                    Forced::Undecided => None.or_else(|| {
+                        UNDECIDED.with(|u| *u.borrow_mut() = lines.clone());
+                        None
+                    }),
+                };
             }
             if v > 400 {
                 return None;

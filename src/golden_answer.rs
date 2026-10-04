@@ -813,7 +813,14 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
             match graph_answer(k3, &g) {
                 None => a.none(match kind {
                     Kind::Logical if g.mu < 2 && g.k.is_none() => "with μ < 2 the graph need not be regular, and this derivation needs regularity".to_string(),
-                    Kind::Logical => format!("the counting allows these parameters, and no construction known to Golden Answer builds a graph on {} vertices with them; existence is not decided from the question alone", g.v),
+                    Kind::Logical => {
+                        let worked = crate::golden_graph::UNDECIDED.with(|u| std::mem::take(&mut *u.borrow_mut()));
+                        if worked.is_empty() {
+                            format!("the counting allows these parameters, and no construction known to Golden Answer builds a graph on {} vertices with them; existence is not decided from the question alone", g.v)
+                        } else {
+                            format!("not decided; what the conditions force:\n  - {}", worked.join("\n  - "))
+                        }
+                    }
                     Kind::Theoretical => "the parameters pass the known necessary conditions, and the table of known results does not decide them".to_string(),
                     Kind::Abstract => String::new(),
                 }),
