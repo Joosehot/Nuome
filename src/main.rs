@@ -278,6 +278,11 @@ fn main() -> Result<()> {
             println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "goldennet-profile" {
+            // goldennet-profile "<fen>": where a leaf's time goes (moves, points, the frozen sum), one core
+            print!("{}", nuome::golden_table::profile(&cli.words.join(" "), 4).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "goldennet-speed" {
             // goldennet-speed "<fen>" [SECONDS]: how deep Goldennet gets, every line, in the time
             let fen = cli.words.iter().filter(|w| w.parse::<f64>().is_err()).cloned().collect::<Vec<_>>().join(" ");

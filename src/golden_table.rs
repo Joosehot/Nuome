@@ -612,13 +612,17 @@ const NET_MATE: f32 = 1.0e6;
 /// Mate and stalemate by the rules; at the leaves Goldennet's value of the
 /// position for the side that has just moved, so the side to move gets minus it.
 fn deep(w: &[f32], p: &mut Position, depth: usize) -> f32 {
+    if depth == 0 {
+        // a leaf: only whether any legal move exists (stop at the first), then the net
+        if !has_legal(p) {
+            return if p.in_check() { -NET_MATE } else { 0.0 };
+        }
+        let moved = 1 - p.turn as usize;
+        return -score(w, &points(p, moved));
+    }
     let ms = legal_moves(p);
     if ms.is_empty() {
         return if p.in_check() { -NET_MATE } else { 0.0 };
-    }
-    if depth == 0 {
-        let moved = 1 - p.turn as usize;
-        return -score(w, &points(p, moved));
     }
     let mut best = f32::NEG_INFINITY;
     for m in ms {
@@ -922,4 +926,50 @@ fn count_leaves(p: &mut Position, d: usize) -> u64 {
         p.unmake();
     }
     n
+}
+
+/// Where a leaf's time goes: the moves alone (every line to `d`), the points alone, the frozen sum alone.
+pub fn profile(fen: &str, d: usize) -> Result<String, String> {
+    let w = load_goldennet().ok_or("no Goldennet yet")?;
+    let mut p = Position::from_fen(fen)?;
+    let t0 = std::time::Instant::now();
+    let leaves = count_leaves(&mut p, d);
+    let moves_s = t0.elapsed().as_secs_f64();
+    let n = 1_000_000;
+    let t1 = std::time::Instant::now();
+    let mut acc = 0u64;
+    for _ in 0..n {
+        acc += points(&p, 0)[0] as u64;
+    }
+    let pts = t1.elapsed().as_secs_f64() / n as f64;
+    let x = points(&p, 0);
+    let t2 = std::time::Instant::now();
+    let mut s = 0f32;
+    for _ in 0..n {
+        s += score(&w, std::hint::black_box(&x));
+    }
+    let sum = t2.elapsed().as_secs_f64() / n as f64;
+    Ok(format!(
+        "one core: the moves of every line to depth {d}: {leaves} leaves in {moves_s:.2} s ({:.0} ns a leaf)\n  the points of one position (content + attack counts of 64 squares): {:.0} ns\n  the frozen sum of 64 points: {:.0} ns\n  ({acc} {s})\n",
+        moves_s / leaves as f64 * 1e9,
+        pts * 1e9,
+        sum * 1e9
+    ))
+}
+
+/// Whether the side to move has any legal move (stops at the first).
+fn has_legal(p: &mut Position) -> bool {
+    use crate::fast::movegen::{gen_moves, MAX_MOVES};
+    let me = p.turn;
+    let mut list = [0u32; MAX_MOVES];
+    let n = gen_moves(p, &mut list, false);
+    for &m in &list[..n] {
+        p.make(m);
+        let ok = !p.in_check_c(me);
+        p.unmake();
+        if ok {
+            return true;
+        }
+    }
+    false
 }
