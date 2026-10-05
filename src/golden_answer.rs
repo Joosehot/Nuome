@@ -369,6 +369,8 @@ pub enum Task {
     FormulaUse,
     /// the God-function: a new way to compute something, invented
     God,
+    /// a problem of its own and its answer
+    GodSelf,
     /// a graph whose adjacent pairs have λ and non-adjacent pairs μ common neighbours (Conway's 99-graph kind)
     Graph(crate::golden_graph::GraphQ),
     /// handed to Nuome's worked-solution engine
@@ -417,6 +419,9 @@ pub fn task_of(q: &str) -> Task {
     }
     if crate::golden_formula::read(q) {
         return Task::Formula;
+    }
+    if crate::golden_god::read_self(q) {
+        return Task::GodSelf;
     }
     if crate::golden_god::read(q) {
         return Task::God;
@@ -823,6 +828,19 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
     match task.clone() {
         Task::Property(n, p) => property(a, &n, p),
         Task::Arithmetic(e) => arithmetic(a, &e),
+        Task::GodSelf => match crate::golden_god::answer_self(a.kind == Kind::Logical, a.kind == Kind::Abstract) {
+            Err(why) => a.none(why),
+            Ok((short, lines, sources)) => {
+                let mut a = a.says(short);
+                for l in lines {
+                    a = a.line(l);
+                }
+                for s in sources {
+                    a = a.source(s);
+                }
+                a
+            }
+        },
         Task::God => match crate::golden_god::answer(a.kind == Kind::Logical, a.kind == Kind::Abstract) {
             Err(why) => a.none(why),
             Ok((short, lines, sources)) => {

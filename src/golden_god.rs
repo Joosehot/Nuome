@@ -183,3 +183,260 @@ pub fn read(q: &str) -> bool {
     let norm = |s: &str| s.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
     norm(q).trim_end_matches(['.', '?', '!']) == norm(QUESTION).trim_end_matches(['.', '?', '!'])
 }
+
+// ---------------------------------------------------------------- a problem of its own
+
+/// The question: Golden invents the problem too, anywhere in mathematics.
+pub const QUESTION_SELF: &str = "Invent a problem of your own anywhere in mathematics — objects that differ though everything Golden already knows calls them the same — and a new function G, in symbols of your own making, that tells them apart. Check G on objects it never saw.";
+
+pub fn read_self(q: &str) -> bool {
+    let norm = |s: &str| s.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    norm(q).trim_end_matches(['.', '?', '!']) == norm(QUESTION_SELF).trim_end_matches(['.', '?', '!'])
+}
+
+/// A finite structure: n elements and one relation, as rows of bits.
+#[derive(Clone)]
+struct Obj {
+    n: usize,
+    a: Vec<u16>,
+}
+
+impl Obj {
+    fn at(&self, i: usize, j: usize) -> bool {
+        self.a[i] >> j & 1 == 1
+    }
+    fn relabel(&self, p: &[usize]) -> Obj {
+        let mut a = vec![0u16; self.n];
+        for i in 0..self.n {
+            for j in 0..self.n {
+                if self.at(i, j) {
+                    a[p[i]] |= 1 << p[j];
+                }
+            }
+        }
+        Obj { n: self.n, a }
+    }
+}
+
+/// An area Golden can make objects in itself: name, tuple size for G, a random object.
+struct Area {
+    name: &'static str,
+    k: usize,
+    make: fn(&mut u64) -> Obj,
+}
+
+fn rnd(s: &mut u64) -> u64 {
+    *s ^= *s << 13;
+    *s ^= *s >> 7;
+    *s ^= *s << 17;
+    *s
+}
+
+fn make_graph(s: &mut u64) -> Obj {
+    let mut a = vec![0u16; 8];
+    for i in 0..8 {
+        for j in i + 1..8 {
+            if rnd(s) & 1 == 1 {
+                a[i] |= 1 << j;
+                a[j] |= 1 << i;
+            }
+        }
+    }
+    Obj { n: 8, a }
+}
+
+fn make_map(s: &mut u64) -> Obj {
+    let a = (0..7).map(|_| 1u16 << (rnd(s) % 7)).collect();
+    Obj { n: 7, a }
+}
+
+fn make_perm(s: &mut u64) -> Obj {
+    let mut p: Vec<usize> = (0..7).collect();
+    for i in (1..7).rev() {
+        p.swap(i, (rnd(s) % (i as u64 + 1)) as usize);
+    }
+    Obj { n: 7, a: p.iter().map(|&j| 1u16 << j).collect() }
+}
+
+fn areas() -> Vec<Area> {
+    vec![
+        Area { name: "graphs on 8 vertices", k: 4, make: make_graph },
+        Area { name: "maps f: S -> S on 7 points", k: 3, make: make_map },
+        Area { name: "permutations of 7 points", k: 3, make: make_perm },
+    ]
+}
+
+/// Everything Golden already knows about such an object: its spectrum (the
+/// closed walks tr A^k, k = 1..n, which fix the characteristic polynomial)
+/// and the out- and in-degree sequences.
+fn known(o: &Obj) -> Vec<i64> {
+    let n = o.n;
+    let m: Vec<Vec<i64>> = (0..n).map(|i| (0..n).map(|j| o.at(i, j) as i64).collect()).collect();
+    let mut p = m.clone();
+    let mut key = Vec::new();
+    for _ in 0..n {
+        key.push((0..n).map(|i| p[i][i]).sum());
+        p = (0..n).map(|i| (0..n).map(|j| (0..n).map(|t| p[i][t] * m[t][j]).sum()).collect()).collect();
+    }
+    let mut out: Vec<i64> = (0..n).map(|i| o.a[i].count_ones() as i64).collect();
+    let mut inn: Vec<i64> = (0..n).map(|j| (0..n).filter(|&i| o.at(i, j)).count() as i64).collect();
+    out.sort();
+    inn.sort();
+    key.extend(out);
+    key.push(-1);
+    key.extend(inn);
+    key
+}
+
+/// Whether two objects are the same up to renaming the elements (every renaming tried, with pruning).
+fn isomorphic(x: &Obj, y: &Obj) -> bool {
+    fn go(x: &Obj, y: &Obj, p: &mut Vec<usize>, used: u16) -> bool {
+        let i = p.len();
+        if i == x.n {
+            return true;
+        }
+        for j in 0..x.n {
+            if used >> j & 1 == 1 || x.a[i].count_ones() != y.a[j].count_ones() {
+                continue;
+            }
+            if x.at(i, i) == y.at(j, j) && (0..i).all(|t| x.at(i, t) == y.at(j, p[t]) && x.at(t, i) == y.at(p[t], j)) {
+                p.push(j);
+                if go(x, y, p, used | 1 << j) {
+                    return true;
+                }
+                p.pop();
+            }
+        }
+        false
+    }
+    go(x, y, &mut Vec::new(), 0)
+}
+
+/// Golden's problem in an area: pairs that differ though everything known calls them the same.
+fn invent_problem(area: &Area, tries: usize, want: usize, seed: u64) -> Vec<(Obj, Obj)> {
+    let mut s = seed | 1;
+    let mut seen: std::collections::HashMap<Vec<i64>, Vec<Obj>> = std::collections::HashMap::new();
+    let mut pairs = Vec::new();
+    for _ in 0..tries {
+        let o = (area.make)(&mut s);
+        let bucket = seen.entry(known(&o)).or_default();
+        if bucket.iter().any(|b| isomorphic(b, &o)) {
+            continue;
+        }
+        if let Some(b) = bucket.first() {
+            pairs.push((b.clone(), o.clone()));
+            if pairs.len() >= want {
+                break;
+            }
+        }
+        bucket.push(o);
+    }
+    pairs
+}
+
+/// The relations among a tuple of elements, as up to 8 bits for G's expression.
+fn tuple_bits(o: &Obj, t: &[usize], k: usize) -> [u64; 8] {
+    let mut v = [0u64; 8];
+    let e: &[(usize, usize)] = if k == 4 { &[(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)] } else { &[(0, 1), (1, 0), (0, 2), (2, 0), (1, 2), (2, 1), (0, 0), (1, 1)] };
+    for (x, &(i, j)) in e.iter().enumerate() {
+        v[x] = o.at(t[i], t[j]) as u64;
+    }
+    v
+}
+
+fn rec_patterns(o: &Obj, k: usize, t: &mut Vec<usize>, h: &mut std::collections::BTreeMap<[u64; 8], u64>) {
+    if t.len() == k {
+        *h.entry(tuple_bits(o, t, k)).or_default() += 1;
+        return;
+    }
+    for x in 0..o.n {
+        if t.contains(&x) {
+            continue;
+        }
+        t.push(x);
+        rec_patterns(o, k, t, h);
+        t.pop();
+    }
+}
+
+/// How often each relation pattern occurs over every ordered tuple of distinct elements.
+fn patterns(o: &Obj, k: usize) -> Vec<([u64; 8], u64)> {
+    let mut h = std::collections::BTreeMap::new();
+    rec_patterns(o, k, &mut Vec::new(), &mut h);
+    h.into_iter().collect()
+}
+
+/// G(object) = the sum over every ordered tuple of E(the tuple's relations), mod Q.
+fn g_value(e: &Sx, l: &Lang, hist: &[([u64; 8], u64)]) -> u64 {
+    hist.iter().map(|(v, c)| e.eval(v, l) as u64 * c).sum::<u64>() % Q as u64
+}
+
+type Hist = Vec<([u64; 8], u64)>;
+
+pub fn answer_self(kind_logical: bool, kind_abstract: bool) -> Result<(String, Vec<String>, Vec<String>), String> {
+    let secs = std::env::var("GOLDEN_GOD_SECONDS").ok().and_then(|x| x.parse().ok()).unwrap_or(20.0);
+    let mut lines = vec![
+        "the areas Golden can make objects in itself: finite structures of one relation (graphs, maps f: S -> S, permutations); what it already knows of them: the spectrum (closed walks) and the degree sequences".to_string(),
+        format!("the problem it invents: pairs that are different (no renaming makes them equal, every renaming tried) though everything known calls them the same; the answer it invents: G = Σ over every ordered tuple of E(the tuple's relations) mod {Q}, E in symbols of its own (so G cannot depend on names); {secs:.0} s an area"),
+    ];
+    let fr = Frame::new(2 * Q);
+    let mut best: Option<(String, String, usize, usize, Vec<String>)> = None;
+    for (ai, area) in areas().into_iter().enumerate() {
+        let pairs = invent_problem(&area, 60_000, 24, 0xA5EA_0000 + ai as u64);
+        if pairs.len() < 4 {
+            lines.push(format!("{}: no problem to invent — among 60 000 objects, what the known invariants call the same is the same ({} pairs found)", area.name, pairs.len()));
+            continue;
+        }
+        let half = pairs.len() / 2;
+        let hist: Vec<(Hist, Hist)> = pairs.iter().map(|(x, y)| (patterns(x, area.k), patterns(y, area.k))).collect();
+        let (search, check) = hist.split_at(half);
+        let fit = |e: &Sx, l: &Lang, _: &Naming| search.iter().filter(|(a, b)| g_value(e, l, a) == g_value(e, l, b)).count() as u64 * 64 + e.size() as u64;
+        let (found, _, _) = evolve(&fr, secs, 0x60D5_0000 + ai as u64, &fit, &[]);
+        let Some((_, e, l, nm)) = found else { continue };
+        let s_ok = search.iter().filter(|(a, b)| g_value(&e, &l, a) != g_value(&e, &l, b)).count();
+        let c_ok = check.iter().filter(|(a, b)| g_value(&e, &l, a) != g_value(&e, &l, b)).count();
+        // G is the same on a renaming of every object of the problem
+        let mut sr = 7u64;
+        let invariant = pairs.iter().flat_map(|(x, y)| [x, y]).all(|o| {
+            let mut p: Vec<usize> = (0..o.n).collect();
+            for i in (1..o.n).rev() {
+                p.swap(i, (rnd(&mut sr) % (i as u64 + 1)) as usize);
+            }
+            g_value(&e, &l, &patterns(o, area.k)) == g_value(&e, &l, &patterns(&o.relabel(&p), area.k))
+        });
+        let names = if area.k == 4 { ["a01", "a02", "a03", "a12", "a13", "a23", "0", "0"] } else { ["a01", "a10", "a02", "a20", "a12", "a21", "a00", "a11"] };
+        let mut text = e.text();
+        for (v, nmv) in ["i1", "s1", "j1", "t1", "i2", "s2", "j2", "t2"].iter().zip(names) {
+            text = text.replace(v, nmv);
+        }
+        let inv = Invented { expr: e.clone(), lang: l, naming: nm, pairs_met_share: 0.0, verified: false, tried: 0, seconds: secs, islands: 0 };
+        let gl: Vec<String> = glossary(&inv).into_iter().filter(|x| !x.starts_with("adjacency relation")).collect();
+        lines.push(format!(
+            "{}: the problem = {} pairs ({} to search, {} never seen); E = {}; G tells apart {s_ok}/{} searched and {c_ok}/{} never seen; the same on a renaming of every object: {}",
+            area.name,
+            pairs.len(),
+            search.len(),
+            check.len(),
+            text,
+            search.len(),
+            check.len(),
+            if invariant { "yes" } else { "NO" }
+        ));
+        if best.as_ref().map_or(true, |b| c_ok + s_ok > b.2 + b.3) {
+            best = Some((area.name.to_string(), text, s_ok, c_ok, gl));
+        }
+    }
+    let Some((area, text, s_ok, c_ok, gl)) = best else {
+        return Err("no area gave a problem to invent".into());
+    };
+    lines.push(format!("chosen: {area} — G tells apart {s_ok} searched and {c_ok} never-seen pairs that everything known calls the same"));
+    lines.extend(gl.into_iter().map(|g| format!("    {g}")));
+    if kind_abstract {
+        lines.push("this is an answer that claims nothing".into());
+    } else if !kind_logical {
+        lines.push("what is known of its kind: a sum over tuples of a function of their relations is a combination of pattern (induced substructure) counts, a known kind of invariant; new here are the combination, its symbols, and the problem, found by Golden itself".into());
+    } else {
+        lines.push("checked: G is the same on a renaming of every object, and the pairs are different (every renaming tried); not proved beyond these objects".into());
+    }
+    Ok((format!("in {area}: G = Σ over tuples of {text} (mod {Q})"), lines, vec![]))
+}
