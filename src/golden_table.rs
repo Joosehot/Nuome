@@ -599,3 +599,181 @@ pub fn teach_goldennet(n_train: usize, epochs: usize) -> Result<String, String> 
     out.push_str(&format!("frozen at epoch {} to {GOLDENNET_FILE} ({:.0} s)\n", best.2, t0.elapsed().as_secs_f64()));
     Ok(out)
 }
+
+/// The frozen Goldennet from GOLDENNET_FILE.
+pub fn load_goldennet() -> Option<Vec<f32>> {
+    let w: Vec<f32> = std::fs::read_to_string(GOLDENNET_FILE).ok()?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+    (w.len() == NW).then_some(w)
+}
+
+const NET_MATE: f32 = 1.0e6;
+
+/// Every line to `depth`, nothing cut; the value for the side to move.
+/// Mate and stalemate by the rules; at the leaves Goldennet's value of the
+/// position for the side that has just moved, so the side to move gets minus it.
+fn deep(w: &[f32], p: &mut Position, depth: usize) -> f32 {
+    let ms = legal_moves(p);
+    if ms.is_empty() {
+        return if p.in_check() { -NET_MATE } else { 0.0 };
+    }
+    if depth == 0 {
+        let moved = 1 - p.turn as usize;
+        return -score(w, &points(p, moved));
+    }
+    let mut best = f32::NEG_INFINITY;
+    for m in ms {
+        p.make(m);
+        let v = -deep(w, p, depth - 1);
+        p.unmake();
+        if v > best {
+            best = v;
+        }
+    }
+    best
+}
+
+/// Goldennet's move with every line searched to `depth` plies (depth 1 = the net alone), root moves on all cores.
+pub fn deep_pick(w: &[f32], fen: &str, depth: usize) -> Option<String> {
+    let mut p = Position::from_fen(fen).ok()?;
+    let ms = legal_moves(&mut p);
+    let vals: Vec<(f32, String)> = std::thread::scope(|s| {
+        let hs: Vec<_> = ms
+            .iter()
+            .map(|&m| {
+                s.spawn(move || {
+                    let mut q = Position::from_fen(fen).unwrap();
+                    q.make(m);
+                    (-deep(w, &mut q, depth - 1), move_to_uci(m))
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    vals.into_iter().fold(None::<(f32, String)>, |b, x| match b { Some(b) if b.0 >= x.0 => Some(b), _ => Some(x) }).map(|x| x.1)
+}
+
+/// Goldennet with deeper search, on a holdout sample (the same split as teach_goldennet).
+pub fn report_deep(n_mid: usize, n_end: usize, max_depth: usize) -> Result<String, String> {
+    let w = load_goldennet().ok_or("no Goldennet yet: run goldennet first")?;
+    let text = std::fs::read_to_string(HF_FILE).map_err(|e| format!("{HF_FILE}: {e}"))?;
+    let (mut mid, mut end) = (Vec::new(), Vec::new());
+    for line in text.lines() {
+        if mid.len() >= n_mid && end.len() >= n_end {
+            break;
+        }
+        let mut it = line.splitn(3, '\t');
+        let (Some(ph), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
+        let Ok(p) = Position::from_fen(fen) else { continue };
+        if p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20 != 19 {
+            continue;
+        }
+        if ph == "endgame" && end.len() < n_end {
+            end.push((fen.to_string(), mv.to_string()));
+        } else if ph == "middlegame" && mid.len() < n_mid {
+            mid.push((fen.to_string(), mv.to_string()));
+        }
+    }
+    let mut out = format!("Goldennet with deeper search (every line, nothing cut; Goldennet at the leaves), holdout sample: {} middlegame, {} endgame\n", mid.len(), end.len());
+    for d in 1..=max_depth {
+        let t0 = std::time::Instant::now();
+        let hit = |set: &[(String, String)]| set.iter().filter(|(f, m)| deep_pick(&w, f, d).as_deref() == Some(m.as_str())).count();
+        let (hm, he) = (hit(&mid), hit(&end));
+        let secs = t0.elapsed().as_secs_f64();
+        out.push_str(&format!("  depth {d}: middlegame {:.1}%, endgame {:.1}% ({:.2} s a position)\n", 100.0 * hm as f64 / mid.len().max(1) as f64, 100.0 * he as f64 / end.len().max(1) as f64, secs / (mid.len() + end.len()).max(1) as f64));
+    }
+    Ok(out)
+}
+
+pub const HF_VALUES: &str = "out/golden/hf_values.tsv";
+pub const GOLDENNET_VALUE_FILE: &str = "out/golden/goldennet_value.txt";
+
+/// One position with Stockfish's win probability after each move: (endgame?, fen, best move, [(move, win prob)]).
+type Valued = (bool, String, String, Vec<(String, f32)>);
+
+fn read_values(n_train: usize, n_val: usize, n_hold: usize) -> Result<(Vec<Valued>, Vec<Valued>, Vec<Valued>), String> {
+    let text = std::fs::read_to_string(HF_VALUES).map_err(|e| format!("{HF_VALUES}: {e}"))?;
+    let (mut tr, mut va, mut ho) = (Vec::new(), Vec::new(), Vec::new());
+    for line in text.lines() {
+        if tr.len() >= n_train && va.len() >= n_val && ho.len() >= n_hold {
+            break;
+        }
+        let f: Vec<&str> = line.splitn(4, '\t').collect();
+        if f.len() < 4 {
+            continue;
+        }
+        let Ok(p) = Position::from_fen(f[2]) else { continue };
+        let vals: Vec<(String, f32)> = f[3].split_whitespace().filter_map(|t| t.split_once(':').and_then(|(m, v)| v.parse().ok().map(|v| (m.to_string(), v)))).collect();
+        let row = (f[0] == "endgame", f[2].to_string(), f[1].to_string(), vals);
+        match p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20 {
+            19 if ho.len() < n_hold => ho.push(row),
+            18 if va.len() < n_val => va.push(row),
+            k if k < 18 && tr.len() < n_train => tr.push(row),
+            _ => {}
+        }
+    }
+    Ok((tr, va, ho))
+}
+
+/// The positions after each valued move, seen from the mover, with the target logit of the win probability.
+fn valued_children(row: &Valued) -> Vec<([u16; 64], f32)> {
+    let Ok(mut p) = Position::from_fen(&row.1) else { return Vec::new() };
+    let me = p.turn as usize;
+    let mut out = Vec::new();
+    for (u, wp) in &row.3 {
+        let Some(m) = uci_to_move(&mut p, u) else { continue };
+        p.make(m);
+        let q = wp.clamp(0.01, 0.99);
+        out.push((points(&p, me), (q / (1.0 - q)).ln()));
+        p.unmake();
+    }
+    out
+}
+
+/// Goldennet as a value: its points summed after a move give the logit of
+/// Stockfish's win probability for the mover (squared error, streamed),
+/// epochs chosen on validate (move agreement), frozen; then searched deeper.
+pub fn teach_value(n_train: usize, epochs: usize, max_depth: usize) -> Result<String, String> {
+    let t0 = std::time::Instant::now();
+    let (tr, va, ho) = read_values(n_train, 5_000, 3_000)?;
+    let mut out = format!("Goldennet taught the table's voice as a value (Stockfish's win probability after each move): {} train / {} validate / {} holdout positions ({:.0} s to read)\n", tr.len(), va.len(), ho.len(), t0.elapsed().as_secs_f64());
+    let agree = |w: &[f32], set: &[Valued]| -> f64 {
+        set.iter().filter(|r| {
+            let c = valued_children(r);
+            let best = c.iter().enumerate().max_by(|a, b| score(w, &a.1 .0).total_cmp(&score(w, &b.1 .0))).map(|x| x.0);
+            best.map(|i| r.3[i].0 == r.2).unwrap_or(false)
+        }).count() as f64 / set.len().max(1) as f64
+    };
+    let mut w = vec![0f32; NW];
+    let mut best = (0.0, w.clone(), 0);
+    for e in 1..=epochs {
+        let lr = 0.002 / e as f32;
+        let mut se = 0.0f64;
+        let mut n = 0usize;
+        for r in &tr {
+            for (x, t) in valued_children(r) {
+                let err = t - score(&w, &x);
+                se += (err * err) as f64;
+                n += 1;
+                for &f in &x {
+                    w[f as usize] += lr * err;
+                }
+            }
+        }
+        let a = agree(&w, &va);
+        out.push_str(&format!("  epoch {e}: train error {:.3}, validate Stockfish's move {:.1}% ({:.0} s)\n", se / n.max(1) as f64, 100.0 * a, t0.elapsed().as_secs_f64()));
+        if a > best.0 {
+            best = (a, w.clone(), e);
+        }
+    }
+    let w = best.1;
+    std::fs::write(GOLDENNET_VALUE_FILE, w.iter().map(|x| format!("{x}\n")).collect::<String>()).map_err(|e| e.to_string())?;
+    out.push_str(&format!("  frozen at epoch {} to {GOLDENNET_VALUE_FILE}\n", best.2));
+    let (mid, end): (Vec<&Valued>, Vec<&Valued>) = ho.iter().partition(|r| !r.0);
+    for d in 1..=max_depth {
+        let t1 = std::time::Instant::now();
+        let hit = |set: &[&Valued]| set.iter().filter(|r| deep_pick(&w, &r.1, d).as_deref() == Some(r.2.as_str())).count();
+        let (hm, he) = (hit(&mid), hit(&end));
+        out.push_str(&format!("  holdout, every line to depth {d}: middlegame {:.1}% ({}), endgame {:.1}% ({}); {:.3} s a position\n", 100.0 * hm as f64 / mid.len().max(1) as f64, mid.len(), 100.0 * he as f64 / end.len().max(1) as f64, end.len(), t1.elapsed().as_secs_f64() / ho.len().max(1) as f64));
+    }
+    Ok(out)
+}

@@ -278,6 +278,18 @@ fn main() -> Result<()> {
             println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "goldennet-value" {
+            // goldennet-value [N_TRAIN] [EPOCHS] [MAX_DEPTH]: Goldennet as a value (Stockfish's win probability), then searched deeper
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_table::teach_value(n.first().copied().unwrap_or(500_000), n.get(1).copied().unwrap_or(3), n.get(2).copied().unwrap_or(3)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "goldennet-deep" {
+            // goldennet-deep [N_MID] [N_END] [MAX_DEPTH]: Goldennet at the leaves of a full-width search, on a holdout sample
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_table::report_deep(n.first().copied().unwrap_or(1000), n.get(1).copied().unwrap_or(500), n.get(2).copied().unwrap_or(3)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "goldennet" {
             // goldennet [N_TRAIN] [EPOCHS]: the grid net taught the table's voice (middlegame and endgame)
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
