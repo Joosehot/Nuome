@@ -154,8 +154,130 @@ pub fn report(fen: &str, plies: usize, seconds: f64) -> Result<String, String> {
     ))
 }
 
+// ---------------------------------------------------------------- the lumberjack
+
+/// A tree that leads nowhere after this many plies is felled (when others lead somewhere).
+pub const FELL_AT: usize = 20;
+
+/// One root move's tree: the move, what its brute force proves, and how deep it has grown.
+#[derive(Clone)]
+pub struct Tree {
+    pub mv: String,
+    pub proven: Proven,
+    pub depth: usize,
+}
+
+/// The lumberjack (6c80019, without any function): every root move grows its
+/// own tree, one ply a round, all together, each searched whole by brute
+/// force. A move proved losing is felled at once; a tree that leads nowhere
+/// (no proof) after FELL_AT plies is felled when another proves something;
+/// the rest grow until the time ends. A proved mate ends it (the shortest).
+/// The move is the best proof left: mate, then a proved draw, then not
+/// proven; ties by the rules' order. If every tree falls, the one felled
+/// last (the longest loss) stays.
+pub fn lumberjack(fen: &str, seconds: f64) -> Result<(Option<Tree>, Vec<Tree>, Vec<Tree>, u64), String> {
+    let b = Board::from_fen(fen)?;
+    let clock = Clock { until: Instant::now() + Duration::from_secs_f64(seconds), over: AtomicBool::new(false) };
+    let mut standing: Vec<(crate::golden::Mv, Tree)> = b.moves().into_iter().map(|m| (m, Tree { mv: m.uci(), proven: Proven::Unknown, depth: 0 })).collect();
+    let mut felled: Vec<Tree> = Vec::new();
+    let mut nodes = 0u64;
+    let mut depth = 1;
+    while !standing.is_empty() && !clock.over.load(Ordering::Relaxed) && depth <= FELL_AT {
+        // every standing tree grows one ply, in parallel
+        let grown: Vec<(Option<Proven>, u64)> = std::thread::scope(|s| {
+            let hs: Vec<_> = standing
+                .iter()
+                .map(|(m, t)| {
+                    let (b, clock, m, done) = (&b, &clock, *m, t.proven != Proven::Unknown);
+                    s.spawn(move || {
+                        if done {
+                            return (None, 0);
+                        }
+                        let mut n = 0;
+                        let v = match prove(&b.play(m), depth - 1, &mut n, clock) {
+                            Proven::Loss(k) => Proven::Win(k + 1),
+                            Proven::Win(k) => Proven::Loss(k + 1),
+                            x => x,
+                        };
+                        (if clock.over.load(Ordering::Relaxed) { None } else { Some(v) }, n)
+                    })
+                })
+                .collect();
+            hs.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        let mut next = Vec::new();
+        for ((m, mut t), (v, n)) in standing.into_iter().zip(grown) {
+            nodes += n;
+            if let Some(v) = v {
+                t.proven = v;
+                t.depth = depth;
+            }
+            if matches!(t.proven, Proven::Loss(_)) {
+                felled.push(t);
+            } else {
+                next.push((m, t));
+            }
+        }
+        standing = next;
+        if standing.iter().any(|t| matches!(t.1.proven, Proven::Win(_))) {
+            break;
+        }
+        if depth == FELL_AT && standing.iter().any(|t| t.1.proven != Proven::Unknown) {
+            let (keep, fall): (Vec<_>, Vec<_>) = standing.into_iter().partition(|t| t.1.proven != Proven::Unknown);
+            felled.extend(fall.into_iter().map(|t| t.1));
+            standing = keep;
+        }
+        depth += 1;
+    }
+    let rank = |p: Proven| match p {
+        Proven::Win(n) => (3i64, -(n as i64)),
+        Proven::Draw => (2, 0),
+        Proven::Unknown => (1, 0),
+        Proven::Loss(n) => (0, n as i64),
+    };
+    let mut trees: Vec<Tree> = standing.into_iter().map(|t| t.1).collect();
+    // stable: ties keep the rules' order
+    trees.sort_by(|x, y| rank(y.proven).cmp(&rank(x.proven)));
+    let pick = trees.first().cloned().or_else(|| felled.iter().max_by_key(|t| rank(t.proven)).cloned());
+    Ok((pick, trees, felled, nodes))
+}
+
+pub fn lumberjack_report(fen: &str, seconds: f64) -> Result<String, String> {
+    let t0 = Instant::now();
+    let (pick, standing, felled, nodes) = lumberjack(fen, seconds)?;
+    let secs = t0.elapsed().as_secs_f64();
+    let deepest = standing.iter().chain(&felled).map(|t| t.depth).max().unwrap_or(0);
+    let show = |t: &Tree| match t.proven {
+        Proven::Win(n) => format!("{} mate in {n}", t.mv),
+        Proven::Loss(n) => format!("{} mated in {n}", t.mv),
+        Proven::Draw => format!("{} draw", t.mv),
+        Proven::Unknown => format!("{} ({} plies)", t.mv, t.depth),
+    };
+    Ok(format!(
+        "{fen}\n  lumberjack in {secs:.1} s of {seconds:.0}: {nodes} positions, trees grown to {deepest} plies\n  move: {}\n  standing {}: {}\n  felled {}: {}\n",
+        pick.as_ref().map_or("none".to_string(), show),
+        standing.len(),
+        standing.iter().take(8).map(show).collect::<Vec<_>>().join(", ") + if standing.len() > 8 { ", ..." } else { "" },
+        felled.len(),
+        felled.iter().map(show).collect::<Vec<_>>().join(", "),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn the_lumberjack_fells_and_mates() {
+        // scholar's mate: the lumberjack plays Qxf7#
+        let (pick, _, _, _) = lumberjack("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4", 5.0).unwrap();
+        assert_eq!(pick.unwrap().mv, "h5f7");
+        // black to move must not allow Qxf7#: every move that allows it is felled (Nxh5 saves it)
+        let (pick, _, felled, _) = lumberjack("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 4 4", 5.0).unwrap();
+        assert!(felled.iter().any(|t| t.mv == "a7a6"));
+        assert_ne!(pick.unwrap().proven, Proven::Loss(2));
+    }
+
     use super::*;
 
     #[test]
