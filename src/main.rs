@@ -264,6 +264,26 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-static" {
+            // golden-static "<fen>": Golden heart without any search: every legal move's resulting position valued by the heart alone
+            let b = nuome::golden::Board::from_fen(cli.words.join(" ").trim()).map_err(|e| anyhow::anyhow!(e))?;
+            let w = nuome::golden_heart::frozen().ok_or_else(|| anyhow::anyhow!("Golden heart has not been cloned (out/golden/heart_weights.txt)"))?;
+            let mut rows: Vec<(String, i64)> = b.moves().into_iter().map(|m| (m.uci(), -nuome::golden_heart::eval(w, &b.play(m)))).collect();
+            rows.sort_by_key(|r| std::cmp::Reverse(r.1));
+            for (m, v) in rows.iter().take(5) {
+                println!("  {m:<6} {v:+}");
+            }
+            if let Some((m, _)) = rows.first() {
+                println!("move: {m} (static, no search)");
+            }
+            return Ok(());
+        }
+        if which == "golden-boy-tune" {
+            // golden-boy-tune [VOICE_MOVES] [CHECK_MOVES] [BEAM]: choose Golden Boy's chain of rules on Stockfish's games
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            println!("{}", nuome::golden_boy::tune("out/golden/ccrl_sf_games.txt", n.first().copied().unwrap_or(300), n.get(1).copied().unwrap_or(300), n.get(2).copied().unwrap_or(3)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-heart" {
             // golden-heart [MAX_GAMES] [GAMES FILE]: the HotMotor heart cloned from Stockfish's games
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.replace('_', "").parse().ok()).collect();
