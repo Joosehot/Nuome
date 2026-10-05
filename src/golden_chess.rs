@@ -98,16 +98,10 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
         ];
         return Ok((pick, lines, vec![format!("Syzygy endgame tablebases, 3-5 pieces (Ronald de Man), probed with python-chess from {SYZYGY}"), heart_source()]));
     }
-    let rows = crate::golden_formula::rank(fen).ok_or("no legal move")?;
+    let rows = crate::golden_formula::rank(fen).ok_or("the Golden formula for chess is not made yet: Golden Answer does not answer its parts itself (ask \"what is the golden formula for chess\")")?;
     let (m, v) = &rows[0];
-    let mut lines = vec![
-        format!("{m} has the best f: {v:+} centipawns for {side}"),
-        crate::golden_formula::written().to_string(),
-    ];
-    if let Some((m2, v2)) = rows.get(1) {
-        lines.push(format!("next: {m2} at {v2:+}"));
-    }
-    Ok((m.clone(), lines, vec!["the Golden formula for chess (src/golden_formula.rs): the rules, Kaufman's piece values (1999), three tempi a pawn".into()]))
+    let lines = vec![format!("{m} has the best value of the Golden formula: {v:+} for {side}")];
+    Ok((m.clone(), lines, vec!["the Golden formula for chess (src/golden_formula.rs)".into()]))
 }
 
 /// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).
@@ -141,10 +135,9 @@ mod tests {
 
     #[test]
     fn only_theoretical_and_raw() {
-        // a back-rank mate in 1: the rules see the mate in the position the move leaves
-        let (m, _, src) = answer(Kind3::Theoretical, "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1").unwrap();
-        assert_eq!(m, "d1d8");
-        assert!(!src.is_empty());
+        // more than five pieces: the Golden formula answers, and until Golden Answer makes it, there is no answer
+        let e = answer(Kind3::Theoretical, "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1").unwrap_err();
+        assert!(e.contains("not made yet"));
         // checkmate: no move, by the rules
         assert_eq!(answer(Kind3::Theoretical, "R5k1/5ppp/8/8/8/8/5PPP/6K1 b - - 0 1").unwrap().0, "no move");
         // the other kinds: no answer
