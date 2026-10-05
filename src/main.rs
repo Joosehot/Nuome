@@ -264,6 +264,16 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-brute" {
+            // golden-brute FENS_FILE [PLIES] [SECONDS]: every line, deepening to PLIES within SECONDS a position, no evaluation; what the rules prove
+            let path = cli.words.first().context("golden-brute takes a file of FENs")?;
+            let plies = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(nuome::golden_brute::PLIES);
+            let secs = cli.words.get(2).and_then(|w| w.parse().ok()).unwrap_or(nuome::golden_brute::SECONDS);
+            for fen in std::fs::read_to_string(path)?.lines().filter(|l| !l.trim().is_empty()) {
+                print!("{}", nuome::golden_brute::report(fen.trim(), plies, secs).map_err(|e| anyhow::anyhow!(e))?);
+            }
+            return Ok(());
+        }
         if which == "golden-formula" {
             // golden-formula FENS_FILE: the Golden formula's move for every FEN in the file, one per line
             let path = cli.words.first().context("golden-formula takes a file of FENs")?;

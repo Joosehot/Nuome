@@ -361,6 +361,11 @@ impl Board {
         b
     }
 
+    /// Whether there is any legal move (stops at the first).
+    pub fn has_legal(&self) -> bool {
+        self.pseudo(false).into_iter().any(|m| !self.play(m).leaves_king(self.white))
+    }
+
     /// Every legal move.
     pub fn moves(&self) -> Vec<Mv> {
         self.pseudo(false).into_iter().filter(|&m| !self.play(m).leaves_king(self.white)).collect()
