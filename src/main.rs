@@ -278,6 +278,13 @@ fn main() -> Result<()> {
             println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "goldennet-speed" {
+            // goldennet-speed "<fen>" [SECONDS]: how deep Goldennet gets, every line, in the time
+            let fen = cli.words.iter().filter(|w| w.parse::<f64>().is_err()).cloned().collect::<Vec<_>>().join(" ");
+            let secs = cli.words.iter().filter_map(|w| w.parse::<f64>().ok()).last().unwrap_or(10.0);
+            print!("{}", nuome::golden_table::speed(&fen, secs).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "goldennet-value" {
             // goldennet-value [N_TRAIN] [EPOCHS] [MAX_DEPTH]: Goldennet as a value (Stockfish's win probability), then searched deeper
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

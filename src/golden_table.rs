@@ -877,3 +877,49 @@ pub fn answer_table_question(logical: bool, abstract_: bool) -> Result<(String, 
     lines.push(format!("({:.0} s)", t0.elapsed().as_secs_f64()));
     Ok(("a table answers where its keys recur and determine the answer: right = recurrence x determination; the whole position recurs only in the opening".into(), lines, vec![]))
 }
+
+/// How deep Goldennet gets in `seconds` on one position: every line, the net at every leaf; each depth timed, leaves per second.
+pub fn speed(fen: &str, seconds: f64) -> Result<String, String> {
+    let w = load_goldennet().ok_or("no Goldennet yet")?;
+    let mut out = format!("{fen}\n");
+    let mut last = 0.0f64;
+    let mut factor = 35.0f64;
+    for d in 1..=12 {
+        if last * factor > seconds && d > 1 {
+            out.push_str(&format!("  depth {d}: not started (about {:.0} s expected, over {seconds:.0} s)\n", last * factor));
+            break;
+        }
+        let t0 = std::time::Instant::now();
+        let m = deep_pick(&w, fen, d).unwrap_or_default();
+        let s = t0.elapsed().as_secs_f64();
+        // leaves: every line to depth d
+        let mut p = Position::from_fen(fen)?;
+        let leaves = if d <= 5 { count_leaves(&mut p, d) } else { 0 };
+        out.push_str(&format!("  depth {d}: {m} in {s:.3} s{}\n", if leaves > 0 { format!(", {leaves} leaves, {:.1} M leaves/s", leaves as f64 / s.max(1e-9) / 1e6) } else { String::new() }));
+        if last > 0.0 {
+            factor = (s / last).max(1.0);
+        }
+        last = s;
+        if s > seconds {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+fn count_leaves(p: &mut Position, d: usize) -> u64 {
+    if d == 0 {
+        return 1;
+    }
+    let ms = legal_moves(p);
+    if ms.is_empty() {
+        return 1;
+    }
+    let mut n = 0;
+    for m in ms {
+        p.make(m);
+        n += count_leaves(p, d - 1);
+        p.unmake();
+    }
+    n
+}
