@@ -264,6 +264,13 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-voice" {
+            // golden-voice [ROUNDS] [GAMES FILE]: clone Stockfish's play from its games into a static network eval
+            let rounds = cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(50);
+            let path = cli.words.iter().find(|w| w.ends_with(".txt")).cloned().unwrap_or_else(|| "out/golden/sf_games.txt".to_string());
+            println!("{}", nuome::golden_voice::report(&path, rounds).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-weights" {
             // golden-weights [TRAIN] [VAL] [VAL_FROM] [FILE] (VAL_FROM past the discovery half): optimize the patterns' weights against Stockfish, kept only when better on unseen positions
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.replace('_', "").parse().ok()).collect();
