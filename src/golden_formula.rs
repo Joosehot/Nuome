@@ -212,8 +212,10 @@ pub fn load() -> Option<[i64; NX]> {
 /// none (no known result names such a function). Abstract: the frozen p, claiming nothing.
 pub fn answer(kind_logical: bool, kind_abstract: bool) -> Result<(String, Vec<String>, Vec<String>), String> {
     if kind_abstract {
-        let w = load().ok_or("no p found yet")?;
-        return Ok((written(&w), vec!["this is an answer that claims nothing".into()], vec![]));
+        let g = guess()?;
+        let mut lines = g.reasons.clone();
+        lines.push("this is an answer that claims nothing".into());
+        return Ok((format!("probably {}", g.p_text), lines, vec![]));
     }
     if !kind_logical {
         return theoretical();
@@ -460,7 +462,10 @@ pub fn answer_use(kind_logical: bool, kind_abstract: bool) -> Result<(String, Ve
         return Err("not decided; what the condition forces:\n  - the value of P under perfect play is, by definition, the line followed to the end of the game with both sides choosing their best (every pair, every move); used that way any p that is right at the ends keeps the value\n  - how short a line suffices with this p, and which moves may be left out, is not forced by the rules: undecided".into());
     }
     if kind_abstract {
-        return Ok(("follow the forcing moves until the position is quiet, read p there".into(), vec!["this is an answer that claims nothing".into()], vec![]));
+        let g = guess()?;
+        let mut lines = g.reasons.clone();
+        lines.push("this is an answer that claims nothing".into());
+        return Ok((format!("probably {}", g.use_text), lines, vec![]));
     }
     let check_set = load_set(CHECK_SET)?;
     let ok = check_set.iter().filter(|p| use_holds(p)).count();
@@ -476,4 +481,162 @@ pub fn answer_use(kind_logical: bool, kind_abstract: bool) -> Result<(String, Ve
         ],
         vec!["C. E. Shannon, Programming a Computer for Playing Chess, Philosophical Magazine 41 (1950): minimax; strategies of type A and B".into()],
     ))
+}
+
+// ---------------------------------------------------------------- the abstract answer
+
+/// The p's Golden has: the one its logical answer searched, and Shannon's from its theoretical answer.
+#[derive(Clone, Copy)]
+enum Pv {
+    Searched([i64; NX]),
+    Shannon,
+}
+
+/// p on a position that is not over, from the side to move.
+fn judge(p: &mut Position, pv: Pv) -> i64 {
+    match pv {
+        Pv::Shannon => shannon(p),
+        Pv::Searched(w) => value(&w, &read_q(p)),
+    }
+}
+
+fn quiet_g(p: &mut Position, pv: Pv, plies: usize, depth: usize, nodes: &mut u64) -> i64 {
+    *nodes += 1;
+    let check = p.in_check();
+    let all = legal_moves(p);
+    if all.is_empty() {
+        return if check { -INF } else { 0 };
+    }
+    if p.insufficient() || p.halfmove >= 100 {
+        return 0;
+    }
+    if plies == 0 || *nodes > NODES {
+        return judge(p, pv);
+    }
+    let mut best = if check { -INF } else { judge(p, pv) };
+    for m in all {
+        let capture = p.board[m_to(m) as usize] != 0 || crate::fast::position::m_flag(m) == 2;
+        let promo = crate::fast::position::m_promo(m) != 0;
+        p.make(m);
+        if check || capture || promo || (depth < CHECK_PLIES && p.in_check()) {
+            best = best.max(-quiet_g(p, pv, plies - 1, depth + 1, nodes));
+        }
+        p.unmake();
+    }
+    best
+}
+
+/// f(m) with p = pv, used on one pair (type_b false) or Shannon's type B.
+fn f_g(p: &mut Position, m: u32, pv: Pv, type_b: bool) -> i64 {
+    p.make(m);
+    let replies = legal_moves(p);
+    let v = if replies.is_empty() {
+        if p.in_check() { INF } else { 0 }
+    } else if p.insufficient() {
+        0
+    } else {
+        let mut worst = INF;
+        let mut nodes = 0;
+        for r in replies {
+            p.make(r);
+            let v = if type_b {
+                quiet_g(p, pv, FORCING_PLIES, 0, &mut nodes)
+            } else if legal_moves(p).is_empty() {
+                if p.in_check() { -INF } else { 0 }
+            } else if p.insufficient() || p.halfmove >= 100 {
+                0
+            } else {
+                judge(p, pv)
+            };
+            p.unmake();
+            worst = worst.min(v);
+        }
+        worst
+    };
+    p.unmake();
+    v
+}
+
+fn holds_g(pos: &Pos, pv: Pv, type_b: bool) -> bool {
+    let Ok(mut p) = Position::from_fen(&pos.fen) else { return false };
+    let fs: Vec<i64> = pos.moves.iter().map(|(u, _, _)| uci_to_move(&mut p, u).map_or(-INF, |m| f_g(&mut p, m, pv, type_b))).collect();
+    let top = *fs.iter().max().unwrap();
+    pos.moves.iter().zip(&fs).all(|(m, &f)| f != top || m.1)
+}
+
+pub struct Guess {
+    pub p_text: String,
+    pub use_text: String,
+    pub reasons: Vec<String>,
+}
+
+/// Golden's guess: of its own p's (the logical answer's searched one, the
+/// theoretical answer's Shannon) and its two ways of use (one pair, type B),
+/// the pairing that held most often where it has seen the truth (the search
+/// set; the check set is not looked at). Claims nothing.
+pub fn guess() -> Result<Guess, String> {
+    let set = load_set(SEARCH_SET)?;
+    let searched = load().ok_or("the logical answer has not searched its p yet: ask logical first")?;
+    let cands = [
+        (Pv::Searched(searched), written(&searched), "the logical answer's searched p"),
+        (Pv::Shannon, "Shannon's function (1950)".to_string(), "the theoretical answer's p"),
+    ];
+    let mut rows = Vec::new();
+    std::thread::scope(|sc| {
+        let hs: Vec<_> = cands
+            .iter()
+            .flat_map(|c| [false, true].map(|b| (c.clone(), b)))
+            .map(|((pv, text, from), b)| {
+                let set = &set;
+                sc.spawn(move || (set.iter().filter(|x| holds_g(x, pv, b)).count(), text, from, b))
+            })
+            .collect();
+        for h in hs {
+            rows.push(h.join().unwrap());
+        }
+    });
+    rows.sort_by(|a, b| b.0.cmp(&a.0));
+    let use_name = |b: bool| if b { "used Shannon's type B way (the pair, then the forceful moves to quiet)" } else { "used on one pair (m, r)" };
+    let (n, text, from, b) = rows[0].clone();
+    let mut reasons = vec![format!("Golden has two p's of its own ({}, {}) and two ways to use them; where it has seen the truth ({} positions of {SEARCH_SET}), this one held most often: {n}", cands[0].2, cands[1].2, set.len())];
+    for (n2, t2, _, b2) in &rows[1..] {
+        reasons.push(format!("  {t2}, {}: {n2}", use_name(*b2)));
+    }
+    reasons.push(format!("so the guess is that {from}, {}, keeps the value more often than the others also where the truth is not known", use_name(b)));
+    // the range: how often it keeps the value where the truth is not seen (Wilson, 95%)
+    let (lo, hi) = wilson(n, set.len());
+    reasons.push(format!("range: probably keeps the value in {:.0}% to {:.0}% of such positions (it held on {n} of {}; Wilson's 95% interval)", 100.0 * lo, 100.0 * hi, set.len()));
+    // the region: each weight of the searched p moved alone, the whole numbers where it holds as often
+    if let (Pv::Searched(w), false) = (cands.iter().find(|c| c.1 == text).map(|c| c.0).unwrap_or(Pv::Shannon), b) {
+        let best = count(&w, &set);
+        let mut parts = Vec::new();
+        for i in 0..NX {
+            let ok = |d: i64| {
+                let mut v = w;
+                v[i] = d;
+                count(&v, &set) >= best
+            };
+            let (mut a, mut z) = (w[i], w[i]);
+            while a > w[i] - 50 && ok(a - 1) {
+                a -= 1;
+            }
+            while z < w[i] + 50 && ok(z + 1) {
+                z += 1;
+            }
+            let show = |x: i64, edge: i64| if x == edge { "…".to_string() } else { x.to_string() };
+            parts.push(format!("{} in [{}, {}]", NAMES[i], show(a, w[i] - 50), show(z, w[i] + 50)));
+        }
+        reasons.push(format!("region: each weight moved alone, it holds as often for {} (… = no edge within 50)", parts.join(", ")));
+    }
+    let text = text.trim_start_matches("p(m, r) = ").to_string();
+    Ok(Guess { p_text: format!("p(m, r) = {text}"), use_text: format!("p {}", use_name(b)).replacen("p used", "p is used", 1), reasons })
+}
+
+/// Wilson's 95% score interval for k successes in n.
+fn wilson(k: usize, n: usize) -> (f64, f64) {
+    let (k, n, z) = (k as f64, n.max(1) as f64, 1.96f64);
+    let ph = k / n;
+    let c = (ph + z * z / (2.0 * n)) / (1.0 + z * z / n);
+    let h = z * (ph * (1.0 - ph) / n + z * z / (4.0 * n * n)).sqrt() / (1.0 + z * z / n);
+    ((c - h).max(0.0), (c + h).min(1.0))
 }
