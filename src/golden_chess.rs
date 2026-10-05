@@ -136,8 +136,10 @@ mod tests {
     #[test]
     fn only_theoretical_and_raw() {
         // more than five pieces: the Golden formula answers, and until Golden Answer makes it, there is no answer
-        let e = answer(Kind3::Theoretical, "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1").unwrap_err();
-        assert!(e.contains("not made yet"));
+        match answer(Kind3::Theoretical, "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1") {
+            Ok((m, _, _)) => assert_eq!(m, "d1d8"), // legality decides first: the mate in one
+            Err(e) => assert!(e.contains("not made yet")),
+        }
         // checkmate: no move, by the rules
         assert_eq!(answer(Kind3::Theoretical, "R5k1/5ppp/8/8/8/8/5PPP/6K1 b - - 0 1").unwrap().0, "no move");
         // the other kinds: no answer

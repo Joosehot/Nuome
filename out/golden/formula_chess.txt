@@ -1,0 +1,3 @@
+3 0 4 1 0 11 0 1 0
+# p(m, r) = +3·M_pawn +4·M_bishop +1·M_rook +11·S +1·T
+# search 163/181, check 162/180
