@@ -777,3 +777,103 @@ pub fn teach_value(n_train: usize, epochs: usize, max_depth: usize) -> Result<St
     }
     Ok(out)
 }
+
+// ---------------------------------------------------------------- what a table is
+
+pub const TABLE_QUESTION: &str = "What is a table, and when does one answer?";
+
+pub fn read_table_question(q: &str) -> bool {
+    let norm = |s: &str| s.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    norm(q).trim_end_matches(['.', '?', '!']) == norm(TABLE_QUESTION).trim_end_matches(['.', '?', '!'])
+}
+
+/// What a key does as a table: of the questions asked, the share whose key
+/// was met before (recurrence), and, of those, the share where the key's
+/// most frequent answer before is the answer now (determination).
+pub struct KeyMeasure {
+    pub asked: usize,
+    pub recurrence: f64,
+    pub determination: f64,
+}
+
+/// Measure a key on (position, answer) pairs: `seen` is what the table was
+/// built from, `asked` what it is asked; `key` turns a position into its key.
+pub fn measure_key(seen: &[(Position, String)], asked: &[(Position, String)], key: &dyn Fn(&Position) -> u64) -> KeyMeasure {
+    let mut table: HashMap<u64, HashMap<&str, u32>> = HashMap::new();
+    for (p, a) in seen {
+        *table.entry(key(p)).or_default().entry(a.as_str()).or_default() += 1;
+    }
+    let (mut met, mut right) = (0usize, 0usize);
+    for (p, a) in asked {
+        if let Some(c) = table.get(&key(p)) {
+            met += 1;
+            let top = c.iter().max_by_key(|x| *x.1).map(|x| *x.0).unwrap_or("");
+            right += (top == a) as usize;
+        }
+    }
+    KeyMeasure { asked: asked.len(), recurrence: met as f64 / asked.len().max(1) as f64, determination: right as f64 / met.max(1) as f64 }
+}
+
+/// Stockfish's moves in the CCRL games as (position, move), the plies in `plies`, split train / holdout by game.
+fn ccrl_pairs(plies: std::ops::Range<usize>, max_games: usize) -> Result<(Vec<(Position, String)>, Vec<(Position, String)>), String> {
+    let text = std::fs::read_to_string(GAMES).map_err(|e| format!("{GAMES}: {e}"))?;
+    let (mut tr, mut ho) = (Vec::new(), Vec::new());
+    for (g, line) in text.lines().take(max_games).enumerate() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+        let (w, b) = (parts[0].contains('W'), parts[0].contains('B'));
+        let mut p = Position::from_fen(START)?;
+        for (ply, u) in parts[2].split_whitespace().enumerate() {
+            if ply >= plies.end {
+                break;
+            }
+            let Some(m) = uci_to_move(&mut p, u) else { break };
+            if plies.contains(&ply) && (if ply % 2 == 0 { w } else { b }) && p.occ.count_ones() > 5 {
+                let mut q = Position::from_fen(&p.to_fen())?;
+                q.ply = 0;
+                let pair = (q, u.to_string());
+                if split_of(g) == Split::Holdout { ho.push(pair) } else if split_of(g) == Split::Train { tr.push(pair) }
+            }
+            p.make(m);
+        }
+    }
+    Ok((tr, ho))
+}
+
+/// Golden Answer's answer to TABLE_QUESTION, in its kind.
+pub fn answer_table_question(logical: bool, abstract_: bool) -> Result<(String, Vec<String>, Vec<String>), String> {
+    let definition = "a table is a finite map from keys to answers: the key of the question is looked up and its answer read, nothing computed; a key not in it is answered \"not familiar\"".to_string();
+    if abstract_ {
+        return Ok(("a table answers where its keys come back".into(), vec![definition, "this is an answer that claims nothing".into()], vec![]));
+    }
+    if !logical {
+        return Ok((
+            "a table answers exactly where its keys recur; known tables do so by making the questions recur (opening books) or by holding every key (endgame tablebases)".into(),
+            vec![definition],
+            vec!["opening books (e.g. Polyglot); Syzygy endgame tablebases (de Man): every position of up to seven pieces".into()],
+        ));
+    }
+    let t0 = std::time::Instant::now();
+    let whole = |p: &Position| p.key64();
+    let mut lines = vec![
+        format!("from its own example (the opening table, {TABLE_FILE}): {definition}"),
+        "so a table answers a question right exactly when two things hold, both measurable for any key: recurrence (the question's key was met before) and determination (the key's answer before is the answer now); its share right = recurrence x determination".into(),
+    ];
+    // the whole position as the key, on Stockfish's game moves: openings and later
+    for (name, plies) in [("openings (plies 1-20)", 0..20), ("middlegame and endgame (plies 21-80)", 20..80)] {
+        let (tr, ho) = ccrl_pairs(plies, 40_000)?;
+        let m = measure_key(&tr, &ho, &whole);
+        lines.push(format!(
+            "the whole position as the key, {name}, Stockfish's moves in CCRL games (40 000 games, train / holdout by game; {} questions): recurrence {:.1}%, determination {:.1}%, so right {:.1}%",
+            m.asked,
+            100.0 * m.recurrence,
+            100.0 * m.determination,
+            100.0 * m.recurrence * m.determination
+        ));
+    }
+    lines.push("so: the whole position is a key that recurs only in the opening; past it a table needs keys that are parts of a position — parts that recur from game to game and still determine the move; measure_key measures any such key".into());
+    lines.push(format!("({:.0} s)", t0.elapsed().as_secs_f64()));
+    Ok(("a table answers where its keys recur and determine the answer: right = recurrence x determination; the whole position recurs only in the opening".into(), lines, vec![]))
+}
