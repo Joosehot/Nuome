@@ -50,14 +50,65 @@ const MATE: i64 = 100_000;
 /// Golden Answer answers chess only theoretically.
 const ONLY: &str = "Golden Answer answers chess only theoretically (from known results: the Syzygy tables, and Golden heart measured from Stockfish's games); ask theoretical";
 
+/// A quiet position's worth for the side to move: Golden heart (or material
+/// without it) plus the tempo — 3 cp a legal move more than the other side
+/// has, and 10 cp for having the move.
+fn stand(b: &Board, my_moves: usize) -> i64 {
+    let heart = match crate::golden_heart::frozen() {
+        Some(w) => crate::golden_heart::eval(w, b),
+        None => crate::supergenius_eval::material(b),
+    };
+    heart + crate::supergenius_eval::tempo(b, my_moves)
+}
+
+/// How long the forcing lines may run, and how many positions they may take a move.
+const FORCED_PLIES: u32 = 8;
+const FORCED_NODES: u64 = 40_000;
+
+/// The forcing lines followed to their end: the attacker (the side that made
+/// the move asked about) plays its captures, promotions and checks, the
+/// defender its captures and promotions (every reply when in check), each
+/// side free to stop where going on would cost it; at the end, the position
+/// as it stands with the tempo. Material won or lost by force shows here.
+/// The worth for the side to move.
+fn forced(b: &Board, plies: u32, attacker: bool, nodes: &mut u64) -> i64 {
+    *nodes += 1;
+    let ms = b.moves();
+    let check = b.in_check();
+    if ms.is_empty() {
+        return if check { -MATE } else { 0 };
+    }
+    let here = stand(b, ms.len());
+    if plies == 0 || *nodes > FORCED_NODES {
+        return here;
+    }
+    let mut best = if check { -MATE } else { here };
+    for m in ms {
+        let capture = b.sq[m.to as usize] != 0 || (b.sq[m.from as usize].abs() == 1 && Some(m.to) == b.ep);
+        let a = b.play(m);
+        let gives_check = attacker && a.in_check();
+        if !(check || capture || m.promo != 0 || gives_check) {
+            continue;
+        }
+        let v = -forced(&a, plies - 1, !attacker, nodes);
+        if v > best {
+            best = v;
+        }
+    }
+    best
+}
+
+/// The worth of the position a move leaves, for the side that made it: the forcing lines from there to their end.
+fn judged(after: &Board) -> i64 {
+    let mut nodes = 0;
+    -forced(after, FORCED_PLIES - 1, false, &mut nodes)
+}
+
 /// Every legal move with the judgement of the position it leaves, best first (ties in the rules' order).
 fn raw_rows(b: &Board) -> Vec<(String, i64)> {
-    // Golden Boy's chain of rules (HotMotor, src/golden_boy.rs) on the fast board
-    let Ok(mut p) = crate::fast::position::Position::from_fen(&b.fen()) else { return Vec::new() };
-    crate::golden_boy::rank(&mut p, &crate::golden_boy::frozen(), crate::golden_heart::frozen())
-        .into_iter()
-        .map(|(m, v)| (crate::fast::position::move_to_uci(m), v))
-        .collect()
+    let mut rows: Vec<(String, i64)> = b.moves().into_iter().map(|m| (m.uci(), judged(&b.play(m)))).collect();
+    rows.sort_by_key(|r| std::cmp::Reverse(r.1));
+    rows
 }
 
 fn heart_source() -> String {
