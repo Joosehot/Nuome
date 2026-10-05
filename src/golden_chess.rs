@@ -98,10 +98,14 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
         ];
         return Ok((pick, lines, vec![format!("Syzygy endgame tablebases, 3-5 pieces (Ronald de Man), probed with python-chess from {SYZYGY}"), heart_source()]));
     }
-    let rows = crate::golden_formula::rank_use(fen).ok_or("the Golden formula for chess is not made yet: Golden Answer does not answer its parts itself (ask \"what is the golden formula for chess\")")?;
-    let (m, v) = &rows[0];
-    let lines = vec![format!("{m} has the best value of the Golden formula: {v:+} for {side}")];
-    Ok((m.clone(), lines, vec!["the Golden formula for chess (src/golden_formula.rs)".into()]))
+    // more than five pieces: brute force proves, the lumberjack fells, Golden Answer chooses among the trees left
+    let secs = std::env::var("GOLDEN_TIME_MS").ok().and_then(|v| v.parse::<f64>().ok()).map_or(crate::golden_brute::SECONDS, |ms| ms / 1000.0);
+    let (m, lines) = crate::golden_brute::golden_boy(fen, secs)?;
+    let _ = side;
+    Ok((m, lines, vec![
+        "the rules of chess: what the brute force proves (every line, no evaluation)".into(),
+        "the Golden formula's theoretical answer: Shannon, Programming a Computer for Playing Chess (1950)".into(),
+    ]))
 }
 
 /// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).

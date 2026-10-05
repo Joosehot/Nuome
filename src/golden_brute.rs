@@ -263,6 +263,54 @@ pub fn lumberjack_report(fen: &str, seconds: f64) -> Result<String, String> {
     ))
 }
 
+// ---------------------------------------------------------------- brute force, the lumberjack and Golden Answer together
+
+/// The share of the time for the brute force and the lumberjack; the rest is Golden Answer's.
+pub const PROOF_SHARE: f64 = 0.75;
+
+/// Golden Boy's move: the brute force proves and the lumberjack fells; a
+/// proved mate is played; otherwise Golden Answer (its theoretical answer:
+/// Shannon's p used the type B way, golden_formula) chooses among the trees
+/// left standing in the best proof class.
+pub fn golden_boy(fen: &str, seconds: f64) -> Result<(String, Vec<String>), String> {
+    let t0 = Instant::now();
+    let (pick, standing, felled, nodes) = lumberjack(fen, seconds * PROOF_SHARE)?;
+    let pick = pick.ok_or("no legal move")?;
+    let mut lines = vec![format!(
+        "brute force and lumberjack: {nodes} positions in {:.1} s, trees to {} plies; {} felled ({}), {} standing",
+        t0.elapsed().as_secs_f64(),
+        standing.iter().chain(&felled).map(|t| t.depth).max().unwrap_or(0),
+        felled.len(),
+        felled.iter().map(|t| t.mv.as_str()).collect::<Vec<_>>().join(" "),
+        standing.len()
+    )];
+    if let Proven::Win(n) = pick.proven {
+        lines.push(format!("{} mates in {n} plies (proved by brute force)", pick.mv));
+        return Ok((pick.mv, lines));
+    }
+    if standing.is_empty() {
+        lines.push(format!("every move is proved losing; {} loses slowest", pick.mv));
+        return Ok((pick.mv, lines));
+    }
+    // the best proof class left (a proved draw before not proven), then Golden Answer within it
+    let class = pick.proven;
+    let candidates: Vec<&str> = standing.iter().filter(|t| t.proven == class).map(|t| t.mv.as_str()).collect();
+    let values = crate::golden_formula::rank_use(fen).unwrap_or_default();
+    let best = values.iter().find(|(m, _)| candidates.contains(&m.as_str()));
+    match best {
+        Some((m, v)) => {
+            lines.push(format!("Golden Answer chooses among the {} standing ({}): {m} at {v:+} (Shannon's p, type B; {:.1} s)", candidates.len(), if class == Proven::Draw { "proved draws" } else { "not proven" }, t0.elapsed().as_secs_f64()));
+            Ok((m.clone(), lines))
+        }
+        None => Ok((pick.mv, lines)),
+    }
+}
+
+pub fn golden_boy_report(fen: &str, seconds: f64) -> Result<String, String> {
+    let (m, lines) = golden_boy(fen, seconds)?;
+    Ok(format!("{fen}\n  move: {m}\n  {}\n", lines.join("\n  ")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

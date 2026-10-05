@@ -265,11 +265,11 @@ fn main() -> Result<()> {
             return Ok(());
         }
         if which == "golden-lumberjack" {
-            // golden-lumberjack FENS_FILE [SECONDS]: every root move grows its tree by brute force, the lumberjack fells, no evaluation
+            // golden-lumberjack FENS_FILE [SECONDS]: brute force proves, the lumberjack fells, Golden Answer chooses among the trees left
             let path = cli.words.first().context("golden-lumberjack takes a file of FENs")?;
             let secs = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(nuome::golden_brute::SECONDS);
             for fen in std::fs::read_to_string(path)?.lines().filter(|l| !l.trim().is_empty()) {
-                print!("{}", nuome::golden_brute::lumberjack_report(fen.trim(), secs).map_err(|e| anyhow::anyhow!(e))?);
+                print!("{}", nuome::golden_brute::golden_boy_report(fen.trim(), secs).map_err(|e| anyhow::anyhow!(e))?);
             }
             return Ok(());
         }
