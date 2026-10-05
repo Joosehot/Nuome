@@ -41,11 +41,17 @@ pub fn frozen() -> Option<&'static [f64]> {
 pub fn eval_fast(w: &[f64], p: &crate::fast::position::Position) -> i64 {
     let b = crate::fast::board_of(p);
     let sh = rules::Shared { edges: crate::fast::edges_of(p) };
-    (-score(w, &rules::read_all_with(&b, !b.white, &sh)) * 100.0).round() as i64
+    let mine = score(w, &rules::read_all_with(&b, b.white, &sh));
+    let theirs = score(w, &rules::read_all_with(&b, !b.white, &sh));
+    ((mine - theirs) * 50.0).round() as i64
 }
 
+/// Symmetric: the position as the side to move would rate it minus as the
+/// other side would, halved. The heart was measured from the side that had
+/// just moved; read from one side only, it favoured whoever moved last and
+/// the search's values swung with the parity of the depth.
 pub fn eval(w: &[f64], b: &Board) -> i64 {
-    (-score(w, &read_all(b, !b.white)) * 100.0).round() as i64
+    ((score(w, &read_all(b, b.white)) - score(w, &read_all(b, !b.white))) * 50.0).round() as i64
 }
 const PHASES: [&str; 4] = ["openings", "middlegames", "endgames", "pawn endings"];
 

@@ -8,12 +8,23 @@ Usage: python tools/golden_selfplay.py [--ms 30000] [--max-plies 300] [--out out
 """
 import argparse, os, re, subprocess, time
 
-import chess, chess.pgn
+import chess, chess.pgn, requests
 
 NUOME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXE = os.path.join(NUOME, "target", "release", "nuome.exe")
 MOVE = re.compile(r"^move: (\S+) \((.*), ([0-9.]+) s\)$", re.M)
 DEPTH = re.compile(r"bounded game \((\d+) plies")
+
+
+SERVER = "http://localhost:5000"
+
+
+def push_live(board, moves, result=None, active=True):
+    """Mirror the game to the local live page (ChessEngine/server.py, http://localhost:5000/live)."""
+    try:
+        requests.post(f"{SERVER}/live_game", json={"fen": board.fen(), "moves": moves, "white": "Golden Boy", "black": "Golden Boy", "result": result, "active": active}, timeout=1)
+    except Exception:
+        pass
 
 
 def main():
@@ -29,6 +40,7 @@ def main():
     node = game
     log = open(a.out + ".log", "w", encoding="utf-8")
     t0 = time.time()
+    push_live(b, [])
     while not b.is_game_over(claim_draw=True) and b.ply() < a.max_plies:
         out = subprocess.run([EXE, "--ideas", "golden", b.fen()], capture_output=True, text=True, encoding="utf-8", env=env, cwd=NUOME).stdout
         m = MOVE.search(out)
@@ -48,8 +60,10 @@ def main():
         log.flush()
         b.push(move)
         node = node.add_variation(move, comment=f"{kind}, depth {depth}, {secs} s")
+        push_live(b, [m.uci() for m in b.move_stack])
     result = b.result(claim_draw=True)
     game.headers["Result"] = result
+    push_live(b, [m.uci() for m in b.move_stack], result=result, active=False)
     reason = b.outcome(claim_draw=True).termination.name if b.outcome(claim_draw=True) else f"stopped at {b.ply()} plies"
     log.write(f"\nresult {result} ({reason}), {b.ply()} plies, {(time.time() - t0) / 60:.0f} min\n")
     log.close()
