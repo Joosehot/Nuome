@@ -1,14 +1,49 @@
 //! The mate path: every root move grows its tree; from the second move on
 //! the lumberjack fells every other tree at every ply — the side to move,
-//! the opponent too, keeps only the move its light eval (the five checks,
-//! golden_brute::Light) likes best — and the branch goes on until a
+//! the opponent too, keeps only the move the eval likes best (Steldens'
+//! classic evaluation, src/fast/eval, after the captures that do not lose
+//! material are traded to quiet) — and the branch goes on until a
 //! theoretical mate. Every root move is followed so; the shortest path that
-//! ends in our mate is chosen. Because the opponent answers by the light
-//! eval as well, a mate is hard to find.
+//! ends in our mate is chosen, else the move the eval likes best.
 
 use crate::fast::movegen::legal_moves;
 use crate::fast::position::{move_to_uci, Position};
-use crate::golden_brute::light_on;
+
+/// How many plies of captures are traded before the classic eval is read.
+const QS_PLIES: usize = 4;
+
+/// The captures that do not lose material traded to quiet, each side free
+/// to stand; the classic eval at the quiet ends, for the side to move.
+fn quiet(p: &mut Position, plies: usize) -> i32 {
+    use crate::fast::movegen::{gen_moves, MAX_MOVES};
+    let stand = crate::fast::eval::evaluate_f64(p).round() as i32;
+    if plies == 0 {
+        return stand;
+    }
+    let me = p.turn;
+    let mut list = [0u32; MAX_MOVES];
+    let n = gen_moves(p, &mut list, true);
+    let mut best = stand;
+    for &m in &list[..n] {
+        if crate::fast::see::see(p, m) < 0 {
+            continue;
+        }
+        p.make(m);
+        if !p.in_check_c(me) {
+            best = best.max(-quiet(p, plies - 1));
+        }
+        p.unmake();
+    }
+    best
+}
+
+/// The value of move `m` for the mover: the classic eval after it, captures traded to quiet.
+fn value_of(p: &mut Position, m: u32) -> i32 {
+    p.make(m);
+    let v = -quiet(p, QS_PLIES);
+    p.unmake();
+    v
+}
 
 /// The longest branch followed.
 pub const MAX_PLIES: usize = 60;
@@ -24,9 +59,9 @@ pub enum End {
     NoMate(Vec<String>),
 }
 
-/// The light eval's best move in `p` (the one kept; the lumberjack fells the
-/// rest): a mate at once first, otherwise the largest material after the
-/// captures + force + tempo; ties by the rules' order.
+/// The eval's best move in `p` (the one kept; the lumberjack fells the rest):
+/// a mate at once first, otherwise the classic eval after the captures; ties
+/// by the rules' order.
 fn kept(p: &mut Position) -> Option<u32> {
     let ms = legal_moves(p);
     let mut best: Option<(i32, u32)> = None;
@@ -37,8 +72,7 @@ fn kept(p: &mut Position) -> Option<u32> {
         if mate {
             return Some(m);
         }
-        let l = light_on(p, m);
-        let v = l.material + l.force + l.tempo;
+        let v = value_of(p, m);
         if best.map_or(true, |b| v > b.0) {
             best = Some((v, m));
         }
@@ -76,30 +110,18 @@ pub fn branch(fen: &str, m: u32) -> Option<End> {
     Some(End::NoMate(path))
 }
 
-/// The move when no branch ends in our mate: the largest material win (the
-/// light eval's material once the captures after the move are traded out);
-/// ties by the rules' order. (move, gain in centipawns)
-pub fn largest_win(fen: &str) -> Option<(String, i32)> {
+/// The move when no branch ends in our mate: the classic eval's best
+/// (captures traded to quiet); ties by the rules' order. (move, centipawns)
+pub fn best_by_eval(fen: &str) -> Option<(String, i32)> {
     let mut p = Position::from_fen(fen).ok()?;
     let mut best: Option<(i32, u32)> = None;
     for m in legal_moves(&mut p) {
-        let v = light_on(&mut p, m).material;
+        let v = value_of(&mut p, m);
         if best.map_or(true, |b| v > b.0) {
             best = Some((v, m));
         }
     }
-    let now = {
-        let side = p.turn as usize;
-        let w = [100, 325, 325, 500, 975, 0];
-        let mut v = [0i32; 2];
-        for c in 0..2 {
-            for t in 0..6 {
-                v[c] += w[t] * p.bb[c * 6 + t].count_ones() as i32;
-            }
-        }
-        v[side] - v[1 - side]
-    };
-    best.map(|(v, m)| (move_to_uci(m), v - now))
+    best.map(|(v, m)| (move_to_uci(m), v))
 }
 
 /// Every root move's branch (on all cores), and the shortest mate path among them.
@@ -125,11 +147,9 @@ pub fn report(fen: &str) -> Result<String, String> {
         t0.elapsed().as_secs_f64(),
         ends.len() - mates - mated,
         match best {
-            Some(p) => format!("{} ({} plies)
-  move: {}", p.join(" "), p.len(), p[0]),
-            None => match largest_win(fen) {
-                Some((m, g)) => format!("none found
-  move: {m} (the largest material win: {g:+})"),
+            Some(p) => format!("{} ({} plies)\n  move: {}", p.join(" "), p.len(), p[0]),
+            None => match best_by_eval(fen) {
+                Some((m, v)) => format!("none found\n  move: {m} (the eval's best: {v:+} cp)"),
                 None => "none found".to_string(),
             },
         }

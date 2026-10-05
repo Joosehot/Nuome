@@ -5,6 +5,7 @@
 //! modules below are empty stand-ins so the copied files compile unchanged.
 
 pub mod bitboard;
+pub mod eval;
 pub mod movegen;
 pub mod position;
 pub mod see;
