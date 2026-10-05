@@ -278,6 +278,12 @@ fn main() -> Result<()> {
             println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "goldennet" {
+            // goldennet [N_TRAIN] [EPOCHS]: the grid net taught the table's voice (middlegame and endgame)
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_table::teach_goldennet(n.first().copied().unwrap_or(1_000_000), n.get(1).copied().unwrap_or(5)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-table-cover" {
             // golden-table-cover [MAX_GAMES]: how much of the CCRL middlegame and endgame the full table knows
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

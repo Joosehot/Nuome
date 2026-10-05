@@ -544,3 +544,58 @@ pub fn coverage_ccrl(max_games: usize) -> Result<String, String> {
         100.0 * fam[1] as f64 / n[1].max(1) as f64
     ))
 }
+
+pub const GOLDENNET_FILE: &str = "out/golden/goldennet.txt";
+
+/// Goldennet taught the table's voice: the grid net learns Stockfish's moves
+/// of the middlegame and endgame positions in HF_FILE (split by the key:
+/// 5 % validate, 5 % holdout, the rest train; the first `n_train` train
+/// positions used), streamed one position at a time, epochs chosen on
+/// validate, frozen to GOLDENNET_FILE; holdout by phase.
+pub fn teach_goldennet(n_train: usize, epochs: usize) -> Result<String, String> {
+    let t0 = std::time::Instant::now();
+    let text = std::fs::read_to_string(HF_FILE).map_err(|e| format!("{HF_FILE}: {e}"))?;
+    let mut train = Vec::new();
+    let mut validate = Vec::new();
+    let mut holdout = Vec::new();
+    for line in text.lines() {
+        let mut it = line.splitn(3, '\t');
+        let (Some(ph), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
+        let Ok(p) = Position::from_fen(fen) else { continue };
+        let k = p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20;
+        let h = (ph == "endgame", Heard { key: p.key64(), fen: fen.to_string(), sf: mv.to_string(), ply: 0 });
+        match k {
+            19 => holdout.push(h),
+            18 => validate.push(h),
+            _ if train.len() < n_train => train.push(h),
+            _ => {}
+        }
+    }
+    validate.truncate(20_000);
+    holdout.truncate(40_000);
+    let va: Vec<_> = validate.iter().filter_map(|h| choices(&h.1)).collect();
+    let mut out = format!("Goldennet taught the table's voice: {} train / {} validate / {} holdout middlegame and endgame positions ({:.0} s to read)\n", train.len(), va.len(), holdout.len(), t0.elapsed().as_secs_f64());
+    let mut w = vec![0f32; NW];
+    let mut best = (net_agreement(&w, &va), w.clone(), 0);
+    for e in 1..=epochs {
+        let lr = 0.05 / e as f32;
+        for h in &train {
+            if let Some(c) = choices(&h.1) {
+                epoch(&mut w, std::slice::from_ref(&c), lr);
+            }
+        }
+        let a = net_agreement(&w, &va);
+        out.push_str(&format!("  epoch {e}: Stockfish's move {:.1}% of validate ({:.0} s)\n", 100.0 * a, t0.elapsed().as_secs_f64()));
+        if a > best.0 {
+            best = (a, w.clone(), e);
+        }
+    }
+    let w = best.1;
+    std::fs::write(GOLDENNET_FILE, w.iter().map(|x| format!("{x}\n")).collect::<String>()).map_err(|e| e.to_string())?;
+    for (end, name) in [(false, "middlegame"), (true, "endgame (6+ pieces)")] {
+        let set: Vec<_> = holdout.iter().filter(|h| h.0 == end).filter_map(|h| choices(&h.1)).collect();
+        out.push_str(&format!("  holdout {name}: {} positions, Stockfish's move {:.1}%\n", set.len(), 100.0 * net_agreement(&w, &set)));
+    }
+    out.push_str(&format!("frozen at epoch {} to {GOLDENNET_FILE} ({:.0} s)\n", best.2, t0.elapsed().as_secs_f64()));
+    Ok(out)
+}
