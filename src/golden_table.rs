@@ -435,3 +435,32 @@ pub fn report_table() -> Result<String, String> {
     out.push('\n');
     Ok(out)
 }
+
+pub const TABLE_FILE: &str = "out/golden/opening_table.tsv";
+
+/// The table with every known position: every analysed opening position
+/// (train, validate and holdout) with Stockfish's move, written to
+/// TABLE_FILE (key TAB move TAB fen). The holdout is inside it now, so it
+/// measures nothing; a measure needs games the table has not seen.
+pub fn write_all() -> Result<String, String> {
+    let text = std::fs::read_to_string(SF_LABELS).map_err(|e| format!("{SF_LABELS}: {e}"))?;
+    let label: HashMap<u64, String> = text.lines().filter_map(|l| l.split_once('\t')).filter_map(|(k, m)| Some((k.parse().ok()?, m.trim().to_string()))).collect();
+    let [train, validate, holdout] = hear(usize::MAX)?;
+    let mut seen = std::collections::HashSet::new();
+    let mut out = String::new();
+    let mut by_ply = vec![0usize; OPENING_PLIES];
+    for h in train.iter().chain(&validate).chain(&holdout) {
+        if let Some(m) = label.get(&h.key) {
+            if seen.insert(h.key) {
+                out.push_str(&format!("{}\t{m}\t{}\n", h.key, h.fen));
+                by_ply[h.ply.min(OPENING_PLIES - 1)] += 1;
+            }
+        }
+    }
+    std::fs::write(TABLE_FILE, out).map_err(|e| e.to_string())?;
+    Ok(format!(
+        "Golden Answer's opening table: {} positions, every known one (train + validate + holdout), Stockfish's move at depth 14 each, written to {TABLE_FILE}\nentries by ply: {}\nthe holdout is inside the table now: measuring it needs games the table has not seen\n",
+        seen.len(),
+        by_ply.iter().enumerate().map(|(i, n)| format!("{}:{n}", i + 1)).collect::<Vec<_>>().join(" ")
+    ))
+}
