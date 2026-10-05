@@ -98,7 +98,7 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
         ];
         return Ok((pick, lines, vec![format!("Syzygy endgame tablebases, 3-5 pieces (Ronald de Man), probed with python-chess from {SYZYGY}"), heart_source()]));
     }
-    let rows = crate::golden_formula::rank(fen).ok_or("the Golden formula for chess is not made yet: Golden Answer does not answer its parts itself (ask \"what is the golden formula for chess\")")?;
+    let rows = crate::golden_formula::rank_use(fen).ok_or("the Golden formula for chess is not made yet: Golden Answer does not answer its parts itself (ask \"what is the golden formula for chess\")")?;
     let (m, v) = &rows[0];
     let lines = vec![format!("{m} has the best value of the Golden formula: {v:+} for {side}")];
     Ok((m.clone(), lines, vec!["the Golden formula for chess (src/golden_formula.rs)".into()]))

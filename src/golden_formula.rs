@@ -366,3 +366,114 @@ pub fn rank(fen: &str) -> Option<Vec<(String, i64)>> {
     rows.sort_by(|a, b| b.1.cmp(&a.1));
     Some(rows)
 }
+
+// ---------------------------------------------------------------- how p is used
+
+pub const USE_QUESTION: &str = "Given p(m, r) from the previous answer, how is p used on the line m₁ r₁ m₂ r₂ … from P — how many pairs, which moves are followed, and where the value is read — so that the move chosen keeps the value of P under perfect play?";
+
+pub fn read_use(q: &str) -> bool {
+    let norm = |s: &str| s.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+    norm(q).trim_end_matches(['.', '?', '!']) == norm(USE_QUESTION).trim_end_matches(['.', '?', '!'])
+}
+
+/// Forcing plies followed past the pair, the checks among them, and the positions one root move may take.
+pub const FORCING_PLIES: usize = 20;
+const CHECK_PLIES: usize = 4;
+const NODES: u64 = 20_000;
+
+/// Shannon's type B from Q: the forceful variations (captures, promotions,
+/// and checks in the first plies; every reply in check) followed, each side
+/// free to stand on the position as it is; p read where they are quiet.
+/// The value for the side to move.
+fn quiet(p: &mut Position, plies: usize, depth: usize, nodes: &mut u64) -> i64 {
+    *nodes += 1;
+    let me = p.turn;
+    let check = p.in_check();
+    let all = legal_moves(p);
+    if all.is_empty() {
+        return if check { -INF } else { 0 };
+    }
+    if p.insufficient() || p.halfmove >= 100 {
+        return 0;
+    }
+    let stand = if check { -INF } else { shannon(p) };
+    if plies == 0 || *nodes > NODES {
+        return if check { shannon(p) } else { stand };
+    }
+    let mut best = stand;
+    for m in all {
+        let capture = p.board[m_to(m) as usize] != 0 || crate::fast::position::m_flag(m) == 2;
+        let promo = crate::fast::position::m_promo(m) != 0;
+        p.make(m);
+        let gives_check = depth < CHECK_PLIES && p.in_check();
+        if check || capture || promo || gives_check {
+            let v = -quiet(p, plies - 1, depth + 1, nodes);
+            best = best.max(v);
+        }
+        p.unmake();
+        let _ = me;
+    }
+    best
+}
+
+/// f(m) the theoretical way of use: the pair in full, then the forceful variations to quiet, both sides choosing.
+fn use_f(p: &mut Position, m: u32) -> i64 {
+    p.make(m);
+    let replies = legal_moves(p);
+    let v = if replies.is_empty() {
+        if p.in_check() { INF } else { 0 }
+    } else if p.insufficient() {
+        0
+    } else {
+        let mut worst = INF;
+        let mut nodes = 0;
+        for r in replies {
+            p.make(r);
+            let v = quiet(p, FORCING_PLIES, 0, &mut nodes);
+            p.unmake();
+            worst = worst.min(v);
+        }
+        worst
+    };
+    p.unmake();
+    v
+}
+
+/// Every legal move by the theoretical way of use, best first.
+pub fn rank_use(fen: &str) -> Option<Vec<(String, i64)>> {
+    let mut p = Position::from_fen(fen).ok()?;
+    let mut rows: Vec<(String, i64)> = legal_moves(&mut p).into_iter().map(|m| (move_to_uci(m), use_f(&mut p, m))).collect();
+    rows.sort_by(|a, b| b.1.cmp(&a.1));
+    Some(rows)
+}
+
+fn use_holds(pos: &Pos) -> bool {
+    let Ok(mut p) = Position::from_fen(&pos.fen) else { return false };
+    let fs: Vec<i64> = pos.moves.iter().map(|(u, _, _)| uci_to_move(&mut p, u).map_or(-INF, |m| use_f(&mut p, m))).collect();
+    let top = *fs.iter().max().unwrap();
+    pos.moves.iter().zip(&fs).all(|(m, &f)| f != top || m.1)
+}
+
+/// Golden Answer's answer to USE_QUESTION.
+pub fn answer_use(kind_logical: bool, kind_abstract: bool) -> Result<(String, Vec<String>, Vec<String>), String> {
+    if kind_logical {
+        return Err("not decided; what the condition forces:\n  - the value of P under perfect play is, by definition, the line followed to the end of the game with both sides choosing their best (every pair, every move); used that way any p that is right at the ends keeps the value\n  - how short a line suffices with this p, and which moves may be left out, is not forced by the rules: undecided".into());
+    }
+    if kind_abstract {
+        return Ok(("follow the forcing moves until the position is quiet, read p there".into(), vec!["this is an answer that claims nothing".into()], vec![]));
+    }
+    let check_set = load_set(CHECK_SET)?;
+    let ok = check_set.iter().filter(|p| use_holds(p)).count();
+    Ok((
+        format!("Shannon's type B: the pair (m, r) in full, then only the forceful variations — captures, promotions, checks (the first {CHECK_PLIES} plies), every reply in check — up to {FORCING_PLIES} plies, each side free to stand; p is read where the line is quiet; each side chooses its best on the line (minimax)"),
+        vec![
+            "how many pairs: one in full; past it only forceful moves, until quiet (Shannon: \"examine forceful variations out as far as possible and evaluate only at reasonable positions, where some quasi-stability has been established\")".into(),
+            "which moves: every move and reply in the pair; then captures, promotions, checks, and every move out of check".into(),
+            "where the value is read: at the quiet ends, by p; up the line each side takes its best (Shannon's minimax)".into(),
+            "Shannon's type A (every move to a fixed depth) is the other known way; he names it weak, since the depth cannot go far".into(),
+            "claim: the way of use is Shannon's; that it keeps the value is not known past five pieces".into(),
+            format!("for information: on {CHECK_SET} this keeps the value on {ok}/{} positions (Shannon's p alone, no tables)", check_set.len()),
+        ],
+        vec!["C. E. Shannon, Programming a Computer for Playing Chess, Philosophical Magazine 41 (1950): minimax; strategies of type A and B".into()],
+    ))
+}
