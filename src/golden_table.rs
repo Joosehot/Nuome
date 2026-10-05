@@ -1065,3 +1065,65 @@ mod tests {
         }
     }
 }
+
+// ---------------------------------------------------------------- Golden Boy plays with the net
+
+/// Golden Boy's move in `secs`: the opening table when the position is
+/// familiar; otherwise Goldennet, every line, deepening while the next depth
+/// fits in the time. (Five pieces or fewer: the caller asks the tables.)
+pub fn goldenboy_move(fen: &str, secs: f64) -> Result<(String, String), String> {
+    let p = Position::from_fen(fen)?;
+    if let Ok(text) = std::fs::read_to_string(TABLE_FILE) {
+        let key = p.key64().to_string();
+        for l in text.lines() {
+            let mut it = l.splitn(3, '\t');
+            if it.next() == Some(key.as_str()) {
+                if let Some(m) = it.next() {
+                    return Ok((m.to_string(), "the opening table".into()));
+                }
+            }
+        }
+    }
+    let w = load_goldennet().ok_or("no Goldennet yet")?;
+    let t0 = std::time::Instant::now();
+    let (mut best, mut depth, mut last) = (String::new(), 0, 0.0f64);
+    let mut factor = 35.0;
+    for d in 1..=12 {
+        let spent = t0.elapsed().as_secs_f64();
+        if d > 3 && spent + last * factor > secs {
+            break;
+        }
+        let t1 = std::time::Instant::now();
+        match deep_pick(&w, fen, d) {
+            Some(m) => {
+                best = m;
+                depth = d;
+            }
+            None => break,
+        }
+        let s = t1.elapsed().as_secs_f64();
+        if last > 0.0005 {
+            factor = (s / last).clamp(5.0, 60.0);
+        }
+        last = s;
+    }
+    if best.is_empty() {
+        return Err("no legal move".into());
+    }
+    Ok((best, format!("Goldennet, every line to depth {depth}")))
+}
+
+/// Goldennet learns from (fen, move) lines in `path`, starting from the frozen weights, then frozen again.
+pub fn learn_from(path: &str, epochs: usize) -> Result<String, String> {
+    let mut w = load_goldennet().ok_or("no Goldennet yet")?;
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
+    let set: Vec<Heard> = text.lines().filter_map(|l| l.split_once('\t')).map(|(f, m)| Heard { key: 0, fen: f.to_string(), sf: m.trim().to_string(), ply: 0 }).collect();
+    let ch: Vec<_> = set.iter().filter_map(choices).collect();
+    let before = net_agreement(&w, &ch);
+    for e in 1..=epochs {
+        epoch(&mut w, &ch, 0.01 / e as f32);
+    }
+    let after = net_agreement(&w, &ch);
+    std::fs::write(GOLDENNET_FILE, w.iter().map(|x| format!("{x}\n")).collect::<String>()).map_err(|e| e.to_string())?;
+    Ok(format!("Goldennet learned {} of Stockfish's moves from the games: {:.1}% -> {:.1}% of them\n", ch.len(), 100.0 * before, 100.0 * after))
+}

@@ -283,6 +283,21 @@ fn main() -> Result<()> {
             print!("{}", nuome::golden_table::profile(&cli.words.join(" "), 4).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "goldenboy-net" {
+            // goldenboy-net "<fen>" [SECONDS]: Golden Boy's move with the opening table and Goldennet
+            let fen = cli.words.iter().filter(|w| w.parse::<f64>().is_err()).cloned().collect::<Vec<_>>().join(" ");
+            let secs = cli.words.iter().filter_map(|w| w.parse::<f64>().ok()).last().unwrap_or(5.0);
+            let (m, how) = nuome::golden_table::goldenboy_move(&fen, secs).map_err(|e| anyhow::anyhow!(e))?;
+            println!("move: {m} ({how})");
+            return Ok(());
+        }
+        if which == "goldennet-learn" {
+            // goldennet-learn FILE [EPOCHS]: Goldennet learns Stockfish's moves (fen TAB move) and is frozen again
+            let path = cli.words.first().context("goldennet-learn takes a file")?;
+            let e = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(1);
+            print!("{}", nuome::golden_table::learn_from(path, e).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "goldennet-speed" {
             // goldennet-speed "<fen>" [SECONDS]: how deep Goldennet gets, every line, in the time
             let fen = cli.words.iter().filter(|w| w.parse::<f64>().is_err()).cloned().collect::<Vec<_>>().join(" ");
