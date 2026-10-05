@@ -222,26 +222,15 @@ fn main() -> Result<()> {
             let b = nuome::golden::Board::from_fen(fen.trim()).map_err(|e| anyhow::anyhow!(e))?;
             // FEN -> NEURO (the position as a network, by the rules) -> GOLDEN (the move that leaves the best network)
             let t0 = std::time::Instant::now();
-            // the supergenius solves the puzzle: the whole class from the rules (exact) when it can,
-            // else the forward calculation, proofs only - never a function
-            if let Some((mv, v, rows)) = nuome::retro::exact_move(&b) {
-                println!("the supergenius solved the whole class {} from the rules: {} positions", nuome::retro::key_of(&nuome::retro::pieces_of(&b)), b.fen());
-                for (m, val) in rows.iter().take(5) {
-                    println!("  {:<6} {}", m.uci(), nuome::retro::show(*val));
-                }
-                println!("move: {} (exact: {}, {:.3} s)", mv.uci(), nuome::retro::show(v), t0.elapsed().as_secs_f64());
-                return Ok(());
-            }
-            let budget: u64 = std::env::var("GOLDEN_BUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(400_000);
-            let patterns = nuome::patterns::load();
-            match nuome::patterns::play(&b, &[], &patterns) {
+            // Golden Boy with Golden Answer's three kinds: proved (logical), known results (theoretical), patterns (abstract)
+            match nuome::golden_chess::play(&b.fen()) {
                 None => println!("{}", if b.in_check() { "checkmate: no move" } else { "stalemate: no move" }),
-                Some((mv, w, rows)) => {
-                    println!("Golden Boy on {} ({} to move): the exact calculation first, then {} discovered patterns", b.fen(), if b.white { "white" } else { "black" }, patterns.len());
-                    for (m, weight, hits) in rows.iter().take(3) {
-                        println!("  {:<6} {:>6.2}  because: {}", m.uci(), weight, hits.iter().take(4).map(|p| p.words()).collect::<Vec<_>>().join("; "));
+                Some((mv, kind, lines)) => {
+                    println!("Golden Boy on {} ({} to move)", b.fen(), if b.white { "white" } else { "black" });
+                    for l in lines {
+                        println!("  {l}");
                     }
-                    println!("move: {} ({}, {:.3} s)", mv.uci(), if w.is_infinite() { "forced mate".to_string() } else { format!("{w:.2}") }, t0.elapsed().as_secs_f64());
+                    println!("move: {mv} ({kind}, {:.3} s)", t0.elapsed().as_secs_f64());
                 }
             }
             return Ok(());

@@ -93,14 +93,7 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
             if pieces > 5 {
                 return Err(format!("no known result covers it: the Syzygy tables here reach 5 pieces, the position has {pieces}"));
             }
-            let script = format!(
-                "import chess, chess.syzygy\nb = chess.Board('{fen}')\nwith chess.syzygy.open_tablebase('{SYZYGY}') as tb:\n    for m in b.legal_moves:\n        b.push(m)\n        print(m.uci(), -tb.probe_wdl(b))\n        b.pop()\n"
-            );
-            let out = std::process::Command::new("python").arg("-c").arg(&script).output().map_err(|e| format!("python-chess could not be run: {e}"))?;
-            if !out.status.success() {
-                return Err(format!("the Syzygy probe failed: {}", String::from_utf8_lossy(&out.stderr).lines().last().unwrap_or("")));
-            }
-            let rows: Vec<(String, i32)> = String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| l.split_once(' ').and_then(|(m, v)| v.trim().parse().ok().map(|v| (m.to_string(), v)))).collect();
+            let rows = syzygy_rows(fen)?;
             let best = rows.iter().map(|r| r.1).max().ok_or("no moves probed")?;
             let keep: Vec<&String> = rows.iter().filter(|r| r.1 == best).map(|r| &r.0).collect();
             let what = match best {
@@ -132,6 +125,54 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
             Ok((m.uci(), lines, vec![]))
         }
     }
+}
+
+/// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).
+fn syzygy_rows(fen: &str) -> Result<Vec<(String, i32)>, String> {
+    let script = format!(
+        "import chess, chess.syzygy\nb = chess.Board('{fen}')\nwith chess.syzygy.open_tablebase('{SYZYGY}') as tb:\n    for m in b.legal_moves:\n        b.push(m)\n        v = -2 if b.is_checkmate() else (0 if b.is_stalemate() or len(b.piece_map()) == 2 else tb.probe_wdl(b))\n        print(m.uci(), -v)\n        b.pop()\n"
+    );
+    let out = std::process::Command::new("python").arg("-c").arg(&script).output().map_err(|e| format!("python-chess could not be run: {e}"))?;
+    if !out.status.success() {
+        return Err(format!("the Syzygy probe failed: {}", String::from_utf8_lossy(&out.stderr).lines().last().unwrap_or("")));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| l.split_once(' ').and_then(|(m, v)| v.trim().parse().ok().map(|v| (m.to_string(), v)))).collect())
+}
+
+/// Golden Boy plays with all three kinds, each move saying what it rests on:
+/// a proved move (logical) when there is one; in positions of up to five
+/// pieces, among the moves that keep the result (theoretical), the one its
+/// patterns rank first, so a won position moves on; otherwise its pattern
+/// move (abstract). (move, kind, lines)
+pub fn play(fen: &str) -> Option<(String, &'static str, Vec<String>)> {
+    let b = Board::from_fen(fen).ok()?;
+    if b.moves().is_empty() {
+        return None;
+    }
+    if let Ok((m, lines, _)) = answer(Kind3::Logical, fen) {
+        if m != "no move" {
+            return Some((m, "logical", lines));
+        }
+    }
+    let rosters = crate::patterns::load();
+    let ranked: Vec<String> = crate::patterns::play(&b, &[], &rosters).map(|(_, _, rows)| rows.iter().map(|r| r.0.uci()).collect()).unwrap_or_default();
+    if b.sq.iter().filter(|&&p| p != 0).count() <= 5 {
+        if let Ok(rows) = syzygy_rows(fen) {
+            if let Some(best) = rows.iter().map(|r| r.1).max() {
+                let keep: Vec<&String> = rows.iter().filter(|r| r.1 == best).map(|r| &r.0).collect();
+                let pick = ranked.iter().find(|m| keep.contains(m)).cloned().unwrap_or_else(|| keep[0].clone());
+                let what = match best {
+                    2 | 1 => "win",
+                    0 => "draw",
+                    _ => "loss",
+                };
+                let lines = vec![format!("Syzygy: the position is a {what}; {} moves keep it, and Golden Boy's patterns rank {pick} first among them", keep.len())];
+                return Some((pick, "theoretical", lines));
+            }
+        }
+    }
+    let first = ranked.first()?.clone();
+    Some((first, "abstract", vec!["Golden Boy's pattern move; it claims nothing".into()]))
 }
 
 #[cfg(test)]
