@@ -38,6 +38,12 @@ pub fn frozen() -> Option<&'static [f64]> {
 /// The static eval: the position's worth for the side to move, in hundredths of
 /// the heart's units. The heart was measured from the side that had just moved,
 /// so it is read from there and turned around.
+pub fn eval_fast(w: &[f64], p: &crate::fast::position::Position) -> i64 {
+    let b = crate::fast::board_of(p);
+    let sh = rules::Shared { edges: crate::fast::edges_of(p) };
+    (-score(w, &rules::read_all_with(&b, !b.white, &sh)) * 100.0).round() as i64
+}
+
 pub fn eval(w: &[f64], b: &Board) -> i64 {
     (-score(w, &read_all(b, !b.white)) * 100.0).round() as i64
 }

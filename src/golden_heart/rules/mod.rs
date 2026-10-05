@@ -45,10 +45,14 @@ pub fn width() -> usize {
 
 /// Every rule's inputs for the position `b` seen from `me` (sparse: index, value).
 pub fn read_all(b: &Board, me: bool) -> Vec<(u16, f32)> {
-    let sh = Shared::of(b);
+    read_all_with(b, me, &Shared::of(b))
+}
+
+/// The same, with the strikes already counted (from the fast board's bitboards).
+pub fn read_all_with(b: &Board, me: bool, sh: &Shared) -> Vec<(u16, f32)> {
     let mut out = Vec::with_capacity(48);
     for r in &RULES {
-        (r.read)(b, me, &sh, &mut out);
+        (r.read)(b, me, sh, &mut out);
     }
     out
 }

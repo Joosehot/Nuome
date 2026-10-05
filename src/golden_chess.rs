@@ -12,7 +12,7 @@
 
 use crate::fast::bitboard::{SQ120_TO_64, SQ64_TO_120};
 use crate::fast::movegen::{gen_moves, legal_moves, MAX_MOVES};
-use crate::fast::position::{color_of, m_promo, m_to, move_to_uci, type_of, Position, EMPTY, OFF};
+use crate::fast::position::{color_of, m_from, m_promo, m_to, move_to_uci, type_of, Position, EMPTY, OFF};
 use crate::golden::Board;
 
 pub const SYZYGY: &str = "C:/Users/joose/Tools/syzygy/345-wdl";
@@ -69,8 +69,25 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
                 }
                 return Ok((m.uci(), lines, vec![]));
             }
-            // a forced mate, every reply answered
-            let (_, _, rows, nodes) = crate::neuro::supergenius(&b, &[], 400_000).ok_or("no legal move")?;
+            // a forced mate, every reply answered, on the fast board (mate in 1, 2, 3)
+            if let Ok(mut p) = Position::from_fen(fen) {
+                let mut f = Fast { tt: Vec::new(), killers: Vec::new(), history: Vec::new(), nodes: 0 };
+                for n in 1..=3 {
+                    if let Some(m) = f.mate(&mut p, n, 300_000) {
+                        let lines = vec![
+                            format!("{} mates by force in {n} (an exact search answered every reply, {} positions)", move_to_uci(m), f.nodes),
+                            "no shorter mate exists (mate in fewer moves was searched in full first)".to_string(),
+                        ];
+                        return Ok((move_to_uci(m), lines, vec![]));
+                    }
+                    if f.nodes > 300_000 {
+                        break;
+                    }
+                }
+            }
+            // forced draws and losses: Nuome's own proof search, on small positions only (it is slow on full boards)
+            let small = b.sq.iter().filter(|&&q| q != 0).count() <= 8;
+            let (_, _, rows, nodes) = if small { crate::neuro::supergenius(&b, &[], 400_000).ok_or("no legal move")? } else { (ms[0], crate::neuro::Proof::Unknown, Vec::new(), 0) };
             use crate::neuro::Proof;
             let wins: Vec<(String, u32)> = rows.iter().filter_map(|(m, p, _)| if let Proof::Win(n) = p { Some((m.uci(), *n)) } else { None }).collect();
             if let Some((m, n)) = wins.iter().min_by_key(|w| w.1) {
@@ -85,7 +102,7 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
             if !draws.is_empty() && draws.len() + losses == rows.len() {
                 return Ok((draws[0].clone(), vec![format!("{} holds a draw by force, and every other move is a forced draw or loss ({nodes} positions)", draws[0])], vec![]));
             }
-            if losses == rows.len() {
+            if !rows.is_empty() && losses == rows.len() {
                 let slow = rows.iter().max_by_key(|r| if let Proof::Loss(n) = r.1 { n } else { 0 }).map(|r| r.0.uci()).unwrap_or_default();
                 return Ok((slow.clone(), vec![format!("every move loses by force; {slow} lasts longest ({nodes} positions)")], vec![]));
             }
@@ -154,6 +171,8 @@ thread_local! {
     /// When the deepening must stop; a depth not finished in time is not used.
     static DEADLINE: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
     static ABORTED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// The fast search's table, kept for the deepening of one question (cleared per question).
+    static FAST: std::cell::Cell<Option<Fast>> = const { std::cell::Cell::new(None) };
 }
 
 /// The logical answer's strong proofs only.
@@ -170,6 +189,7 @@ fn deepen(b: &Board) -> (Vec<(String, i64)>, u64, u32) {
     let max = std::env::var("GOLDEN_PROOF_PLIES").ok().and_then(|x| x.parse().ok()).unwrap_or(4);
     let ms = std::env::var("GOLDEN_TIME_MS").ok().and_then(|x| x.parse().ok()).unwrap_or(2000u64);
     let t0 = std::time::Instant::now();
+    FAST.with(|c| c.set(None));
     let (mut rows, mut nodes) = bounded_rows(b, 1);
     let mut done = 1;
     for d in 2..=max {
@@ -267,15 +287,19 @@ fn bounded_rows(b: &Board, depth: u32) -> (Vec<(String, i64)>, u64) {
     let mut nodes = 0u64;
     if std::env::var("GOLDEN_SLOW_BOARD").is_err() {
         if let Ok(mut p) = Position::from_fen(&b.fen()) {
+            let mut f = FAST.with(|c| c.take()).unwrap_or_else(Fast::new);
+            f.nodes = 0;
             let mut rows = Vec::new();
             for m in legal_moves(&mut p) {
                 p.make(m);
-                let v = -game_fast(&mut p, depth.saturating_sub(1), -MATE - 1, MATE + 1, &mut nodes);
+                let v = -f.game(&mut p, depth.saturating_sub(1), 1, -MATE - 1, MATE + 1);
                 p.unmake();
                 rows.push((move_to_uci(m), v));
             }
             rows.sort_by_key(|r| std::cmp::Reverse(r.1));
-            return (rows, nodes);
+            let n = f.nodes;
+            FAST.with(|c| c.set(Some(f)));
+            return (rows, n);
         }
     }
     let mut rows: Vec<(String, i64)> = b
@@ -320,79 +344,172 @@ fn material_fast(p: &Position) -> i64 {
 fn leaf_fast(p: &Position) -> i64 {
     if std::env::var("GOLDEN_LEAF").map_or(true, |v| v != "material") {
         if let Some(w) = crate::golden_heart::frozen() {
-            return crate::golden_heart::eval(w, &to_board(p));
+            return crate::golden_heart::eval_fast(w, p);
         }
     }
     material_fast(p)
 }
 
-/// The same bounded game as `game`, on the fast board: every legal move for
-/// `depth` plies, then captures and promotions until quiet with standing pat.
-fn game_fast(p: &mut Position, depth: u32, mut alpha: i64, beta: i64, nodes: &mut u64) -> i64 {
-    *nodes += 1;
-    if *nodes % 1024 == 0 {
-        if let Some(t) = DEADLINE.with(|c| c.get()) {
-            if std::time::Instant::now() > t {
-                ABORTED.with(|c| c.set(true));
+/// The fast search's memory: a table of positions already valued (used only
+/// for the same remaining depth, so the value stays the bounded game's), the
+/// killer moves and the history (they change only the order of the moves,
+/// never a value).
+pub struct Fast {
+    tt: Vec<(u64, u8, i64, u8, u32)>,
+    killers: Vec<[u32; 2]>,
+    history: Vec<u32>,
+    pub nodes: u64,
+}
+
+const TT_BITS: u32 = 21;
+const EXACT: u8 = 0;
+const LOWER: u8 = 1;
+const UPPER: u8 = 2;
+
+impl Fast {
+    pub fn new() -> Fast {
+        Fast { tt: vec![(0, 0, 0, 0, 0); 1 << TT_BITS], killers: vec![[0; 2]; 64], history: vec![0; 120 * 120], nodes: 0 }
+    }
+
+    /// The same bounded game as `game`, on the fast board: every legal move for
+    /// `depth` plies, then captures and promotions until quiet with standing pat.
+    pub fn game(&mut self, p: &mut Position, depth: u32, ply: usize, mut alpha: i64, beta: i64) -> i64 {
+        self.nodes += 1;
+        if self.nodes % 1024 == 0 {
+            if let Some(t) = DEADLINE.with(|c| c.get()) {
+                if std::time::Instant::now() > t {
+                    ABORTED.with(|c| c.set(true));
+                }
             }
         }
-    }
-    if ABORTED.with(|c| c.get()) {
-        return 0;
-    }
-    let quiet = depth == 0;
-    let mut list = [0u32; MAX_MOVES];
-    let n = gen_moves(p, &mut list, false);
-    let legal_one = |p: &mut Position, m: u32| {
-        p.make(m);
-        let ok = !p.in_check_c(1 - p.turn);
-        p.unmake();
-        ok
-    };
-    // the legal ones, captures first (the order changes only the speed, never the value);
-    // at a quiet node only whether any legal move exists matters, then only the captures and promotions
-    let mut legal: Vec<(i64, u32)> = Vec::with_capacity(n);
-    if quiet {
-        if !list[..n].iter().any(|&m| legal_one(p, m)) {
-            return if p.in_check() { -MATE } else { 0 };
+        if ABORTED.with(|c| c.get()) {
+            return 0;
         }
-        let stand = leaf_fast(p);
-        if stand >= beta {
-            return stand;
-        }
-        alpha = alpha.max(stand);
-        let c = gen_moves(p, &mut list, true);
-        for &m in &list[..c] {
-            if legal_one(p, m) {
-                let victim = type_of(p.board[m_to(m) as usize]) as i64;
-                legal.push((victim * 10 + (m_promo(m) != 0) as i64 * 50 + 1, m));
+        let key = p.key64();
+        let slot = (key as usize) & ((1 << TT_BITS) - 1);
+        let (tk, td, tv, tf, tm) = self.tt[slot];
+        let mut tt_move = 0;
+        if tk == key && td == depth as u8 + 1 {
+            tt_move = tm;
+            if tf == EXACT || (tf == LOWER && tv >= beta) || (tf == UPPER && tv <= alpha) {
+                return tv;
             }
         }
-    } else {
-        for &m in &list[..n] {
-            if legal_one(p, m) {
-                let victim = type_of(p.board[m_to(m) as usize]) as i64;
-                legal.push((victim * 10 + (m_promo(m) != 0) as i64 * 50, m));
+        let alpha0 = alpha;
+        let quiet = depth == 0;
+        let mut list = [0u32; MAX_MOVES];
+        let n = gen_moves(p, &mut list, false);
+        let legal_one = |p: &mut Position, m: u32| {
+            p.make(m);
+            let ok = !p.in_check_c(1 - p.turn);
+            p.unmake();
+            ok
+        };
+        let k = self.killers.get(ply).copied().unwrap_or([0; 2]);
+        let order = |p: &Position, m: u32, h: &[u32]| -> i64 {
+            let victim = type_of(p.board[m_to(m) as usize]) as i64;
+            if m == tt_move {
+                1 << 40
+            } else if victim > 0 || m_promo(m) != 0 {
+                (1 << 30) + victim * 10 + (m_promo(m) != 0) as i64 * 50
+            } else if m == k[0] || m == k[1] {
+                1 << 29
+            } else {
+                h[m_from(m) as usize * 120 + m_to(m) as usize] as i64
+            }
+        };
+        let mut moves: Vec<(i64, u32)> = Vec::with_capacity(n);
+        if quiet {
+            if !list[..n].iter().any(|&m| legal_one(p, m)) {
+                return if p.in_check() { -MATE } else { 0 };
+            }
+            let stand = leaf_fast(p);
+            if stand >= beta {
+                return stand;
+            }
+            alpha = alpha.max(stand);
+            let c = gen_moves(p, &mut list, true);
+            for &m in &list[..c] {
+                if legal_one(p, m) {
+                    moves.push((order(p, m, &self.history), m));
+                }
+            }
+        } else {
+            for &m in &list[..n] {
+                if legal_one(p, m) {
+                    moves.push((order(p, m, &self.history), m));
+                }
+            }
+            if moves.is_empty() {
+                return if p.in_check() { -MATE } else { 0 };
             }
         }
-        if legal.is_empty() {
-            return if p.in_check() { -MATE } else { 0 };
+        moves.sort_by_key(|o| std::cmp::Reverse(o.0));
+        let mut best = if quiet { alpha } else { -MATE - 1 };
+        let mut best_move = 0;
+        for (_, m) in moves {
+            p.make(m);
+            let v = -self.game(p, depth.saturating_sub(1), ply + 1, -beta, -alpha.max(best));
+            p.unmake();
+            if v > best {
+                best = v;
+                best_move = m;
+            }
+            if best >= beta {
+                if !quiet && type_of(p.board[m_to(m) as usize]) == 0 && m_promo(m) == 0 && ply < self.killers.len() {
+                    let ks = &mut self.killers[ply];
+                    if ks[0] != m {
+                        ks[1] = ks[0];
+                        ks[0] = m;
+                    }
+                    self.history[m_from(m) as usize * 120 + m_to(m) as usize] += depth * depth;
+                }
+                break;
+            }
         }
+        if !ABORTED.with(|c| c.get()) {
+            let flag = if best <= alpha0 { UPPER } else if best >= beta { LOWER } else { EXACT };
+            self.tt[slot] = (key, depth as u8 + 1, best, flag, best_move);
+        }
+        best
     }
-    legal.sort_by_key(|o| std::cmp::Reverse(o.0));
-    let mut best = if quiet { alpha } else { -MATE - 1 };
-    for (_, m) in legal {
-        p.make(m);
-        let v = -game_fast(p, depth.saturating_sub(1), -beta, -alpha.max(best), nodes);
-        p.unmake();
-        if v > best {
-            best = v;
+
+    /// A mate the side to move forces within `n` of its moves: every reply answered. The mating move, if any.
+    pub fn mate(&mut self, p: &mut Position, n: u32, budget: u64) -> Option<u32> {
+        for m in legal_moves(p) {
+            p.make(m);
+            let ok = self.mated(p, n - 1, budget);
+            p.unmake();
+            if ok {
+                return Some(m);
+            }
+            if self.nodes > budget {
+                return None;
+            }
         }
-        if best >= beta {
-            break;
-        }
+        None
     }
-    best
+
+    /// The side to move is mated now, or every reply leaves a mate within `n` more moves.
+    fn mated(&mut self, p: &mut Position, n: u32, budget: u64) -> bool {
+        self.nodes += 1;
+        let replies = legal_moves(p);
+        if replies.is_empty() {
+            return p.in_check();
+        }
+        if n == 0 || self.nodes > budget {
+            return false;
+        }
+        for r in replies {
+            p.make(r);
+            let ok = self.mate(p, n, budget).is_some();
+            p.unmake();
+            if !ok {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 /// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).
