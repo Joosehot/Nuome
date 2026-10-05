@@ -216,7 +216,7 @@ pub fn answer(kind_logical: bool, kind_abstract: bool) -> Result<(String, Vec<St
         return Ok((written(&w), vec!["this is an answer that claims nothing".into()], vec![]));
     }
     if !kind_logical {
-        return Err("no known result names such a function; ask logical".into());
+        return theoretical();
     }
     let search_set = load_set(SEARCH_SET)?;
     let check_set = load_set(CHECK_SET)?;
@@ -260,11 +260,109 @@ pub fn read(q: &str) -> bool {
     norm(q).trim_end_matches(['.', '?', '!']) == norm(QUESTION).trim_end_matches(['.', '?', '!'])
 }
 
-/// Every legal move with the frozen p's f, best first; None until p is found.
+// ---------------------------------------------------------------- the theoretical answer
+
+/// Shannon's evaluation (1950) of Q from the side to move, in tenths of a pawn:
+/// 200(K-K') + 9(Q-Q') + 5(R-R') + 3(B-B'+N-N') + (P-P') - 0.5(D-D'+S-S'+I-I') + 0.1(M-M').
+/// D doubled, S backward, I isolated pawns; M legal moves.
+pub fn shannon(p: &mut Position) -> i64 {
+    let s = p.turn as usize;
+    let bb = p.bb;
+    let count = |c: usize, t: usize| bb[c * 6 + t].count_ones() as i64;
+    let side = |c: usize| -> i64 {
+        2000 * count(c, 5) + 90 * count(c, 4) + 50 * count(c, 3) + 30 * (count(c, 2) + count(c, 1)) + 10 * count(c, 0)
+    };
+    // pawn weaknesses: doubled, backward, isolated (each a pawn)
+    let weak = |c: usize| -> i64 {
+        let pawns = bb[c * 6];
+        let file = |f: i32| -> u64 { if (0..8).contains(&f) { 0x0101_0101_0101_0101u64 << f } else { 0 } };
+        let mut n = 0;
+        let mut b = pawns;
+        while b != 0 {
+            let sq = b.trailing_zeros() as i32;
+            b &= b - 1;
+            let (f, r) = (sq % 8, sq / 8);
+            if (pawns & file(f)).count_ones() > 1 {
+                n += 1; // doubled
+            }
+            let beside = pawns & (file(f - 1) | file(f + 1));
+            if beside == 0 {
+                n += 1; // isolated
+            } else {
+                // backward: every pawn beside it is further up the board
+                let behind_or_level = (0..64).filter(|&q| beside & (1u64 << q) != 0).any(|q: i32| if c == 0 { q / 8 <= r } else { q / 8 >= r });
+                if !behind_or_level {
+                    n += 1;
+                }
+            }
+        }
+        n
+    };
+    let mine = legal_moves(p).len() as i64;
+    p.make_null();
+    let theirs = legal_moves(p).len() as i64;
+    p.unmake_null();
+    side(s) - side(1 - s) - 5 * (weak(s) - weak(1 - s)) + (mine - theirs)
+}
+
+/// p(m, r) by the known results: legality by the rules, then Shannon's function on Q.
+fn theory_pairs(p: &mut Position, m: u32) -> i64 {
+    p.make(m);
+    let replies = legal_moves(p);
+    let v = if replies.is_empty() {
+        if p.in_check() { INF } else { 0 }
+    } else if p.insufficient() {
+        0
+    } else {
+        let mut worst = INF;
+        for r in replies {
+            p.make(r);
+            let v = if legal_moves(p).is_empty() {
+                if p.in_check() { -INF } else { 0 }
+            } else if p.insufficient() || p.halfmove >= 100 {
+                0
+            } else {
+                shannon(p)
+            };
+            p.unmake();
+            worst = worst.min(v);
+        }
+        worst
+    };
+    p.unmake();
+    v
+}
+
+fn theory_holds(pos: &Pos) -> bool {
+    let Ok(mut p) = Position::from_fen(&pos.fen) else { return false };
+    let fs: Vec<i64> = pos.moves.iter().map(|(u, _, _)| uci_to_move(&mut p, u).map_or(-INF, |m| theory_pairs(&mut p, m))).collect();
+    let top = *fs.iter().max().unwrap();
+    pos.moves.iter().zip(&fs).all(|(m, &f)| f != top || m.1)
+}
+
+/// The theoretical answer: the tables where they reach, Shannon's function beyond.
+fn theoretical() -> Result<(String, Vec<String>, Vec<String>), String> {
+    let check_set = load_set(CHECK_SET)?;
+    let shannon_ok = check_set.iter().filter(|p| theory_holds(p)).count();
+    let short = "p(m, r) = the value of Q in the Syzygy tables when Q has at most five pieces; otherwise Shannon's function of Q: 200ΔK + 9ΔQ + 5ΔR + 3(ΔB + ΔN) + ΔP − 0.5(ΔD + ΔS + ΔI) + 0.1ΔM".to_string();
+    let lines = vec![
+        "legality (the rules): mated in Q is −∞, mate at once is +∞, stalemate and draws by rule are 0".to_string(),
+        "up to five pieces: the tables give the value of Q under perfect play; the move maximising min over r keeps the value of P, since the tables are exact (de Man)".to_string(),
+        "more pieces: Shannon's evaluation function — material M (200, 9, 5, 3, 3, 1), safety S as pawn weakness (doubled D, backward S, isolated I, −0.5 each), tempo T as mobility (0.1 a legal move); force F has no term of its own: Shannon puts the forcing moves (checks, captures) in the lines followed, not in the function".to_string(),
+        "claim: right up to five pieces; beyond, Shannon's function is a known approximation and is not known to keep the value".to_string(),
+        format!("for information: Shannon's function alone (without the tables) keeps the value on {shannon_ok}/{} positions of {CHECK_SET}", check_set.len()),
+    ];
+    Ok((short, lines, vec![
+        "Syzygy endgame tablebases, 3-5 pieces (Ronald de Man)".into(),
+        "C. E. Shannon, Programming a Computer for Playing Chess, Philosophical Magazine 41 (1950)".into(),
+        "the rules of chess (FIDE Laws, articles 3, 5, 9)".into(),
+    ]))
+}
+
+/// Every legal move with f by the theoretical answer (Shannon's function past the tables), best first.
 pub fn rank(fen: &str) -> Option<Vec<(String, i64)>> {
-    let w = load()?;
     let mut p = Position::from_fen(fen).ok()?;
-    let mut rows: Vec<(String, i64)> = legal_moves(&mut p).into_iter().map(|m| (move_to_uci(m), f_of(&w, &pairs(&mut p, m)))).collect();
+    let mut rows: Vec<(String, i64)> = legal_moves(&mut p).into_iter().map(|m| (move_to_uci(m), theory_pairs(&mut p, m))).collect();
     rows.sort_by(|a, b| b.1.cmp(&a.1));
     Some(rows)
 }
