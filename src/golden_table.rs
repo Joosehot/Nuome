@@ -79,7 +79,54 @@ pub fn hear(max_games: usize) -> Result<[Vec<Heard>; 3], String> {
 // ---------------------------------------------------------------- the grid net
 
 /// The 64 points of position `p` seen from `me`: feature indices.
+/// Content from the mailbox; the attack counts (0, 1, 2+) as two bitboards
+/// per side, "attacked at least once" and "at least twice".
 pub fn points(p: &Position, me: usize) -> [u16; 64] {
+    use crate::fast::bitboard::SQ64_TO_120;
+    use crate::fast::position::{color_of, type_of};
+    let t = crate::fast::bitboard::tables();
+    let occ = p.occ;
+    let mut one = [0u64; 2];
+    let mut two = [0u64; 2];
+    for c in 0..2 {
+        for ty in 0..6 {
+            let mut b = p.bb[c * 6 + ty];
+            while b != 0 {
+                let s = b.trailing_zeros() as usize;
+                b &= b - 1;
+                let at = match ty {
+                    0 => {
+                        if c == 0 {
+                            t.att.pawn_w[s]
+                        } else {
+                            t.att.pawn_b[s]
+                        }
+                    }
+                    1 => t.att.knight[s],
+                    2 => t.bishop_attacks(s, occ),
+                    3 => t.rook_attacks(s, occ),
+                    4 => t.queen_attacks(s, occ),
+                    _ => t.att.king[s],
+                };
+                two[c] |= one[c] & at;
+                one[c] |= at;
+            }
+        }
+    }
+    let mut out = [0u16; 64];
+    let flip = if me == 0 { 0 } else { 56 };
+    for s in 0..64 {
+        let pc = p.board[SQ64_TO_120[s]];
+        let content = if pc == 0 { 0 } else { 1 + if color_of(pc) as usize == me { 0 } else { 6 } + type_of(pc) as usize - 1 };
+        let am = (one[me] >> s & 1) + (two[me] >> s & 1);
+        let at = (one[1 - me] >> s & 1) + (two[1 - me] >> s & 1);
+        out[s] = (((content * 9 + am as usize * 3 + at as usize) * 64) + (s ^ flip)) as u16;
+    }
+    out
+}
+
+/// The same points, the first way (every square against every bitboard, attacks counted bit by bit); kept to check the fast one.
+pub fn points_slow(p: &Position, me: usize) -> [u16; 64] {
     let t = crate::fast::bitboard::tables();
     let occ = p.occ;
     let mut cnt = [[0u8; 64]; 2];
@@ -620,18 +667,27 @@ fn deep(w: &[f32], p: &mut Position, depth: usize) -> f32 {
         let moved = 1 - p.turn as usize;
         return -score(w, &points(p, moved));
     }
-    let ms = legal_moves(p);
-    if ms.is_empty() {
-        return if p.in_check() { -NET_MATE } else { 0.0 };
-    }
+    use crate::fast::movegen::{gen_moves, MAX_MOVES};
+    let me = p.turn;
+    let mut list = [0u32; MAX_MOVES];
+    let n = gen_moves(p, &mut list, false);
     let mut best = f32::NEG_INFINITY;
-    for m in ms {
+    let mut any = false;
+    for &m in &list[..n] {
         p.make(m);
+        if p.in_check_c(me) {
+            p.unmake();
+            continue;
+        }
+        any = true;
         let v = -deep(w, p, depth - 1);
         p.unmake();
         if v > best {
             best = v;
         }
+    }
+    if !any {
+        return if p.in_check() { -NET_MATE } else { 0.0 };
     }
     best
 }
@@ -957,10 +1013,26 @@ pub fn profile(fen: &str, d: usize) -> Result<String, String> {
     ))
 }
 
-/// Whether the side to move has any legal move (stops at the first).
+/// Whether the side to move has any legal move (stops at the first). Out of
+/// check, a king step to a square nobody attacks is one at once (no slider
+/// can see through the king's square without giving check).
 fn has_legal(p: &mut Position) -> bool {
+    use crate::fast::bitboard::SQ64_TO_120;
     use crate::fast::movegen::{gen_moves, MAX_MOVES};
     let me = p.turn;
+    if !p.in_check() {
+        if let Some(k) = p.king_sq64(me) {
+            let t = crate::fast::bitboard::tables();
+            let mut steps = t.att.king[k] & !p.by_color[me as usize];
+            while steps != 0 {
+                let s = steps.trailing_zeros() as usize;
+                steps &= steps - 1;
+                if !p.attacked(SQ64_TO_120[s], 1 - me) {
+                    return true;
+                }
+            }
+        }
+    }
     let mut list = [0u32; MAX_MOVES];
     let n = gen_moves(p, &mut list, false);
     for &m in &list[..n] {
@@ -972,4 +1044,24 @@ fn has_legal(p: &mut Position) -> bool {
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fast_points_are_the_same() {
+        let text = "r1bq1rk1/pp2bppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R2QKB1R w KQ - 0 8\n1rb2rk1/p3bppp/4p3/1qpB4/N7/P5P1/1PQ1PP1P/R1BR2K1 b - - 0 16\n6k1/8/8/8/2q3Pp/P3R2P/5B2/6K1 b - - 0 40\nrnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        for fen in text.lines() {
+            let mut p = Position::from_fen(fen).unwrap();
+            for m in legal_moves(&mut p) {
+                p.make(m);
+                for me in 0..2 {
+                    assert_eq!(points(&p, me), points_slow(&p, me), "{fen} {}", move_to_uci(m));
+                }
+                p.unmake();
+            }
+        }
+    }
 }
