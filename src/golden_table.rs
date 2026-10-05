@@ -322,74 +322,71 @@ pub fn write_fens(path: &str) -> Result<usize, String> {
 
 pub const SF_LABELS: &str = "out/golden/table_sf.tsv";
 
-/// The second report: every position's reference is Stockfish's move at a
-/// fixed depth (tools/golden_table_sf.py), one per position. The table is
-/// written from the train positions' references, the grid net learns from
-/// them (epochs by validate) and is frozen; holdout: the familiar positions
-/// (the table) and the unfamiliar ones (the net; the table itself answers
-/// "not familiar" there).
+/// The net's answer to a position: the move and how sure it is (the softmax
+/// share of its best move among the legal ones).
+fn net_answer(w: &[f32], xs: &[[u16; 64]]) -> (usize, f32) {
+    let s: Vec<f32> = xs.iter().map(|x| score(w, x)).collect();
+    let mx = s.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let z: f32 = s.iter().map(|v| (v - mx).exp()).sum();
+    let i = s.iter().position(|&v| v == mx).unwrap_or(0);
+    (i, 1.0 / z)
+}
+
+/// The second report: the reference is Stockfish's move at a fixed depth
+/// (tools/golden_table_sf.py), one per position. The table is the frozen
+/// grid net itself: an answer is read straight from it (its points summed
+/// after every legal move), nothing searched; it says "not familiar" when
+/// its best move's share is below a threshold chosen on validate. Learned
+/// from the distinct train positions, epochs chosen on validate.
 pub fn report_sf(max_epochs: usize) -> Result<String, String> {
     let t0 = std::time::Instant::now();
     let text = std::fs::read_to_string(SF_LABELS).map_err(|e| format!("{SF_LABELS}: {e}"))?;
     let label: HashMap<u64, String> = text.lines().filter_map(|l| l.split_once('\t')).filter_map(|(k, m)| Some((k.parse().ok()?, m.trim().to_string()))).collect();
     let [train, validate, holdout] = hear(usize::MAX)?;
-    let relabel = |set: Vec<Heard>| -> Vec<Heard> { set.into_iter().filter_map(|h| label.get(&h.key).map(|m| Heard { key: h.key, fen: h.fen, sf: m.clone() })).collect() };
-    let (train, validate, holdout) = (relabel(train), relabel(validate), relabel(holdout));
-    let mut out = format!("Golden Answer's table, openings, reference = Stockfish's move at a fixed depth ({} positions analysed): train {} / validate {} / holdout {} occurrences\n", label.len(), train.len(), validate.len(), holdout.len());
-    // the net learns from distinct train positions (each once)
-    let mut seen = std::collections::HashSet::new();
-    let tr: Vec<_> = train.iter().filter(|h| seen.insert(h.key)).filter_map(choices).collect();
-    let mut seen_v = std::collections::HashSet::new();
-    let va: Vec<_> = validate.iter().filter(|h| seen_v.insert(h.key)).filter_map(choices).collect();
+    let distinct = |set: Vec<Heard>| -> Vec<Heard> {
+        let mut seen = std::collections::HashSet::new();
+        set.into_iter().filter(|h| seen.insert(h.key)).filter_map(|h| label.get(&h.key).map(|m| Heard { key: h.key, fen: h.fen, sf: m.clone() })).collect()
+    };
+    let (train, validate, holdout) = (distinct(train), distinct(validate), distinct(holdout));
+    let mut out = format!("Golden Answer's table = the frozen grid net, openings; reference = Stockfish's move at a fixed depth ({} positions analysed); distinct positions: train {} / validate {} / holdout {}\n", label.len(), train.len(), validate.len(), holdout.len());
+    let tr: Vec<_> = train.iter().filter_map(choices).collect();
+    let va: Vec<_> = validate.iter().filter_map(choices).collect();
     let mut w = vec![0f32; NW];
     let mut best = (net_agreement(&w, &va), w.clone(), 0);
     for e in 1..=max_epochs {
         epoch(&mut w, &tr, 0.05 / e as f32);
         let a = net_agreement(&w, &va);
-        out.push_str(&format!("  grid net epoch {e}: Stockfish's move {:.1}% of the distinct validate positions\n", 100.0 * a));
+        out.push_str(&format!("  epoch {e}: Stockfish's move {:.1}% of validate\n", 100.0 * a));
         if a > best.0 {
             best = (a, w.clone(), e);
         }
     }
     let w = best.1;
-    out.push_str(&format!("  frozen at epoch {} ({} distinct train positions; {:.0} s)\n", best.2, tr.len(), t0.elapsed().as_secs_f64()));
-    let table = write_table(&train, &w);
-    // holdout, by occurrence and by distinct position
-    let mut stats = [[0usize; 4]; 2]; // [occurrence, distinct] x [all, familiar, table hits, net hits on unfamiliar]
-    let mut unfamiliar = [0usize; 2];
-    let mut seen_h = std::collections::HashSet::new();
-    for h in &holdout {
-        let first = seen_h.insert(h.key);
-        let Some((xs, c, _)) = choices(h) else { continue };
-        for (k, count) in [(0usize, true), (1, first)] {
-            if !count {
-                continue;
-            }
-            stats[k][0] += 1;
-            match table.answer(h.key) {
-                Some(m) => {
-                    stats[k][1] += 1;
-                    stats[k][2] += (*m == h.sf) as usize;
-                }
-                None => {
-                    unfamiliar[k] += 1;
-                    stats[k][3] += (net_pick(&w, &xs) == c) as usize;
-                }
-            }
-        }
+    out.push_str(&format!("  frozen at epoch {} ({:.0} s)\n", best.2, t0.elapsed().as_secs_f64()));
+    // "not familiar": the threshold on the net's own sureness, chosen on validate
+    let sure = |set: &[(Vec<[u16; 64]>, usize, Vec<String>)]| -> Vec<(f32, bool)> { set.iter().map(|(xs, c, _)| { let (i, p) = net_answer(&w, xs); (p, i == *c) }).collect() };
+    let va_s = sure(&va);
+    out.push_str("  validate, by threshold (answered share, agreement where answered):\n");
+    for th in [0.0f32, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] {
+        let ans: Vec<&(f32, bool)> = va_s.iter().filter(|x| x.0 >= th).collect();
+        out.push_str(&format!("    {th:.1}: {:.1}% answered, {:.1}% agree\n", 100.0 * ans.len() as f64 / va_s.len().max(1) as f64, 100.0 * ans.iter().filter(|x| x.1).count() as f64 / ans.len().max(1) as f64));
     }
-    for (k, name) in [(0, "occurrences in the games"), (1, "distinct positions")] {
-        let [all, fam, hits, net] = stats[k];
-        let pc = |a: usize, b: usize| 100.0 * a as f64 / b.max(1) as f64;
-        out.push_str(&format!(
-            "holdout, {name} ({all}):\n  familiar {:.1}%; the table's move = Stockfish's in {:.1}% of them (the same analysed position, so by construction)\n  unfamiliar {:.1}% (the table says \"not familiar\"); the frozen grid net would give Stockfish's move in {:.1}% of them\n  the table alone: {:.1}% of all; with the net where the table is not familiar: {:.1}% of all\n",
-            pc(fam, all),
-            pc(hits, fam),
-            pc(unfamiliar[k], all),
-            pc(net, unfamiliar[k]),
-            pc(hits, all),
-            pc(hits + net, all)
-        ));
+    // the threshold: the lowest at which the answered ones agree 90 % on validate (the target), else none
+    let th = [0.0f32, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+        .into_iter()
+        .find(|&th| {
+            let ans: Vec<&(f32, bool)> = va_s.iter().filter(|x| x.0 >= th).collect();
+            !ans.is_empty() && ans.iter().filter(|x| x.1).count() as f64 / ans.len() as f64 >= 0.9
+        });
+    let ho = sure(&holdout.iter().filter_map(choices).collect::<Vec<_>>());
+    let all = ho.len().max(1) as f64;
+    out.push_str(&format!("holdout ({} distinct positions), never used before this line:\n  every position answered: Stockfish's move {:.1}%\n", ho.len(), 100.0 * ho.iter().filter(|x| x.1).count() as f64 / all));
+    match th {
+        Some(th) => {
+            let ans: Vec<&(f32, bool)> = ho.iter().filter(|x| x.0 >= th).collect();
+            out.push_str(&format!("  threshold {th:.2} (the lowest reaching 90 % on validate): answers {:.1}% of the positions, Stockfish's move in {:.1}% of those; the rest \"not familiar\"\n", 100.0 * ans.len() as f64 / all, 100.0 * ans.iter().filter(|x| x.1).count() as f64 / ans.len().max(1) as f64));
+        }
+        None => out.push_str("  no threshold reaches 90 % on validate\n"),
     }
     out.push_str(&format!("({:.0} s)\n", t0.elapsed().as_secs_f64()));
     Ok(out)
