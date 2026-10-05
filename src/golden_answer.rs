@@ -361,6 +361,8 @@ pub enum Task {
     /// an exact calculation read from written mathematics (LaTeX): a value,
     /// a remainder, a units digit, gcd, lcm, an inverse mod m, a base
     Exact(crate::golden_exact::Q),
+    /// the best move in a chess position (its FEN)
+    Chess(String),
     /// a graph whose adjacent pairs have λ and non-adjacent pairs μ common neighbours (Conway's 99-graph kind)
     Graph(crate::golden_graph::GraphQ),
     /// handed to Nuome's worked-solution engine
@@ -404,6 +406,9 @@ fn frame(t: &str, prefixes: &[&str], suffixes: &[&str]) -> Option<Num> {
 /// question it cannot read whole is Unknown (or Nuome's algebra), so an
 /// answer that claims to be right never answers a question it misread.
 pub fn task_of(q: &str) -> Task {
+    if let Some(fen) = crate::golden_chess::read(q) {
+        return Task::Chess(fen);
+    }
     if let Some(g) = crate::golden_graph::read(q) {
         return Task::Graph(g);
     }
@@ -803,6 +808,27 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
     match task.clone() {
         Task::Property(n, p) => property(a, &n, p),
         Task::Arithmetic(e) => arithmetic(a, &e),
+        Task::Chess(fen) => {
+            use crate::golden_chess::{answer as chess_answer, Kind3 as K};
+            let k = match a.kind {
+                Kind::Logical => K::Logical,
+                Kind::Theoretical => K::Theoretical,
+                Kind::Abstract => K::Abstract,
+            };
+            match chess_answer(k, &fen) {
+                Err(why) => a.none(why),
+                Ok((short, lines, sources)) => {
+                    let mut a = a.says(short);
+                    for l in lines {
+                        a = a.line(l);
+                    }
+                    for s in sources {
+                        a = a.source(s);
+                    }
+                    a
+                }
+            }
+        }
         Task::Graph(g) => {
             use crate::golden_graph::{answer as graph_answer, Kind3};
             let k3 = match a.kind {
@@ -856,7 +882,7 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
         Task::Collatz(n) => collatz(a, &n),
         Task::Statement(s) => statement(a, s),
         Task::Algebra => algebra(a, question),
-        Task::Unknown => a.none("Golden Answer does not know this kind of question yet (it knows primality, factoring, counting primes, Goldbach, sums of squares, Collatz, the famous theorems and open problems, and Nuome's algebra)"),
+        Task::Unknown => a.none("Golden Answer does not know this kind of question yet (it knows primality, factoring, counting primes, Goldbach, sums of squares, Collatz, the famous theorems and open problems, graphs of Conway's kind, the best move in a chess position, and Nuome's algebra)"),
     }
 }
 
