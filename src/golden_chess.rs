@@ -430,7 +430,8 @@ impl Fast {
             if m == tt_move {
                 1 << 40
             } else if victim > 0 || m_promo(m) != 0 {
-                (1 << 30) + victim * 10 + (m_promo(m) != 0) as i64 * 50
+                // what the exchange on the square leaves (SEE): only the order changes, never a value
+                (1 << 30) + crate::fast::see::see(p, m) as i64 * 4 + victim + (m_promo(m) != 0) as i64 * 500
             } else if m == k[0] || m == k[1] {
                 1 << 29
             } else {
