@@ -278,6 +278,11 @@ fn main() -> Result<()> {
             println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-table-only" {
+            // golden-table-only: the table written from Stockfish's analysed moves, its coverage on the holdout
+            print!("{}", nuome::golden_table::report_table().map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-table-sf" {
             // golden-table-sf [EPOCHS]: the table and net against Stockfish's analysis (tools/golden_table_sf.py first)
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

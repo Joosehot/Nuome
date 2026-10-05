@@ -48,6 +48,8 @@ pub struct Heard {
     pub key: u64,
     pub fen: String,
     pub sf: String,
+    /// the ply in its game (0 = the first move)
+    pub ply: usize,
 }
 
 /// Every Stockfish opening move of the first `max_games` games, by split.
@@ -65,7 +67,7 @@ pub fn hear(max_games: usize) -> Result<[Vec<Heard>; 3], String> {
             let sf_moves = if ply % 2 == 0 { w } else { b };
             let Some(m) = uci_to_move(&mut p, u) else { break };
             if sf_moves {
-                let h = Heard { key: p.key64(), fen: p.to_fen(), sf: u.to_string() };
+                let h = Heard { key: p.key64(), fen: p.to_fen(), sf: u.to_string(), ply };
                 out[split_of(g) as usize].push(h);
             }
             p.make(m);
@@ -214,7 +216,7 @@ fn write_table(train: &[Heard], w: &[f32]) -> Table {
         let pick = if tied.len() == 1 {
             tied[0].clone()
         } else {
-            let h = Heard { key, fen, sf: tied[0].clone() };
+            let h = Heard { key, fen, sf: tied[0].clone(), ply: 0 };
             match choices(&h) {
                 Some((xs, _, names)) => {
                     let best = tied.iter().copied().max_by(|a, b| {
@@ -345,7 +347,7 @@ pub fn report_sf(max_epochs: usize) -> Result<String, String> {
     let [train, validate, holdout] = hear(usize::MAX)?;
     let distinct = |set: Vec<Heard>| -> Vec<Heard> {
         let mut seen = std::collections::HashSet::new();
-        set.into_iter().filter(|h| seen.insert(h.key)).filter_map(|h| label.get(&h.key).map(|m| Heard { key: h.key, fen: h.fen, sf: m.clone() })).collect()
+        set.into_iter().filter(|h| seen.insert(h.key)).filter_map(|h| label.get(&h.key).map(|m| Heard { key: h.key, fen: h.fen, sf: m.clone(), ply: h.ply })).collect()
     };
     let (train, validate, holdout) = (distinct(train), distinct(validate), distinct(holdout));
     let mut out = format!("Golden Answer's table = the frozen grid net, openings; reference = Stockfish's move at a fixed depth ({} positions analysed); distinct positions: train {} / validate {} / holdout {}\n", label.len(), train.len(), validate.len(), holdout.len());
@@ -389,5 +391,47 @@ pub fn report_sf(max_epochs: usize) -> Result<String, String> {
         None => out.push_str("  no threshold reaches 90 % on validate\n"),
     }
     out.push_str(&format!("({:.0} s)\n", t0.elapsed().as_secs_f64()));
+    Ok(out)
+}
+
+/// The table itself, against Stockfish's analysis: written from the train
+/// positions' analysed moves; on the holdout, how much it knows (familiar),
+/// and the table's move = Stockfish's where it knows; the rest "not familiar".
+pub fn report_table() -> Result<String, String> {
+    let text = std::fs::read_to_string(SF_LABELS).map_err(|e| format!("{SF_LABELS}: {e}"))?;
+    let label: HashMap<u64, String> = text.lines().filter_map(|l| l.split_once('\t')).filter_map(|(k, m)| Some((k.parse().ok()?, m.trim().to_string()))).collect();
+    let [train, _validate, holdout] = hear(usize::MAX)?;
+    let table: HashMap<u64, &String> = train.iter().filter_map(|h| label.get(&h.key).map(|m| (h.key, m))).collect();
+    let mut occ = [0usize; 3]; // all, familiar, hit
+    let mut dis = [0usize; 3];
+    let mut seen = std::collections::HashSet::new();
+    let mut by_ply = vec![[0usize; 2]; OPENING_PLIES];
+    for h in &holdout {
+        let Some(sf) = label.get(&h.key) else { continue };
+        let fam = table.get(&h.key);
+        let hit = fam.map_or(false, |m| *m == sf);
+        occ[0] += 1;
+        occ[1] += fam.is_some() as usize;
+        occ[2] += hit as usize;
+        if seen.insert(h.key) {
+            dis[0] += 1;
+            dis[1] += fam.is_some() as usize;
+            dis[2] += hit as usize;
+        }
+        let ply = h.ply;
+        if ply < OPENING_PLIES {
+            by_ply[ply][0] += 1;
+            by_ply[ply][1] += fam.is_some() as usize;
+        }
+    }
+    let pc = |a: usize, b: usize| 100.0 * a as f64 / b.max(1) as f64;
+    let mut out = format!(
+        "Golden Answer's table (openings), entries = Stockfish's analysed move for every train position: {} entries\nholdout by occurrence ({}): familiar {:.1}%, table = Stockfish {:.1}% of the familiar, {:.1}% of all\nholdout by distinct position ({}): familiar {:.1}%, table = Stockfish {:.1}% of the familiar, {:.1}% of all\nfamiliar by ply (occurrences):",
+        table.len(), occ[0], pc(occ[1], occ[0]), pc(occ[2], occ[1]), pc(occ[2], occ[0]), dis[0], pc(dis[1], dis[0]), pc(dis[2], dis[1]), pc(dis[2], dis[0])
+    );
+    for (i, b) in by_ply.iter().enumerate() {
+        out.push_str(&format!(" {}:{:.0}%", i + 1, pc(b[1], b[0])));
+    }
+    out.push('\n');
     Ok(out)
 }
