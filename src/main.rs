@@ -278,6 +278,17 @@ fn main() -> Result<()> {
             println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-table-cover" {
+            // golden-table-cover [MAX_GAMES]: how much of the CCRL middlegame and endgame the full table knows
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_table::coverage_ccrl(n.first().copied().unwrap_or(20_000)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "golden-table-learn" {
+            // golden-table-learn: teach the table the middlegame and endgame (6+ pieces) positions with Stockfish's moves
+            print!("{}", nuome::golden_table::learn_mid_end().map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-table-all" {
             // golden-table-all: every known opening position into the table (out/golden/opening_table.tsv)
             print!("{}", nuome::golden_table::write_all().map_err(|e| anyhow::anyhow!(e))?);

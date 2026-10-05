@@ -464,3 +464,83 @@ pub fn write_all() -> Result<String, String> {
         by_ply.iter().enumerate().map(|(i, n)| format!("{}:{n}", i + 1)).collect::<Vec<_>>().join(" ")
     ))
 }
+
+pub const HF_FILE: &str = "out/golden/hf_mid_end.tsv";
+pub const FULL_TABLE: &str = "out/golden/golden_table.tsv";
+
+/// The middlegame and endgame (more than five pieces) positions taught to
+/// the table: Stockfish's best move for each (Hugging Face
+/// agi-noobs/chess-sft-10m-stockfish, extracted to HF_FILE). One in ten
+/// (by the position's key) is held out first to see how much of it the
+/// table knows; then every position goes in: FULL_TABLE (phase TAB key TAB move).
+pub fn learn_mid_end() -> Result<String, String> {
+    let t0 = std::time::Instant::now();
+    let text = std::fs::read_to_string(HF_FILE).map_err(|e| format!("{HF_FILE}: {e}"))?;
+    let mut rows: Vec<(&str, u64, &str)> = Vec::new();
+    for line in text.lines() {
+        let mut it = line.splitn(3, '\t');
+        let (Some(ph), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
+        let Ok(p) = Position::from_fen(fen) else { continue };
+        rows.push((ph, p.key64(), mv));
+    }
+    let held = |k: u64| k.wrapping_mul(0x9E37_79B9_7F4A_7C15) % 10 == 9;
+    let table: HashMap<u64, &str> = rows.iter().filter(|r| !held(r.1)).map(|r| (r.1, r.2)).collect();
+    let mut out = format!("taught: {} middlegame and endgame (6+ pieces) positions read ({:.0} s)\n", rows.len(), t0.elapsed().as_secs_f64());
+    for phase in ["middlegame", "endgame"] {
+        let ho: Vec<&(&str, u64, &str)> = rows.iter().filter(|r| r.0 == phase && held(r.1)).collect();
+        let fam = ho.iter().filter(|r| table.contains_key(&r.1)).count();
+        out.push_str(&format!("  held out {phase}: {} positions, familiar to the table {:.2}%\n", ho.len(), 100.0 * fam as f64 / ho.len().max(1) as f64));
+    }
+    // every known position into the table: the openings and these
+    let mut all = String::new();
+    let opening = std::fs::read_to_string(TABLE_FILE).unwrap_or_default();
+    let mut n_open = 0;
+    for l in opening.lines() {
+        let mut it = l.splitn(3, '\t');
+        if let (Some(k), Some(m)) = (it.next(), it.next()) {
+            all.push_str(&format!("opening\t{k}\t{m}\n"));
+            n_open += 1;
+        }
+    }
+    for (ph, k, m) in &rows {
+        all.push_str(&format!("{ph}\t{k}\t{m}\n"));
+    }
+    std::fs::write(FULL_TABLE, all).map_err(|e| e.to_string())?;
+    out.push_str(&format!("the table now: {n_open} opening + {} middlegame and endgame positions, written to {FULL_TABLE} ({:.0} s)\n", rows.len(), t0.elapsed().as_secs_f64()));
+    Ok(out)
+}
+
+/// How much of the CCRL games' middlegame and endgame (plies 21-..., more
+/// than five pieces) the full table knows: a source the table was not built from.
+pub fn coverage_ccrl(max_games: usize) -> Result<String, String> {
+    let text = std::fs::read_to_string(FULL_TABLE).map_err(|e| format!("{FULL_TABLE}: {e}"))?;
+    let keys: std::collections::HashSet<u64> = text.lines().filter_map(|l| l.split('\t').nth(1)?.parse().ok()).filter(|_| true).collect();
+    let games = std::fs::read_to_string(GAMES).map_err(|e| e.to_string())?;
+    let mut n = [0usize; 2];
+    let mut fam = [0usize; 2];
+    for line in games.lines().take(max_games) {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+        let mut p = Position::from_fen(START)?;
+        for (ply, u) in parts[2].split_whitespace().enumerate() {
+            let Some(m) = uci_to_move(&mut p, u) else { break };
+            let pieces = p.occ.count_ones();
+            if ply >= OPENING_PLIES && pieces > 5 {
+                let ph = if pieces > 12 { 0 } else { 1 };
+                n[ph] += 1;
+                fam[ph] += keys.contains(&p.key64()) as usize;
+            }
+            p.make(m);
+        }
+    }
+    Ok(format!(
+        "the full table ({} positions) on CCRL positions from ply 21 on, more than five pieces ({max_games} games):\n  more than 12 pieces: {} positions, familiar {:.2}%\n  6-12 pieces: {} positions, familiar {:.2}%\n",
+        keys.len(),
+        n[0],
+        100.0 * fam[0] as f64 / n[0].max(1) as f64,
+        n[1],
+        100.0 * fam[1] as f64 / n[1].max(1) as f64
+    ))
+}
