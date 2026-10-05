@@ -626,9 +626,13 @@ pub fn save(file: &str, found: &[Found]) -> Result<(), String> {
 }
 
 /// Every roster: the whole one, and one a phase (empty when not discovered).
+/// A phase whose weights were optimized carries them instead of its lifts
+/// and is listed in `weighted`: there a move weighs the sum of its
+/// patterns' weights; elsewhere its strongest pattern's ln(lift).
 pub struct Rosters {
     pub all: Vec<(Pattern, f64)>,
     pub phase: Vec<(Phase, Vec<(Pattern, f64)>)>,
+    pub weighted: Vec<Phase>,
 }
 
 impl Rosters {
@@ -643,10 +647,149 @@ impl Rosters {
     pub fn len(&self) -> usize {
         self.all.len() + self.phase.iter().map(|(_, r)| r.len()).sum::<usize>()
     }
+    /// Whether this position's roster carries optimized weights (summed).
+    pub fn summed(&self, b: &Board) -> bool {
+        let ph = phase_of(b);
+        self.weighted.contains(&ph) && self.phase.iter().any(|(p, r)| *p == ph && !r.is_empty())
+    }
+}
+
+fn weights_file(ph: Phase) -> String {
+    ph.file().replace(".txt", "_weights.txt")
 }
 
 pub fn load() -> Rosters {
-    Rosters { all: load_file(PATTERNS_FILE), phase: PHASES.iter().map(|&p| (p, load_file(p.file()))).collect() }
+    let mut weighted = Vec::new();
+    let phase = PHASES
+        .iter()
+        .map(|&p| {
+            let w = load_weights(&weights_file(p));
+            if !w.is_empty() {
+                weighted.push(p);
+                (p, w)
+            } else {
+                (p, load_file(p.file()))
+            }
+        })
+        .collect();
+    Rosters { all: load_file(PATTERNS_FILE), phase, weighted }
+}
+
+fn load_weights(file: &str) -> Vec<(Pattern, f64)> {
+    std::fs::read_to_string(file)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let (b, w) = l.split_once('\t')?;
+            Some((Pattern(b.parse().ok()?), w.trim().parse().ok()?))
+        })
+        .collect()
+}
+
+/// One position for the weights: each move's matching pattern indices, and Stockfish's move.
+struct Seen {
+    hits: Vec<Vec<u16>>,
+    chosen: usize,
+}
+
+fn seen(cases: &[Case], ph: Phase, roster: &[(Pattern, f64)]) -> Vec<Seen> {
+    cases
+        .iter()
+        .filter(|c| c.phase == ph)
+        .map(|c| Seen { hits: c.facts.iter().map(|&f| roster.iter().enumerate().filter(|(_, (p, _))| p.holds(f)).map(|(i, _)| i as u16).collect()).collect(), chosen: c.chosen })
+        .collect()
+}
+
+/// The share of positions where the highest-scoring move is Stockfish's (ties: the first in the rules' order).
+fn accuracy(set: &[Seen], score: &dyn Fn(&[u16]) -> f64) -> f64 {
+    let right = set
+        .iter()
+        .filter(|s| {
+            let mut best = (f64::NEG_INFINITY, 0usize);
+            for (i, h) in s.hits.iter().enumerate() {
+                let v = score(h);
+                if v > best.0 {
+                    best = (v, i);
+                }
+            }
+            best.1 == s.chosen
+        })
+        .count();
+    right as f64 / set.len().max(1) as f64
+}
+
+/// Optimize the weights of every phase's roster together against
+/// Stockfish's choices (a conditional logit fitted by gradient steps, from
+/// ln(lift)), on the first `n_train` positions; a phase's weights are saved
+/// only when they pick Stockfish's move more often than its strongest
+/// pattern does on `n_val` positions from `val_from` on, seen neither by the
+/// fitting nor by the discovery of the patterns.
+pub fn optimize(path: &str, n_train: usize, n_val: usize, val_from: usize) -> Result<String, String> {
+    let t0 = std::time::Instant::now();
+    let train = read_positions(path, 0, n_train)?;
+    // the judging positions come from the half the patterns were never discovered on
+    let val = read_positions(path, val_from.max(n_train), n_val)?;
+    let mut out = format!("weights for the patterns, fitted on {} positions, judged on {} unseen ({:.0} s to read)\n", train.len(), val.len(), t0.elapsed().as_secs_f64());
+    for ph in PHASES {
+        let roster = load_file(ph.file());
+        if roster.is_empty() {
+            continue;
+        }
+        let (tr, va) = (seen(&train, ph, &roster), seen(&val, ph, &roster));
+        let lift: Vec<f64> = roster.iter().map(|(_, l)| l.ln()).collect();
+        let max_rule = |h: &[u16]| h.iter().map(|&i| lift[i as usize]).fold(0.0, f64::max);
+        let before = accuracy(&va, &max_rule);
+        let mut w = lift.clone();
+        let mut best_w = w.clone();
+        let mut best_acc = accuracy(&va, &|h: &[u16]| h.iter().map(|&i| w[i as usize]).sum());
+        let sum_start = best_acc;
+        for epoch in 0..6 {
+            let lr = 0.05 / (1.0 + epoch as f64);
+            for s in &tr {
+                let scores: Vec<f64> = s.hits.iter().map(|h| h.iter().map(|&i| w[i as usize]).sum()).collect();
+                let m = scores.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                let ex: Vec<f64> = scores.iter().map(|x| (x - m).exp()).collect();
+                let z: f64 = ex.iter().sum();
+                for (j, h) in s.hits.iter().enumerate() {
+                    let g = (j == s.chosen) as u8 as f64 - ex[j] / z;
+                    if g.abs() < 1e-9 {
+                        continue;
+                    }
+                    for &i in h {
+                        w[i as usize] += lr * g;
+                    }
+                }
+            }
+            for x in w.iter_mut() {
+                *x *= 1.0 - 1e-4;
+            }
+            let acc = accuracy(&va, &|h: &[u16]| h.iter().map(|&i| w[i as usize]).sum());
+            if acc > best_acc {
+                best_acc = acc;
+                best_w = w.clone();
+            }
+        }
+        let keep = best_acc > before;
+        out.push_str(&format!(
+            "  {}: {} patterns, {} positions to fit, {} unseen: Stockfish's move picked {:.2}% by the strongest pattern, {:.2}% by the summed lifts, {:.2}% by the optimized weights -> {}\n",
+            ph.name(),
+            roster.len(),
+            tr.len(),
+            va.len(),
+            100.0 * before,
+            100.0 * sum_start,
+            100.0 * best_acc,
+            if keep { "kept" } else { "not kept (no better on the unseen positions)" }
+        ));
+        let file = weights_file(ph);
+        if keep {
+            let text: String = roster.iter().zip(&best_w).map(|((p, _), w)| format!("{}\t{w:.6}\n", p.0)).collect();
+            std::fs::write(&file, text).map_err(|e| e.to_string())?;
+        } else {
+            let _ = std::fs::remove_file(&file);
+        }
+    }
+    Ok(out)
 }
 
 fn load_file(file: &str) -> Vec<(Pattern, f64)> {
@@ -730,11 +873,16 @@ pub fn play(b: &Board, history: &[u64], rosters: &Rosters) -> Option<(Mv, f64, V
         });
     }
     let patterns = rosters.for_board(b);
+    let summed = rosters.summed(b);
     let mut scored: Vec<(Mv, f64, Vec<Pattern>)> = fs
         .iter()
         .map(|&(m, f)| {
             let hits: Vec<Pattern> = patterns.iter().filter(|(p, _)| p.holds(f)).map(|x| x.0).collect();
-            let w: f64 = patterns.iter().filter(|(p, _)| p.holds(f)).map(|(_, l)| l.ln()).fold(0.0, f64::max);
+            let w: f64 = if summed {
+                patterns.iter().filter(|(p, _)| p.holds(f)).map(|(_, w)| *w).sum()
+            } else {
+                patterns.iter().filter(|(p, _)| p.holds(f)).map(|(_, l)| l.ln()).fold(0.0, f64::max)
+            };
             (m, w, hits)
         })
         .collect();

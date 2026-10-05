@@ -264,6 +264,13 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-weights" {
+            // golden-weights [TRAIN] [VAL] [VAL_FROM] [FILE] (VAL_FROM past the discovery half): optimize the patterns' weights against Stockfish, kept only when better on unseen positions
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.replace('_', "").parse().ok()).collect();
+            let path = cli.words.iter().find(|w| w.ends_with(".jsonl")).cloned().unwrap_or_else(|| "out/golden/discover_mix.jsonl".to_string());
+            println!("{}", nuome::patterns::optimize(&path, n.first().copied().unwrap_or(200_000), n.get(1).copied().unwrap_or(100_000), n.get(2).copied().unwrap_or(600_000)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-discover" {
             // golden-discover [N]: Golden Boy finds Stockfish's recurring patterns in N positions, tested on the next N
             let n = cli.words.first().and_then(|w| w.replace('_', "").parse().ok()).unwrap_or(50_000);
