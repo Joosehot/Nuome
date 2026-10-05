@@ -273,6 +273,12 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "golden-table" {
+            // golden-table [MAX_GAMES] [EPOCHS]: Golden Answer's opening table and grid net, reported on the holdout
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_table::report(n.first().copied().unwrap_or(usize::MAX), n.get(1).copied().unwrap_or(3)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-matepath" {
             // golden-matepath FENS_FILE: the shortest mate path of every position in the file
             let path = cli.words.first().context("golden-matepath takes a file of FENs")?;
