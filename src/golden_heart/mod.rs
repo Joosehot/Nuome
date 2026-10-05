@@ -21,6 +21,26 @@ use crate::golden::{Board, Mv};
 use rules::{read_all, width, RULES, VARIANTS};
 
 pub const RULES_FILE: &str = "out/golden/heart_rules.toml";
+pub const WEIGHTS_FILE: &str = "out/golden/heart_weights.txt";
+
+static FROZEN: std::sync::OnceLock<Option<Vec<f64>>> = std::sync::OnceLock::new();
+
+/// The frozen heart, loaded once (None when it has not been cloned yet).
+pub fn frozen() -> Option<&'static [f64]> {
+    FROZEN
+        .get_or_init(|| {
+            let w: Vec<f64> = std::fs::read_to_string(WEIGHTS_FILE).ok()?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+            (w.len() == width()).then_some(w)
+        })
+        .as_deref()
+}
+
+/// The static eval: the position's worth for the side to move, in hundredths of
+/// the heart's units. The heart was measured from the side that had just moved,
+/// so it is read from there and turned around.
+pub fn eval(w: &[f64], b: &Board) -> i64 {
+    (-score(w, &read_all(b, !b.white)) * 100.0).round() as i64
+}
 const PHASES: [&str; 4] = ["openings", "middlegames", "endgames", "pawn endings"];
 
 fn phase(b: &Board) -> usize {
@@ -321,6 +341,8 @@ pub fn clone_heart(path: &str, max_games: usize) -> Result<String, String> {
         }
     }
     std::fs::write(RULES_FILE, toml).map_err(|e| e.to_string())?;
+    // the frozen weights (seeds times strength) for the eval, one a line in input order
+    std::fs::write(WEIGHTS_FILE, w.iter().map(|x| format!("{x:.8}\n")).collect::<String>()).map_err(|e| e.to_string())?;
     out.push_str(&format!("frozen in {RULES_FILE} ({:.0} s)\n", t0.elapsed().as_secs_f64()));
     Ok(out)
 }

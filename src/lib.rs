@@ -9,6 +9,7 @@
 
 pub mod beal;
 pub mod bitboard;
+pub mod fast;
 pub mod bsd;
 pub mod calls;
 pub mod attempt;
