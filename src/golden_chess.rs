@@ -86,7 +86,19 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
                 let slow = rows.iter().max_by_key(|r| if let Proof::Loss(n) = r.1 { n } else { 0 }).map(|r| r.0.uci()).unwrap_or_default();
                 return Ok((slow.clone(), vec![format!("every move loses by force; {slow} lasts longest ({nodes} positions)")], vec![]));
             }
-            Err(format!("no move is proved best: no forced mate within the search ({nodes} positions), and the position has {} pieces (Nuome's own tables cover 3)", b.sq.iter().filter(|&&p| p != 0).count()))
+            // 6-32 pieces: a proof with its scope said: the best move of a bounded game, every move searched
+            let depth = std::env::var("GOLDEN_PROOF_PLIES").ok().and_then(|x| x.parse().ok()).unwrap_or(4);
+            let (m, v, n, second) = bounded(&b, depth);
+            let who = if b.white { "white" } else { "black" };
+            let mut lines = vec![
+                format!("no forced mate and no solved class: what is proved is the bounded game (scope: {depth} plies of every legal move by both sides, then captures traded until quiet, each side free to stop; scored by material, Kaufman 100/325/325/500/975, mate ±100000)"),
+                format!("in that game {m} gives {who} {v:+} centipawns, and no other move gives more ({n} positions, every reply searched)"),
+            ];
+            if let Some((m2, v2)) = second {
+                lines.push(format!("the next best is {m2} at {v2:+}"));
+            }
+            lines.push("this proves the move best in the bounded game, not best in chess".into());
+            Ok((m, lines, vec![]))
         }
         Kind3::Theoretical => {
             let pieces = b.sq.iter().filter(|&&p| p != 0).count();
@@ -127,6 +139,71 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
     }
 }
 
+const MATE: i64 = 100_000;
+
+/// The bounded game's value for the side to move: every move for `depth`
+/// plies, then captures (and promotions) until quiet with standing pat;
+/// material at the leaves. Alpha-beta cuts only lines that cannot change
+/// the value, so the value is the full minimax value of this game.
+fn game(b: &Board, depth: u32, mut alpha: i64, beta: i64, nodes: &mut u64) -> i64 {
+    *nodes += 1;
+    let ms = b.moves();
+    if ms.is_empty() {
+        return if b.in_check() { -MATE } else { 0 };
+    }
+    let quiet = depth == 0;
+    if quiet {
+        let stand = crate::supergenius_eval::material(b);
+        if stand >= beta {
+            return stand;
+        }
+        alpha = alpha.max(stand);
+    }
+    // captures first: the order changes only the speed, never the value
+    let mut order: Vec<(i64, crate::golden::Mv)> = ms
+        .into_iter()
+        .map(|m| {
+            let victim = b.sq[m.to as usize].unsigned_abs() as i64;
+            let ep = b.sq[m.from as usize].abs() == 1 && Some(m.to) == b.ep;
+            ((victim + ep as i64) * 10 + (m.promo != 0) as i64 * 50, m)
+        })
+        .collect();
+    if quiet {
+        order.retain(|(score, _)| *score > 0);
+    }
+    order.sort_by_key(|o| std::cmp::Reverse(o.0));
+    let mut best = if quiet { alpha } else { -MATE - 1 };
+    for (_, m) in order {
+        let v = -game(&b.play(m), depth.saturating_sub(1), -beta, -alpha.max(best), nodes);
+        if v > best {
+            best = v;
+        }
+        if best >= beta {
+            break;
+        }
+    }
+    best
+}
+
+/// Every root move's value in the bounded game (full window each, best first), and the positions searched.
+fn bounded_rows(b: &Board, depth: u32) -> (Vec<(String, i64)>, u64) {
+    let mut nodes = 0u64;
+    let mut rows: Vec<(String, i64)> = b
+        .moves()
+        .into_iter()
+        .map(|m| (m.uci(), -game(&b.play(m), depth.saturating_sub(1), -MATE - 1, MATE + 1, &mut nodes)))
+        .collect();
+    rows.sort_by_key(|r| std::cmp::Reverse(r.1));
+    (rows, nodes)
+}
+
+/// The best move of the bounded game: (move, value, positions, next best).
+fn bounded(b: &Board, depth: u32) -> (String, i64, u64, Option<(String, i64)>) {
+    let (rows, nodes) = bounded_rows(b, depth);
+    let second = rows.get(1).cloned();
+    (rows[0].0.clone(), rows[0].1, nodes, second)
+}
+
 /// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).
 fn syzygy_rows(fen: &str) -> Result<Vec<(String, i32)>, String> {
     let script = format!(
@@ -139,18 +216,20 @@ fn syzygy_rows(fen: &str) -> Result<Vec<(String, i32)>, String> {
     Ok(String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| l.split_once(' ').and_then(|(m, v)| v.trim().parse().ok().map(|v| (m.to_string(), v)))).collect())
 }
 
-/// Golden Boy plays with all three kinds, each move saying what it rests on:
-/// a proved move (logical) when there is one; in positions of up to five
-/// pieces, among the moves that keep the result (theoretical), the one its
-/// patterns rank first, so a won position moves on; otherwise its pattern
-/// move (abstract). (move, kind, lines)
+/// Golden Boy plays with Golden Answer's kinds, each move saying what it
+/// rests on: a strong proof (mate, solved class) first; in positions of up
+/// to five pieces, among the moves that keep the Syzygy result
+/// (theoretical), the one its patterns rank first; otherwise the bounded
+/// game's best (logical, proved in its scope), the patterns choosing among
+/// equals. (move, kind, lines)
 pub fn play(fen: &str) -> Option<(String, &'static str, Vec<String>)> {
     let b = Board::from_fen(fen).ok()?;
     if b.moves().is_empty() {
         return None;
     }
+    // 1. a strong proof: a forced mate, a solved class, a forced draw or loss
     if let Ok((m, lines, _)) = answer(Kind3::Logical, fen) {
-        if m != "no move" {
+        if m != "no move" && !lines[0].starts_with("no forced mate and no solved class") {
             return Some((m, "logical", lines));
         }
     }
@@ -171,8 +250,17 @@ pub fn play(fen: &str) -> Option<(String, &'static str, Vec<String>)> {
             }
         }
     }
-    let first = ranked.first()?.clone();
-    Some((first, "abstract", vec!["Golden Boy's pattern move; it claims nothing".into()]))
+    // 3. the bounded game, proved; among its equally best moves the patterns choose
+    let depth = std::env::var("GOLDEN_PROOF_PLIES").ok().and_then(|x| x.parse().ok()).unwrap_or(4);
+    let (rows, nodes) = bounded_rows(&b, depth);
+    let top = rows.first()?.1;
+    let equal: Vec<&String> = rows.iter().filter(|r| r.1 == top).map(|r| &r.0).collect();
+    let pick = ranked.iter().find(|m| equal.contains(m)).cloned().unwrap_or_else(|| equal[0].clone());
+    let lines = vec![format!(
+        "the bounded game ({depth} plies of every move, captures to quiet, material) gives {top:+} at best ({nodes} positions); {} moves reach it, and Golden Boy's patterns choose {pick} among them",
+        equal.len()
+    )];
+    Some((pick, "logical (bounded) + patterns among equals", lines))
 }
 
 #[cfg(test)]
