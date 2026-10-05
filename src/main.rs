@@ -264,11 +264,13 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
-        if which == "golden-five" {
-            // golden-five [HEARD GAMES] [CHECK GAMES] [SECONDS]: the five checks as one function, evolved on Stockfish's moves, frozen
-            let n: Vec<f64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
-            let (heard, check, secs) = (n.first().copied().unwrap_or(2000.0) as usize, n.get(1).copied().unwrap_or(1000.0) as usize, n.get(2).copied().unwrap_or(60.0));
-            nuome::golden_five::run("out/golden/ccrl_sf_games.txt", heard, check, secs, &mut |l| println!("{l}")).map_err(|e| anyhow::anyhow!(e))?;
+        if which == "golden-formula" {
+            // golden-formula FENS_FILE: the Golden formula's move for every FEN in the file, one per line
+            let path = cli.words.first().context("golden-formula takes a file of FENs")?;
+            for fen in std::fs::read_to_string(path)?.lines().filter(|l| !l.trim().is_empty()) {
+                let m = nuome::golden_formula::rank(fen.trim()).and_then(|r| r.first().map(|x| x.0.clone())).unwrap_or_else(|| "none".into());
+                println!("{m}");
+            }
             return Ok(());
         }
         if which == "golden-heart" {

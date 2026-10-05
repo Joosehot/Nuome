@@ -363,8 +363,8 @@ pub enum Task {
     Exact(crate::golden_exact::Q),
     /// the best move in a chess position (its FEN)
     Chess(String),
-    /// one function of the five checks (legality, safety, force, material, tempo)
-    Five,
+    /// the Golden formula for chess: the five checks scored on every move and its reply
+    Formula,
     /// a graph whose adjacent pairs have λ and non-adjacent pairs μ common neighbours (Conway's 99-graph kind)
     Graph(crate::golden_graph::GraphQ),
     /// handed to Nuome's worked-solution engine
@@ -411,8 +411,8 @@ pub fn task_of(q: &str) -> Task {
     if let Some(fen) = crate::golden_chess::read(q) {
         return Task::Chess(fen);
     }
-    if crate::golden_five::read(q) {
-        return Task::Five;
+    if crate::golden_formula::read(q) {
+        return Task::Formula;
     }
     if let Some(g) = crate::golden_graph::read(q) {
         return Task::Graph(g);
@@ -813,7 +813,7 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
     match task.clone() {
         Task::Property(n, p) => property(a, &n, p),
         Task::Arithmetic(e) => arithmetic(a, &e),
-        Task::Five => match crate::golden_five::answer(a.kind == Kind::Logical, a.kind == Kind::Abstract) {
+        Task::Formula => match crate::golden_formula::answer(a.kind == Kind::Logical, a.kind == Kind::Abstract) {
             Err(why) => a.none(why),
             Ok((short, lines, sources)) => {
                 let mut a = a.says(short);

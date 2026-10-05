@@ -53,10 +53,9 @@ const MATE: i64 = 100_000;
 /// Golden Answer answers chess only theoretically.
 const ONLY: &str = "Golden Answer answers chess only theoretically (from known results: the Syzygy tables, and Golden heart measured from Stockfish's games); ask theoretical";
 
-/// Every legal move, best first by the five checks as one function in the apple (golden_five), with f there.
-fn raw_rows(b: &Board) -> Vec<(String, f64)> {
-    let Some(g) = crate::golden_five::load() else { return Vec::new() };
-    crate::golden_five::rank(&b.fen(), &g).unwrap_or_default().into_iter().map(|r| (r.0, r.1)).collect()
+/// Every legal move, best first by the Golden formula (golden_formula), with f.
+fn raw_rows(b: &Board) -> Vec<(String, i64)> {
+    crate::golden_formula::rank(&b.fen()).unwrap_or_default()
 }
 
 fn heart_source() -> String {
@@ -95,28 +94,20 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
         let lines = vec![
             format!("the position is a {what} for {side} with best play"),
             format!("{} moves keep it: {}", keep.len(), keep.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ")),
-            format!("among them {pick} is first by the five checks (legality, safety, force, material, tempo)"),
+            format!("among them {pick} is first by the Golden formula"),
         ];
         return Ok((pick, lines, vec![format!("Syzygy endgame tablebases, 3-5 pieces (Ronald de Man), probed with python-chess from {SYZYGY}"), heart_source()]));
     }
-    let g = crate::golden_five::load().ok_or("the function of the five checks is not found yet: run golden-five")?;
-    let rows = crate::golden_five::rank(fen, &g).ok_or("no legal move")?;
-    let show = |a: &crate::golden_five::Apple| match a {
-        crate::golden_five::Apple::Won => "the forcing lines mate".to_string(),
-        crate::golden_five::Apple::Lost => "the forcing lines mate us".to_string(),
-        crate::golden_five::Apple::Stalemate => "the forcing lines end in stalemate".to_string(),
-        crate::golden_five::Apple::Vars(x) => crate::golden_five::NAMES.iter().zip(x).map(|(n, v)| format!("{n} {v:+}")).collect::<Vec<_>>().join(", "),
-    };
-    let (m, v, a) = &rows[0];
+    let rows = crate::golden_formula::rank(fen).ok_or("no legal move")?;
+    let (m, v) = &rows[0];
     let mut lines = vec![
-        format!("{m} has the best apple: f = {v:.3} where its forcing lines stop (up to {} plies, each side free to stop)", crate::golden_five::PLIES),
-        format!("f = {} (legality first: a mate in the apple wins or loses outright, a stalemate is f of nothing)", g.show()),
-        format!("in the apple: {}", show(a)),
+        format!("{m} has the best f: {v:+} centipawns for {side}"),
+        crate::golden_formula::written().to_string(),
     ];
-    if let Some((m2, v2, _)) = rows.get(1) {
-        lines.push(format!("next: {m2} at {v2:.3}"));
+    if let Some((m2, v2)) = rows.get(1) {
+        lines.push(format!("next: {m2} at {v2:+}"));
     }
-    Ok((m.clone(), lines, vec![format!("the function of the five checks, found by Golden from Stockfish's moves in CCRL games and frozen in {}", crate::golden_five::FILE)]))
+    Ok((m.clone(), lines, vec!["the Golden formula for chess (src/golden_formula.rs): the rules, Kaufman's piece values (1999), three tempi a pawn".into()]))
 }
 
 /// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).
