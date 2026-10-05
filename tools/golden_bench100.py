@@ -34,8 +34,7 @@ def play(row):
     if _cmd == "matepath":
         import tempfile
         with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as fh:
-            fh.write(fen + "
-")
+            fh.write(fen + "\n")
         out = subprocess.run([EXE, "--ideas", "golden-matepath", fh.name], cwd=NUOME, capture_output=True, text=True, timeout=600).stdout
         os.unlink(fh.name)
         m = MATEPATH_RE.search(out)
