@@ -3,13 +3,16 @@
 //!
 //! - up to five pieces: the Syzygy tablebases (Ronald de Man), probed through
 //!   python-chess: a move that keeps the position's win, draw or loss;
-//! - otherwise: every legal move played once; after it the forcing lines
-//!   (captures, promotions, the mover's checks) are followed to their end,
-//!   each side free to stop, so material won or lost by force shows; the end
-//!   is judged as it stands — checkmate and stalemate by the rules, the rest
-//!   by Golden heart (measured from 124 707 Stockfish games) plus the tempo
-//!   (3 cp a legal move more than the other side, 10 cp for the move).
-//!   No search over quiet moves.
+//! - otherwise, every move is checked for five things, in this order, each
+//!   deciding only between moves the earlier ones left equal:
+//!   1. legality — the rules;
+//!   2. safety  — what the other side's forcing lines (checks, captures,
+//!      promotions, up to 20 plies, each side free to stop) win after it;
+//!   3. force   — mate; otherwise what our own forcing lines would win if
+//!      the other side did nothing (the threat the move makes);
+//!   4. material — what the move takes at once;
+//!   5. tempo   — our legal moves minus theirs after it.
+//!   No Golden heart, no search over quiet moves.
 //!
 //! The logical and abstract kinds do not answer chess.
 
@@ -50,65 +53,10 @@ const MATE: i64 = 100_000;
 /// Golden Answer answers chess only theoretically.
 const ONLY: &str = "Golden Answer answers chess only theoretically (from known results: the Syzygy tables, and Golden heart measured from Stockfish's games); ask theoretical";
 
-/// A quiet position's worth for the side to move: Golden heart (or material
-/// without it) plus the tempo — 3 cp a legal move more than the other side
-/// has, and 10 cp for having the move.
-fn stand(b: &Board, my_moves: usize) -> i64 {
-    let heart = match crate::golden_heart::frozen() {
-        Some(w) => crate::golden_heart::eval(w, b),
-        None => crate::supergenius_eval::material(b),
-    };
-    heart + crate::supergenius_eval::tempo(b, my_moves)
-}
-
-/// How long the forcing lines may run, and how many positions they may take a move.
-const FORCED_PLIES: u32 = 8;
-const FORCED_NODES: u64 = 40_000;
-
-/// The forcing lines followed to their end: the attacker (the side that made
-/// the move asked about) plays its captures, promotions and checks, the
-/// defender its captures and promotions (every reply when in check), each
-/// side free to stop where going on would cost it; at the end, the position
-/// as it stands with the tempo. Material won or lost by force shows here.
-/// The worth for the side to move.
-fn forced(b: &Board, plies: u32, attacker: bool, nodes: &mut u64) -> i64 {
-    *nodes += 1;
-    let ms = b.moves();
-    let check = b.in_check();
-    if ms.is_empty() {
-        return if check { -MATE } else { 0 };
-    }
-    let here = stand(b, ms.len());
-    if plies == 0 || *nodes > FORCED_NODES {
-        return here;
-    }
-    let mut best = if check { -MATE } else { here };
-    for m in ms {
-        let capture = b.sq[m.to as usize] != 0 || (b.sq[m.from as usize].abs() == 1 && Some(m.to) == b.ep);
-        let a = b.play(m);
-        let gives_check = attacker && a.in_check();
-        if !(check || capture || m.promo != 0 || gives_check) {
-            continue;
-        }
-        let v = -forced(&a, plies - 1, !attacker, nodes);
-        if v > best {
-            best = v;
-        }
-    }
-    best
-}
-
-/// The worth of the position a move leaves, for the side that made it: the forcing lines from there to their end.
-fn judged(after: &Board) -> i64 {
-    let mut nodes = 0;
-    -forced(after, FORCED_PLIES - 1, false, &mut nodes)
-}
-
-/// Every legal move with the judgement of the position it leaves, best first (ties in the rules' order).
-fn raw_rows(b: &Board) -> Vec<(String, i64)> {
-    let mut rows: Vec<(String, i64)> = b.moves().into_iter().map(|m| (m.uci(), judged(&b.play(m)))).collect();
-    rows.sort_by_key(|r| std::cmp::Reverse(r.1));
-    rows
+/// Every legal move, best first by the five checks as one function in the apple (golden_five), with f there.
+fn raw_rows(b: &Board) -> Vec<(String, f64)> {
+    let Some(g) = crate::golden_five::load() else { return Vec::new() };
+    crate::golden_five::rank(&b.fen(), &g).unwrap_or_default().into_iter().map(|r| (r.0, r.1)).collect()
 }
 
 fn heart_source() -> String {
@@ -147,17 +95,28 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
         let lines = vec![
             format!("the position is a {what} for {side} with best play"),
             format!("{} moves keep it: {}", keep.len(), keep.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ")),
-            format!("among them {pick} is the best by the forcing lines, Golden heart and the tempo"),
+            format!("among them {pick} is first by the five checks (legality, safety, force, material, tempo)"),
         ];
         return Ok((pick, lines, vec![format!("Syzygy endgame tablebases, 3-5 pieces (Ronald de Man), probed with python-chess from {SYZYGY}"), heart_source()]));
     }
-    let rows = raw_rows(&b);
-    let (m, v) = rows[0].clone();
-    let lines = vec![
-        format!("{m} is the best move: {side} {v:+} (every legal move played once; after it the forcing lines — captures, promotions, checks — followed to their end; the end judged by Golden heart and the tempo)"),
-        rows.get(1).map_or(String::new(), |(m2, v2)| format!("the next is {m2} at {v2:+}")),
+    let g = crate::golden_five::load().ok_or("the function of the five checks is not found yet: run golden-five")?;
+    let rows = crate::golden_five::rank(fen, &g).ok_or("no legal move")?;
+    let show = |a: &crate::golden_five::Apple| match a {
+        crate::golden_five::Apple::Won => "the forcing lines mate".to_string(),
+        crate::golden_five::Apple::Lost => "the forcing lines mate us".to_string(),
+        crate::golden_five::Apple::Stalemate => "the forcing lines end in stalemate".to_string(),
+        crate::golden_five::Apple::Vars(x) => crate::golden_five::NAMES.iter().zip(x).map(|(n, v)| format!("{n} {v:+}")).collect::<Vec<_>>().join(", "),
+    };
+    let (m, v, a) = &rows[0];
+    let mut lines = vec![
+        format!("{m} has the best apple: f = {v:.3} where its forcing lines stop (up to {} plies, each side free to stop)", crate::golden_five::PLIES),
+        format!("f = {} (legality first: a mate in the apple wins or loses outright, a stalemate is f of nothing)", g.show()),
+        format!("in the apple: {}", show(a)),
     ];
-    Ok((m, lines.into_iter().filter(|l| !l.is_empty()).collect(), vec![heart_source()]))
+    if let Some((m2, v2, _)) = rows.get(1) {
+        lines.push(format!("next: {m2} at {v2:.3}"));
+    }
+    Ok((m.clone(), lines, vec![format!("the function of the five checks, found by Golden from Stockfish's moves in CCRL games and frozen in {}", crate::golden_five::FILE)]))
 }
 
 /// Every legal move with its Syzygy WDL for the mover (2 win, 0 draw, -2 loss; ±1 cursed/blessed).
