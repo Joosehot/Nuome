@@ -273,6 +273,17 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "golden-table-fens" {
+            // golden-table-fens: every distinct opening position with its split, for Stockfish's analysis
+            println!("{} positions written to out/golden/table_fens.txt", nuome::golden_table::write_fens("out/golden/table_fens.txt").map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "golden-table-sf" {
+            // golden-table-sf [EPOCHS]: the table and net against Stockfish's analysis (tools/golden_table_sf.py first)
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_table::report_sf(n.first().copied().unwrap_or(4)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-table" {
             // golden-table [MAX_GAMES] [EPOCHS]: Golden Answer's opening table and grid net, reported on the holdout
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
