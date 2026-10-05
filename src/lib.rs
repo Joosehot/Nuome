@@ -27,6 +27,7 @@ pub mod golden;
 pub mod golden_answer;
 pub mod golden_chess;
 pub mod golden_voice;
+pub mod golden_heart;
 pub mod golden_exact;
 pub mod golden_graph;
 pub mod golden_invent;

@@ -264,11 +264,19 @@ fn main() -> Result<()> {
             println!("{}", nuome::neuro::report(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "golden-heart" {
+            // golden-heart [MAX_GAMES] [GAMES FILE]: the HotMotor heart cloned from Stockfish's games
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.replace('_', "").parse().ok()).collect();
+            let path = cli.words.iter().find(|w| w.ends_with(".txt")).cloned().unwrap_or_else(|| "out/golden/ccrl_sf_games.txt".to_string());
+            println!("{}", nuome::golden_heart::clone_heart(&path, n.first().copied().unwrap_or(usize::MAX)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-voice" {
             // golden-voice [ROUNDS] [GAMES FILE]: clone Stockfish's play from its games into a static network eval
-            let rounds = cli.words.iter().find_map(|w| w.parse().ok()).unwrap_or(50);
+            // golden-voice [ROUNDS] [MAX_GAMES] [GAMES FILE]
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.replace('_', "").parse().ok()).collect();
             let path = cli.words.iter().find(|w| w.ends_with(".txt")).cloned().unwrap_or_else(|| "out/golden/sf_games.txt".to_string());
-            println!("{}", nuome::golden_voice::report(&path, rounds).map_err(|e| anyhow::anyhow!(e))?);
+            println!("{}", nuome::golden_voice::report(&path, n.first().copied().unwrap_or(20), n.get(1).copied().unwrap_or(usize::MAX)).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
         if which == "golden-weights" {
