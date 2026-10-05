@@ -29,6 +29,7 @@ pub mod golden_answer;
 pub mod golden_chess;
 pub mod golden_formula;
 pub mod golden_brute;
+pub mod golden_mate_path;
 pub mod golden_god;
 pub mod golden_voice;
 pub mod golden_heart;

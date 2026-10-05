@@ -273,6 +273,14 @@ fn main() -> Result<()> {
             }
             return Ok(());
         }
+        if which == "golden-matepath" {
+            // golden-matepath FENS_FILE: the shortest mate path of every position in the file
+            let path = cli.words.first().context("golden-matepath takes a file of FENs")?;
+            for fen in std::fs::read_to_string(path)?.lines().filter(|l| !l.trim().is_empty()) {
+                print!("{}", nuome::golden_mate_path::report(fen.trim()).map_err(|e| anyhow::anyhow!(e))?);
+            }
+            return Ok(());
+        }
         if which == "golden-brute" {
             // golden-brute FENS_FILE [PLIES] [SECONDS]: every line, deepening to PLIES within SECONDS a position, no evaluation; what the rules prove
             let path = cli.words.first().context("golden-brute takes a file of FENs")?;

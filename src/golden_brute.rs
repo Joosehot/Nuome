@@ -165,6 +165,103 @@ pub struct Tree {
     pub mv: String,
     pub proven: Proven,
     pub depth: usize,
+    /// the light eval of the move (the five checks), once read
+    pub light: Option<Light>,
+}
+
+// ---------------------------------------------------------------- the light eval: the five checks
+
+/// The five checks of one root move, from the mover's side, in centipawns
+/// (pawn 100, knight and bishop 325, rook 500, queen 975).
+#[derive(Clone, Copy, Debug)]
+pub struct Light {
+    /// legality: the brute force's proof (mate, stalemate) stands above the rest
+    pub legal: bool,
+    /// safety: what the other side wins by its captures after the move (0 or less)
+    pub safety: i32,
+    /// force: what the move threatens to win by captures if the other side did nothing, and whether it checks
+    pub force: i32,
+    pub check: bool,
+    /// material: mine minus theirs once the captures after the move are traded out
+    pub material: i32,
+    /// tempo: my legal moves minus theirs after the move
+    pub tempo: i32,
+}
+
+const LIGHT_WORTH: [i32; 7] = [0, 100, 325, 325, 500, 975, 0];
+/// A move is felled by the light eval when it ends this much below the best move's material.
+pub const LIGHT_MARGIN: i32 = 100;
+
+fn light_material(p: &crate::fast::position::Position) -> i32 {
+    let side = p.turn as usize;
+    let mut v = [0i32; 2];
+    for c in 0..2 {
+        for t in 0..6 {
+            v[c] += LIGHT_WORTH[t + 1] * p.bb[c * 6 + t].count_ones() as i32;
+        }
+    }
+    v[side] - v[1 - side]
+}
+
+/// The captures traded out, each side free to stop: the material for the side to move.
+fn light_trade(p: &mut crate::fast::position::Position, plies: usize) -> i32 {
+    use crate::fast::movegen::{gen_moves, MAX_MOVES};
+    let stand = light_material(p);
+    if plies == 0 {
+        return stand;
+    }
+    let me = p.turn;
+    let mut list = [0u32; MAX_MOVES];
+    let n = gen_moves(p, &mut list, true);
+    let mut best = stand;
+    for &m in &list[..n] {
+        p.make(m);
+        if !p.in_check_c(me) {
+            best = best.max(-light_trade(p, plies - 1));
+        }
+        p.unmake();
+    }
+    best
+}
+
+/// The five checks of `uci` in the position `fen`.
+pub fn light(fen: &str, uci: &str) -> Option<Light> {
+    use crate::fast::movegen::uci_to_move;
+    let mut p = crate::fast::position::Position::from_fen(fen).ok()?;
+    let m = uci_to_move(&mut p, uci)?;
+    Some(light_on(&mut p, m))
+}
+
+/// The five checks of move `m` in position `p` (p is left as it was).
+pub fn light_on(p: &mut crate::fast::position::Position, m: u32) -> Light {
+    use crate::fast::movegen::legal_moves;
+    p.make(m);
+    let check = p.in_check();
+    let here = -light_material(p);
+    // material and safety: the other side to move, the captures traded out
+    let material = -light_trade(p, 6);
+    let safety = (material - here).min(0);
+    // force: were the other side to pass, what my captures would win
+    let force = if check {
+        0
+    } else {
+        p.make_null();
+        let f = light_trade(p, 6) - light_material(p);
+        p.unmake_null();
+        f
+    };
+    // tempo
+    let theirs = legal_moves(p).len() as i32;
+    let mine = if check {
+        0
+    } else {
+        p.make_null();
+        let k = legal_moves(p).len() as i32;
+        p.unmake_null();
+        k
+    };
+    p.unmake();
+    Light { legal: true, safety, force, check, material, tempo: mine - theirs }
 }
 
 /// The lumberjack (6c80019, without any function): every root move grows its
@@ -178,7 +275,7 @@ pub struct Tree {
 pub fn lumberjack(fen: &str, seconds: f64) -> Result<(Option<Tree>, Vec<Tree>, Vec<Tree>, u64), String> {
     let b = Board::from_fen(fen)?;
     let clock = Clock { until: Instant::now() + Duration::from_secs_f64(seconds), over: AtomicBool::new(false) };
-    let mut standing: Vec<(crate::golden::Mv, Tree)> = b.moves().into_iter().map(|m| (m, Tree { mv: m.uci(), proven: Proven::Unknown, depth: 0 })).collect();
+    let mut standing: Vec<(crate::golden::Mv, Tree)> = b.moves().into_iter().map(|m| (m, Tree { mv: m.uci(), proven: Proven::Unknown, depth: 0, light: None })).collect();
     let mut felled: Vec<Tree> = Vec::new();
     let mut nodes = 0u64;
     let mut depth = 1;
@@ -228,6 +325,19 @@ pub fn lumberjack(fen: &str, seconds: f64) -> Result<(Option<Tree>, Vec<Tree>, V
             standing = keep;
         }
         depth += 1;
+    }
+    // the light eval: the five checks of every tree left; a tree whose material
+    // after the captures ends LIGHT_MARGIN below the best one is felled (a proved
+    // mate is never felled, and the light eval never fells every tree)
+    if !standing.iter().any(|t| matches!(t.1.proven, Proven::Win(_))) {
+        for t in standing.iter_mut() {
+            t.1.light = light(fen, &t.1.mv);
+        }
+        if let Some(best) = standing.iter().filter_map(|t| t.1.light.map(|l| l.material)).max() {
+            let (keep, fall): (Vec<_>, Vec<_>) = standing.into_iter().partition(|t| t.1.light.map_or(true, |l| l.material >= best - LIGHT_MARGIN));
+            felled.extend(fall.into_iter().map(|t| t.1));
+            standing = keep;
+        }
     }
     let rank = |p: Proven| match p {
         Proven::Win(n) => (3i64, -(n as i64)),

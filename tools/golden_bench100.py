@@ -5,7 +5,10 @@ lumberjack with a time budget per move, Stockfish-move hits, big errors
 measure as ChessEngine's bench100.py, so the numbers compare (StarNet 1 s:
 76/100, 6 big errors, loss 1901).
 
-Usage: python tools/golden_bench100.py [--ms 1000] [--jobs 6]
+--cmd matepath plays golden_mate_path instead (the shortest mate path, else
+the largest material win).
+
+Usage: python tools/golden_bench100.py [--ms 1000] [--jobs 6] [--cmd lumberjack|matepath]
 """
 import argparse, json, multiprocessing as mp, os, re, subprocess, time
 import chess, chess.engine
@@ -15,17 +18,28 @@ SF = os.path.join(CE, "stockfish", "stockfish-windows-x86-64-avx2.exe")
 EXE = r"C:\Users\joose\Nuome\target\release\nuome.exe"
 NUOME = r"C:\Users\joose\Nuome"
 MOVE_RE = re.compile(r"^move: (\S+) \(", re.M)
+MATEPATH_RE = re.compile(r"^\s*move: (\S+)", re.M)
 _ms = 1000
+_cmd = "lumberjack"
 
 
-def _init(ms):
-    global _ms
-    _ms = ms
+def _init(ms, cmd="lumberjack"):
+    global _ms, _cmd
+    _ms, _cmd = ms, cmd
 
 
 def play(row):
     name, best, fen = row[0], row[1], row[-1]
     env = dict(os.environ, GOLDEN_TIME_MS=str(_ms))
+    if _cmd == "matepath":
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as fh:
+            fh.write(fen + "
+")
+        out = subprocess.run([EXE, "--ideas", "golden-matepath", fh.name], cwd=NUOME, capture_output=True, text=True, timeout=600).stdout
+        os.unlink(fh.name)
+        m = MATEPATH_RE.search(out)
+        return name, best, fen, (m.group(1) if m else None)
     out = subprocess.run([EXE, "--ideas", "golden", fen], cwd=NUOME, capture_output=True, text=True, env=env, timeout=600).stdout
     m = MOVE_RE.search(out)
     return name, best, fen, (m.group(1) if m else None)
@@ -35,6 +49,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ms", type=int, default=1000)
     ap.add_argument("--jobs", type=int, default=6)
+    ap.add_argument("--cmd", default="lumberjack", choices=["lumberjack", "matepath"])
     a = ap.parse_args()
     rows = json.load(open(os.path.join(CE, "eval_bucket_100_qs.json")))
     cache_f = os.path.join(CE, "bucket100_cache.json")
@@ -43,7 +58,7 @@ def main():
     except Exception:
         cache = {}
     t0 = time.time()
-    with mp.Pool(a.jobs, initializer=_init, initargs=(a.ms,)) as pool:
+    with mp.Pool(a.jobs, initializer=_init, initargs=(a.ms, a.cmd)) as pool:
         results = pool.map(play, rows)
     sf = chess.engine.SimpleEngine.popen_uci(SF)
     sf.configure({"Threads": 8, "Hash": 256})
@@ -75,7 +90,7 @@ def main():
     sf.quit()
     json.dump(cache, open(cache_f, "w"))
     json.dump(misses, open(os.path.join(NUOME, "out", "golden", "bench100_misses.json"), "w"), indent=1)
-    print(f"lumberjack {a.ms} ms/move: SF move {hit}/100, big errors (>= 100 cp) {big}, loss (max 500/position) {tot}  ({time.time() - t0:.0f} s)")
+    print(f"{a.cmd} {'' if a.cmd == 'matepath' else str(a.ms) + ' ms/move'}: SF move {hit}/100, big errors (>= 100 cp) {big}, loss (max 500/position) {tot}  ({time.time() - t0:.0f} s)")
     for m in sorted(misses, key=lambda m: -m["loss"])[:8]:
         print(f"  {m['name']:<24} best {m['best']:<7} played {m['played']}  loss {m['loss']}")
 
