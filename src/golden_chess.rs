@@ -112,14 +112,14 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
             // 6-32 pieces: a proof with its scope said: the best move of a bounded game, every move searched
             let (rows, n, depth) = deepen(&b);
             let (m, v) = rows[0].clone();
-            let second = rows.get(1).cloned();
+            let second = rows.get(1).filter(|r| r.1 == v).cloned();
             let who = if b.white { "white" } else { "black" };
             let mut lines = vec![
                 format!("no forced mate and no solved class: what is proved is the bounded game (scope: {depth} plies of every legal move by both sides, then captures traded until quiet, each side free to stop; {}, mate ±100000)", leaf_words()),
                 format!("in that game {m} gives {who} {v:+} centipawns, and no other move gives more ({n} positions, every reply searched)"),
             ];
             if let Some((m2, v2)) = second {
-                lines.push(format!("the next best is {m2} at {v2:+}"));
+                lines.push(format!("{m2} ties it at {v2:+}"));
             }
             lines.push("this proves the move best in the bounded game, not best in chess".into());
             Ok((m, lines, vec![]))
@@ -173,6 +173,8 @@ thread_local! {
     static ABORTED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// The fast search's table, kept for the deepening of one question (cleared per question).
     static FAST: std::cell::Cell<Option<Fast>> = const { std::cell::Cell::new(None) };
+    /// The root moves in the previous depth's order (best first).
+    static ROOT_ORDER: std::cell::Cell<Vec<String>> = const { std::cell::Cell::new(Vec::new()) };
 }
 
 /// The logical answer's strong proofs only.
@@ -190,6 +192,7 @@ fn deepen(b: &Board) -> (Vec<(String, i64)>, u64, u32) {
     let ms = std::env::var("GOLDEN_TIME_MS").ok().and_then(|x| x.parse().ok()).unwrap_or(2000u64);
     let t0 = std::time::Instant::now();
     FAST.with(|c| c.set(None));
+    ROOT_ORDER.with(|c| c.set(Vec::new()));
     let (mut rows, mut nodes) = bounded_rows(b, 1);
     let mut done = 1;
     for d in 2..=max {
@@ -289,14 +292,30 @@ fn bounded_rows(b: &Board, depth: u32) -> (Vec<(String, i64)>, u64) {
         if let Ok(mut p) = Position::from_fen(&b.fen()) {
             let mut f = FAST.with(|c| c.take()).unwrap_or_else(Fast::new);
             f.nodes = 0;
-            let mut rows = Vec::new();
-            for m in legal_moves(&mut p) {
+            // the previous depth's order first
+            let prev = ROOT_ORDER.with(|c| c.take());
+            let mut moves = legal_moves(&mut p);
+            moves.sort_by_key(|m| prev.iter().position(|u| *u == move_to_uci(*m)).unwrap_or(usize::MAX));
+            // the first move exactly; every other one with a window just around the best so far:
+            // below it, the move is proved not better (its value is only bounded); at it, a tie, exact;
+            // above it, searched again in full and it becomes the best
+            let mut rows: Vec<(String, i64)> = Vec::new();
+            let mut best = -MATE - 1;
+            for (i, &m) in moves.iter().enumerate() {
                 p.make(m);
-                let v = -f.game(&mut p, depth.saturating_sub(1), 1, -MATE - 1, MATE + 1);
+                let d = depth.saturating_sub(1);
+                let mut v = if i == 0 { -f.game(&mut p, d, 1, -MATE - 1, MATE + 1) } else { -f.game(&mut p, d, 1, -(best + 1), -(best - 1)) };
+                if i > 0 && v > best {
+                    v = -f.game(&mut p, d, 1, -MATE - 1, MATE + 1);
+                }
                 p.unmake();
+                if v > best {
+                    best = v;
+                }
                 rows.push((move_to_uci(m), v));
             }
             rows.sort_by_key(|r| std::cmp::Reverse(r.1));
+            ROOT_ORDER.with(|c| c.set(rows.iter().map(|r| r.0.clone()).collect()));
             let n = f.nodes;
             FAST.with(|c| c.set(Some(f)));
             return (rows, n);
@@ -435,21 +454,36 @@ impl Fast {
                 }
             }
         } else {
+            // pseudo-legal; each is checked for legality only when it is played
             for &m in &list[..n] {
-                if legal_one(p, m) {
-                    moves.push((order(p, m, &self.history), m));
-                }
-            }
-            if moves.is_empty() {
-                return if p.in_check() { -MATE } else { 0 };
+                moves.push((order(p, m, &self.history), m));
             }
         }
         moves.sort_by_key(|o| std::cmp::Reverse(o.0));
         let mut best = if quiet { alpha } else { -MATE - 1 };
         let mut best_move = 0;
+        let mut played = 0;
         for (_, m) in moves {
             p.make(m);
-            let v = -self.game(p, depth.saturating_sub(1), ply + 1, -beta, -alpha.max(best));
+            if !quiet && p.in_check_c(1 - p.turn) {
+                p.unmake();
+                continue;
+            }
+            played += 1;
+            // the first move with the whole window; the others first only proved not better
+            // (a null window), searched again in full when they might be: the value is unchanged
+            let a = alpha.max(best);
+            let d = depth.saturating_sub(1);
+            let v = if quiet || played == 1 || beta - a <= 1 {
+                -self.game(p, d, ply + 1, -beta, -a)
+            } else {
+                let t = -self.game(p, d, ply + 1, -(a + 1), -a);
+                if t > a && t < beta {
+                    -self.game(p, d, ply + 1, -beta, -a)
+                } else {
+                    t
+                }
+            };
             p.unmake();
             if v > best {
                 best = v;
@@ -466,6 +500,9 @@ impl Fast {
                 }
                 break;
             }
+        }
+        if !quiet && played == 0 {
+            return if p.in_check() { -MATE } else { 0 };
         }
         if !ABORTED.with(|c| c.get()) {
             let flag = if best <= alpha0 { UPPER } else if best >= beta { LOWER } else { EXACT };
