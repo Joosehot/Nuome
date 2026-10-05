@@ -98,13 +98,13 @@ pub fn answer(kind: Kind3, fen: &str) -> Result<(String, Vec<String>, Vec<String
         ];
         return Ok((pick, lines, vec![format!("Syzygy endgame tablebases, 3-5 pieces (Ronald de Man), probed with python-chess from {SYZYGY}"), heart_source()]));
     }
-    // more than five pieces: brute force proves, the lumberjack fells, Golden Answer chooses among the trees left
+    // more than five pieces: brute force proves, the lumberjack fells, StarNet's eval chooses among the trees left
     let secs = std::env::var("GOLDEN_TIME_MS").ok().and_then(|v| v.parse::<f64>().ok()).map_or(crate::golden_brute::SECONDS, |ms| ms / 1000.0);
     let (m, lines) = crate::golden_brute::golden_boy(fen, secs)?;
     let _ = side;
     Ok((m, lines, vec![
         "the rules of chess: what the brute force proves (every line, no evaluation)".into(),
-        "the Golden formula's theoretical answer: Shannon, Programming a Computer for Playing Chess (1950)".into(),
+        "StarNet's evaluation, StarNNUE (Steldens, nnue1024_sib.bin)".into(),
     ]))
 }
 

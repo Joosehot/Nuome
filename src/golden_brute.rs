@@ -263,17 +263,75 @@ pub fn lumberjack_report(fen: &str, seconds: f64) -> Result<String, String> {
     ))
 }
 
-// ---------------------------------------------------------------- brute force, the lumberjack and Golden Answer together
+// ---------------------------------------------------------------- brute force, the lumberjack and StarNet's eval
 
-/// The share of the time for the brute force and the lumberjack; the rest is Golden Answer's.
+/// The share of the time for the brute force and the lumberjack; the rest is the eval's.
 pub const PROOF_SHARE: f64 = 0.75;
+const MATE_CP: i32 = 100_000;
+const QS_PLIES: usize = 4;
+
+/// The captures (and promotions; every reply in check) traded to quiet, each
+/// side free to stand, StarNNUE at the quiet ends: the side to move's value.
+fn quiet(net: &crate::fast::starnnue::Net, p: &mut crate::fast::position::Position, plies: usize, until: Instant) -> i32 {
+    use crate::fast::movegen::{gen_moves, MAX_MOVES};
+    let check = p.in_check();
+    let me = p.turn;
+    let mut list = [0u32; MAX_MOVES];
+    let n = gen_moves(p, &mut list, !check);
+    let stand = if check { -MATE_CP } else { net.eval(p) };
+    if plies == 0 || Instant::now() >= until {
+        return if check { net.eval(p) } else { stand };
+    }
+    let mut best = stand;
+    let mut any = false;
+    for &m in &list[..n] {
+        // out of check every move; otherwise only captures that do not lose material
+        if !check && crate::fast::see::see(p, m) < 0 {
+            continue;
+        }
+        p.make(m);
+        if p.in_check_c(me) {
+            p.unmake();
+            continue;
+        }
+        any = true;
+        let v = -quiet(net, p, plies - 1, until);
+        p.unmake();
+        best = best.max(v);
+    }
+    if check && !any {
+        return -MATE_CP;
+    }
+    best
+}
+
+/// A move's value by StarNet's eval: its worst reply, each traded to quiet.
+fn starnet_value(net: &crate::fast::starnnue::Net, fen: &str, uci: &str, until: Instant) -> Option<i32> {
+    use crate::fast::movegen::{legal_moves, uci_to_move};
+    let mut p = crate::fast::position::Position::from_fen(fen).ok()?;
+    let m = uci_to_move(&mut p, uci)?;
+    p.make(m);
+    let replies = legal_moves(&mut p);
+    let v = if replies.is_empty() {
+        if p.in_check() { MATE_CP } else { 0 }
+    } else {
+        let mut worst = i32::MAX;
+        for r in replies {
+            p.make(r);
+            worst = worst.min(quiet(net, &mut p, QS_PLIES, until));
+            p.unmake();
+        }
+        worst
+    };
+    Some(v)
+}
 
 /// Golden Boy's move: the brute force proves and the lumberjack fells; a
-/// proved mate is played; otherwise Golden Answer (its theoretical answer:
-/// Shannon's p used the type B way, golden_formula) chooses among the trees
-/// left standing in the best proof class.
+/// proved mate is played; otherwise StarNet's eval (StarNNUE) chooses among
+/// the trees left standing in the best proof class.
 pub fn golden_boy(fen: &str, seconds: f64) -> Result<(String, Vec<String>), String> {
     let t0 = Instant::now();
+    let net = crate::fast::starnnue::net()?;
     let (pick, standing, felled, nodes) = lumberjack(fen, seconds * PROOF_SHARE)?;
     let pick = pick.ok_or("no legal move")?;
     let mut lines = vec![format!(
@@ -292,18 +350,17 @@ pub fn golden_boy(fen: &str, seconds: f64) -> Result<(String, Vec<String>), Stri
         lines.push(format!("every move is proved losing; {} loses slowest", pick.mv));
         return Ok((pick.mv, lines));
     }
-    // the best proof class left (a proved draw before not proven), then Golden Answer within it
+    let until = t0 + Duration::from_secs_f64(seconds);
     let class = pick.proven;
-    let candidates: Vec<&str> = standing.iter().filter(|t| t.proven == class).map(|t| t.mv.as_str()).collect();
-    let values = crate::golden_formula::rank_use(fen).unwrap_or_default();
-    let best = values.iter().find(|(m, _)| candidates.contains(&m.as_str()));
-    match best {
-        Some((m, v)) => {
-            lines.push(format!("Golden Answer chooses among the {} standing ({}): {m} at {v:+} (Shannon's p, type B; {:.1} s)", candidates.len(), if class == Proven::Draw { "proved draws" } else { "not proven" }, t0.elapsed().as_secs_f64()));
-            Ok((m.clone(), lines))
-        }
-        None => Ok((pick.mv, lines)),
-    }
+    let candidates: Vec<String> = standing.iter().filter(|t| t.proven == class).map(|t| t.mv.clone()).collect();
+    let values: Vec<(String, i32)> = std::thread::scope(|s| {
+        let hs: Vec<_> = candidates.iter().map(|m| s.spawn(move || (m.clone(), starnet_value(net, fen, m, until).unwrap_or(-MATE_CP)))).collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    // the best value; ties keep the rules' order
+    let (m, v) = values.iter().fold(None::<&(String, i32)>, |b, x| match b { Some(b) if b.1 >= x.1 => Some(b), _ => Some(x) }).cloned().ok_or("no candidate")?;
+    lines.push(format!("StarNet's eval chooses among the {} standing ({}): {m} at {v:+} cp (worst reply, captures traded to quiet; {:.1} s)", candidates.len(), if class == Proven::Draw { "proved draws" } else { "not proven" }, t0.elapsed().as_secs_f64()));
+    Ok((m, lines))
 }
 
 pub fn golden_boy_report(fen: &str, seconds: f64) -> Result<String, String> {

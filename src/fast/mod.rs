@@ -8,6 +8,7 @@ pub mod bitboard;
 pub mod movegen;
 pub mod position;
 pub mod see;
+pub mod starnnue;
 pub mod zobrist;
 
 /// Stand-in: no NNUE in Nuome.
