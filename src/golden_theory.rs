@@ -521,8 +521,19 @@ pub type State = fn(&Position, usize) -> f32;
 /// `f(after) - f(before)` (both sides counted), so along a line the deltas
 /// sum to the state at its end. The event rules (a fork, a check, a
 /// sacrifice) have no state; a search sees those itself.
-pub const STATES: [(&str, State); 28] = [
-    ("material", material),
+pub const STATES: [(&str, State); 36] = [
+    // the piece values are a baseline (theory: material): one state per piece, so the
+    // weights learn each piece's worth in each phase; the pawn's sets the cp scale
+    ("material_pawn", |p, c| p.bb[c * 6].count_ones() as f32),
+    ("material_knight", |p, c| p.bb[c * 6 + 1].count_ones() as f32),
+    ("material_bishop", |p, c| p.bb[c * 6 + 2].count_ones() as f32),
+    ("material_rook", |p, c| p.bb[c * 6 + 3].count_ones() as f32),
+    ("material_queen", |p, c| p.bb[c * 6 + 4].count_ones() as f32),
+    // mobility by piece (theory: initiative, space, restriction): attacked squares not held by one's own side, per 4
+    ("mobility_knight", |p, c| mobility_of(p, c, 1)),
+    ("mobility_bishop", |p, c| mobility_of(p, c, 2)),
+    ("mobility_rook", |p, c| mobility_of(p, c, 3)),
+    ("mobility_queen", |p, c| mobility_of(p, c, 4)),
     ("space", st_space),
     ("center", st_center),
     ("defend_in_advance", |p, c| -st_undefended(p, c)),
@@ -553,9 +564,29 @@ pub const STATES: [(&str, State); 28] = [
     ("hanging", st_hanging),
 ];
 
+/// Side `c`'s pieces of type `ty` and the squares they attack that its own side does not hold, per 4.
+fn mobility_of(p: &Position, c: usize, ty: usize) -> f32 {
+    squares(p.bb[c * 6 + ty]).map(|s| (piece_attacks(p, c, ty, s) & !p.by_color[c]).count_ones()).sum::<u32>() as f32 / 4.0
+}
+
 /// The weighted states of `p` from `me`, both sides counted: sum of w x (state(me) - state(them)).
 pub fn state_score(ws: &[(usize, f32)], p: &Position, me: usize) -> f32 {
     ws.iter().map(|&(i, w)| { let f = STATES[i].1; w * (f(p, me) - f(p, 1 - me)) }).sum()
+}
+
+/// The phase of the game by the pieces left: 1 with every knight, bishop, rook
+/// and queen on the board (the opening), 0 with none (a pawn ending).
+/// Knights and bishops count 1, rooks 2, queens 4 (24 in all).
+pub fn phase(p: &Position) -> f32 {
+    let n = |t: usize| (p.bb[t] | p.bb[6 + t]).count_ones() as f32;
+    ((n(1) + n(2) + 2.0 * n(3) + 4.0 * n(4)) / 24.0).min(1.0)
+}
+
+/// The tapered theory value: every state has a middlegame and an endgame
+/// weight, mixed by the phase (the theory itself says what matters when).
+pub fn tapered_score(mg: &[(usize, f32)], eg: &[(usize, f32)], p: &Position, me: usize) -> f32 {
+    let ph = phase(p);
+    ph * state_score(mg, p, me) + (1.0 - ph) * state_score(eg, p, me)
 }
 
 pub fn rule(id: &str) -> Option<Rule> {

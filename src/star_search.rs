@@ -493,7 +493,10 @@ pub struct GoldennetEval(pub Vec<f32>);
 /// The judge as an engine: the theory's state rules, weighted, as the
 /// evaluation inside the search (pawns x 100 = cp), from the side to move.
 pub struct TheoryEval {
+    /// the middlegame weights (state index, weight)
     pub weights: Vec<(usize, f32)>,
+    /// the endgame weights; empty = not tapered, `weights` alone
+    pub endgame: Vec<(usize, f32)>,
     pub bias: f32,
     /// cp per unit of the fitted value: 100 / the material weight, so a pawn is 100 cp
     pub scale: f32,
@@ -503,7 +506,12 @@ impl Eval for TheoryEval {
     /// From the side to move. The value was fitted from the mover's side (the
     /// side not to move), so its bias enters with the opposite sign.
     fn eval(&self, p: &Position) -> i32 {
-        ((crate::golden_theory::state_score(&self.weights, p, p.turn as usize) - self.bias) * self.scale).clamp(-1.0e8, 1.0e8) as i32
+        let v = if self.endgame.is_empty() {
+            crate::golden_theory::state_score(&self.weights, p, p.turn as usize)
+        } else {
+            crate::golden_theory::tapered_score(&self.weights, &self.endgame, p, p.turn as usize)
+        };
+        ((v - self.bias) * self.scale).clamp(-1.0e8, 1.0e8) as i32
     }
 }
 

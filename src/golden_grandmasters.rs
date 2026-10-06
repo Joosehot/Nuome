@@ -417,17 +417,21 @@ pub fn boy_smoke(file: &str, ms: u64) -> Result<(), String> {
 
 /// The judge as an engine's evaluation: the theory value's weights (THEORY_VALUE_FILE) when tuned, else the move judge's (TEXEL_FILE) on the state rules.
 pub fn theory_eval() -> Result<crate::star_search::TheoryEval, String> {
-    let lw = load_value().or_else(|_| load_texel())?;
+    let (lw, eg) = load_value().or_else(|_| load_texel().map(|w| (w, Vec::new())))?;
     let mut ws = Vec::new();
+    let mut es = Vec::new();
     for (i, (id, _)) in crate::golden_theory::STATES.iter().enumerate() {
         if let Some((_, w)) = lw.iter().find(|x| x.0 == *id) {
             ws.push((i, *w));
         }
+        if let Some((_, w)) = eg.iter().find(|x| x.0 == *id) {
+            es.push((i, *w));
+        }
     }
     // the fitted bias is left out: it is the mean badness of a random legal move
     // (the fit ran over every move), not a property of a position reached by best play
-    let material = lw.iter().find(|x| x.0 == "material").map(|x| x.1).filter(|w| *w > 1e-6).unwrap_or(1.0);
-    Ok(crate::star_search::TheoryEval { weights: ws, bias: 0.0, scale: 100.0 / material })
+    let material = lw.iter().find(|x| x.0 == "material_pawn").or_else(|| lw.iter().find(|x| x.0 == "material")).map(|x| x.1).filter(|w| *w > 1e-6).unwrap_or(1.0);
+    Ok(crate::star_search::TheoryEval { weights: ws, endgame: es, bias: 0.0, scale: 100.0 / material })
 }
 
 /// Texel tuning of the judge: every rule's weight from Stockfish's win
@@ -804,20 +808,25 @@ pub fn texel_deep(n_train: usize, n_val: usize, plies: usize, rounds: usize, epo
 /// The theory as a position value, Texel-tuned: out/golden/theory_value.toml.
 pub const THEORY_VALUE_FILE: &str = "out/golden/theory_value.toml";
 const NS: usize = crate::golden_theory::STATES.len();
+/// the features: every state in the middlegame (x phase) and in the endgame (x 1 - phase), and a bias
+const NF: usize = 2 * NS + 1;
 
-/// The state features of `p` from `me`: state(me) - state(them) for every state rule, and a bias.
-fn state_feats(p: &Position, me: usize) -> [f32; NS + 1] {
-    let mut f = [0f32; NS + 1];
+/// The tapered state features of `p` from `me`: (state(me) - state(them)) x phase, the same x (1 - phase), and a bias.
+fn state_feats(p: &Position, me: usize) -> [f32; NF] {
+    let mut f = [0f32; NF];
+    let ph = crate::golden_theory::phase(p);
     for (i, (_, st)) in crate::golden_theory::STATES.iter().enumerate() {
-        f[i] = st(p, me) - st(p, 1 - me);
+        let d = st(p, me) - st(p, 1 - me);
+        f[i] = d * ph;
+        f[NS + i] = d * (1.0 - ph);
     }
-    f[NS] = 1.0;
+    f[2 * NS] = 1.0;
     f
 }
 
 /// One position: every valued move's child features, its win probability, Stockfish's move.
 struct ValueRow {
-    feats: Vec<[f32; NS + 1]>,
+    feats: Vec<[f32; NF]>,
     q: Vec<f32>,
     sf: Option<usize>,
 }
@@ -860,12 +869,12 @@ fn value_rows(set: &[crate::golden_table::Valued], skip: &[String]) -> Vec<Value
     })
 }
 
-fn vdot(w: &[f32; NS + 1], f: &[f32; NS + 1]) -> f32 {
+fn vdot(w: &[f32; NF], f: &[f32; NF]) -> f32 {
     w.iter().zip(f).map(|(a, b)| a * b).sum()
 }
 
 /// (mean squared error of sigmoid(w.f) against the win probability, share where the best child is Stockfish's move)
-fn value_measure(w: &[f32; NS + 1], rows: &[ValueRow]) -> (f64, f64) {
+fn value_measure(w: &[f32; NF], rows: &[ValueRow]) -> (f64, f64) {
     let (mut e, mut n, mut hit, mut m) = (0f64, 0usize, 0usize, 0usize);
     for r in rows {
         let s: Vec<f32> = r.feats.iter().map(|f| vdot(w, f)).collect();
@@ -883,21 +892,30 @@ fn value_measure(w: &[f32; NS + 1], rows: &[ValueRow]) -> (f64, f64) {
     (e / n.max(1) as f64, hit as f64 / m.max(1) as f64)
 }
 
-fn save_value(w: &[f32; NS + 1], note: &str) -> Result<(), String> {
+fn save_value(w: &[f32; NF], note: &str) -> Result<(), String> {
     let mut s = format!("# The theory as a position value by Texel tuning (theory-texel): {note}\n[weights]\n");
     for (i, (id, _)) in crate::golden_theory::STATES.iter().enumerate() {
         s.push_str(&format!("{id} = {:.6}\n", w[i]));
     }
-    s.push_str(&format!("bias = {:.6}\n", w[NS]));
+    s.push_str(&format!("bias = {:.6}\n\n# the endgame weights (the ones above are the middlegame's; mixed by the phase)\n[endgame]\n", w[2 * NS]));
+    for (i, (id, _)) in crate::golden_theory::STATES.iter().enumerate() {
+        s.push_str(&format!("{id} = {:.6}\n", w[NS + i]));
+    }
     std::fs::write(THEORY_VALUE_FILE, s).map_err(|e| e.to_string())
 }
 
-/// The theory value's weights, by state id (and "bias").
-pub fn load_value() -> Result<Vec<(String, f32)>, String> {
+/// The theory value's weights, by state id (and "bias"): the middlegame's, and the endgame's (empty when the file is not tapered).
+pub fn load_value() -> Result<(Vec<(String, f32)>, Vec<(String, f32)>), String> {
     let text = std::fs::read_to_string(THEORY_VALUE_FILE).map_err(|e| format!("{THEORY_VALUE_FILE}: {e} (run theory-texel first)"))?;
     let t: toml::Value = toml::from_str(&text).map_err(|e| e.to_string())?;
-    let w = t.get("weights").and_then(|v| v.as_table()).ok_or("no [weights]")?;
-    Ok(w.iter().filter_map(|(k, v)| v.as_float().map(|x| (k.clone(), x as f32))).collect())
+    let read = |name: &str| -> Vec<(String, f32)> {
+        t.get(name).and_then(|v| v.as_table()).map(|w| w.iter().filter_map(|(k, v)| v.as_float().map(|x| (k.clone(), x as f32))).collect()).unwrap_or_default()
+    };
+    let mg = read("weights");
+    if mg.is_empty() {
+        return Err("no [weights]".into());
+    }
+    Ok((mg, read("endgame")))
 }
 
 /// Every miss of a smoke/check log (lines "played X, Stockfish Y miss" followed by the fen):
@@ -969,14 +987,16 @@ pub fn theory_static(fen: &str) -> Result<String, String> {
     let ev = theory_eval()?;
     let p = Position::from_fen(fen)?;
     let me = p.turn as usize;
+    let ph = crate::golden_theory::phase(&p);
     let mut parts: Vec<(f32, String)> = ev.weights.iter().map(|&(i, w)| {
         let (id, st) = crate::golden_theory::STATES[i];
         let (a, b) = (st(&p, me), st(&p, 1 - me));
-        let v = w * (a - b) * ev.scale;
-        (v, format!("{id} {v:+.0} (me {a:.2}, them {b:.2}, w {w:+.3})"))
+        let we = ev.endgame.iter().find(|x| x.0 == i).map(|x| x.1).unwrap_or(w);
+        let v = (ph * w + (1.0 - ph) * we) * (a - b) * ev.scale;
+        (v, format!("{id} {v:+.0} (me {a:.2}, them {b:.2}, w {w:+.3}/{we:+.3})"))
     }).collect();
     parts.sort_by(|x, y| y.0.abs().total_cmp(&x.0.abs()));
-    Ok(format!("eval {:+} cp (bias {:+.0}): {}
+    Ok(format!("eval {:+} cp (phase {ph:.2}, bias {:+.0}): {}
 ", ev.eval(&p), -ev.bias * ev.scale, parts.iter().map(|x| x.1.clone()).collect::<Vec<_>>().join("; ")))
 }
 
@@ -1011,10 +1031,10 @@ pub fn theory_pv(fen: &str, moves: &[String], ms: u64, plies: usize) -> Result<S
 /// Why the theory value prefers one move to another in `fen`: every state's
 /// weighted difference between the two children (static, no search), largest first.
 pub fn theory_why(fen: &str, a: &str, b: &str) -> Result<String, String> {
-    let lw = load_value()?;
+    let (lw, eg) = load_value()?;
     let mut p = Position::from_fen(fen)?;
     let me = p.turn as usize;
-    let child = |p: &mut Position, u: &str| -> Result<[f32; NS + 1], String> {
+    let child = |p: &mut Position, u: &str| -> Result<[f32; NF], String> {
         let m = uci_to_move(p, u).ok_or(format!("illegal {u}"))?;
         p.make(m);
         let f = state_feats(p, me);
@@ -1026,11 +1046,13 @@ pub fn theory_why(fen: &str, a: &str, b: &str) -> Result<String, String> {
     let (mut ta, mut tb) = (0f32, 0f32);
     for (i, (id, _)) in crate::golden_theory::STATES.iter().enumerate() {
         let w = lw.iter().find(|x| x.0 == *id).map(|x| x.1).unwrap_or(0.0);
-        ta += w * fa[i];
-        tb += w * fb[i];
-        let d = w * (fa[i] - fb[i]);
+        let we = eg.iter().find(|x| x.0 == *id).map(|x| x.1).unwrap_or(w);
+        let (va, vb) = (w * fa[i] + we * fa[NS + i], w * fb[i] + we * fb[NS + i]);
+        ta += va;
+        tb += vb;
+        let d = va - vb;
         if d.abs() > 1e-4 {
-            parts.push((d, format!("{id} {d:+.3} ({a} {:.2}, {b} {:.2}, w {w:+.3})", fa[i], fb[i])));
+            parts.push((d, format!("{id} {d:+.3} ({a} {va:+.2}, {b} {vb:+.2}, w {w:+.3}/{we:+.3})")));
         }
     }
     parts.sort_by(|x, y| y.0.abs().total_cmp(&x.0.abs()));
@@ -1056,18 +1078,20 @@ pub fn texel_value(n_train: usize, n_val: usize, epochs: usize, batch: usize, lr
     let va = value_rows(&va, &skip);
     let kids: usize = tr.iter().map(|r| r.feats.len()).sum();
     say(format!("theory value Texel: {} train positions ({kids} children) / {} validate, {NS} states + bias ({:.0} s)", tr.len(), va.len(), t0.elapsed().as_secs_f64()));
-    let mut w = [0f32; NS + 1];
-    if let Ok(lw) = load_value() {
+    let mut w = [0f32; NF];
+    if let Ok((mg, eg)) = load_value() {
         for (i, (id, _)) in crate::golden_theory::STATES.iter().enumerate() {
-            w[i] = lw.iter().find(|x| x.0 == *id).map(|x| x.1).unwrap_or(0.0);
+            w[i] = mg.iter().find(|x| x.0 == *id).map(|x| x.1).unwrap_or(0.0);
+            // an untapered file starts both phases from its one weight
+            w[NS + i] = eg.iter().find(|x| x.0 == *id).map(|x| x.1).unwrap_or(w[i]);
         }
-        w[NS] = lw.iter().find(|x| x.0 == "bias").map(|x| x.1).unwrap_or(0.0);
+        w[2 * NS] = mg.iter().find(|x| x.0 == "bias").map(|x| x.1).unwrap_or(0.0);
         say("starting from the weights of the file".into());
     }
     let (e0, a0) = value_measure(&w, &va);
     say(format!("epoch 0: validate error {e0:.5}, best child = Stockfish's move {:.1}%", 100.0 * a0));
     let (mut best_e, mut best_w) = (e0, w);
-    let (mut m1, mut m2) = ([0f32; NS + 1], [0f32; NS + 1]);
+    let (mut m1, mut m2) = ([0f32; NF], [0f32; NF]);
     let (b1, b2, eps) = (0.9f32, 0.999f32, 1e-8f32);
     let mut step = 0i32;
     let mut order: Vec<usize> = (0..tr.len()).collect();
@@ -1080,21 +1104,21 @@ pub fn texel_value(n_train: usize, n_val: usize, epochs: usize, batch: usize, lr
             order.swap(i, (rng % (i as u64 + 1)) as usize);
         }
         for b in order.chunks(batch.max(1)) {
-            let mut g = [0f32; NS + 1];
+            let mut g = [0f32; NF];
             let mut n = 0usize;
             for &k in b {
                 let r = &tr[k];
                 for (f, q) in r.feats.iter().zip(&r.q) {
                     let p = sig(vdot(&w, f));
                     let d = -2.0 * (q - p) * p * (1.0 - p);
-                    for i in 0..=NS {
+                    for i in 0..NF {
                         g[i] += d * f[i];
                     }
                     n += 1;
                 }
             }
             step += 1;
-            for i in 0..=NS {
+            for i in 0..NF {
                 let gi = g[i] / n.max(1) as f32;
                 m1[i] = b1 * m1[i] + (1.0 - b1) * gi;
                 m2[i] = b2 * m2[i] + (1.0 - b2) * gi * gi;
@@ -1110,9 +1134,9 @@ pub fn texel_value(n_train: usize, n_val: usize, epochs: usize, batch: usize, lr
         }
         say(format!("epoch {ep}: validate error {e:.5}, best child = Stockfish's move {:.1}%{} ({:.0} s)", 100.0 * a, if better { " - best, saved" } else { "" }, t0.elapsed().as_secs_f64()));
     }
-    let mut ws: Vec<(f32, &str)> = best_w[..NS].iter().zip(crate::golden_theory::STATES.iter()).map(|(x, (id, _))| (*x, *id)).collect();
-    ws.sort_by(|a, b| b.0.total_cmp(&a.0));
-    say(format!("weights (best): {}; bias {:+.3}", ws.iter().map(|(x, id)| format!("{id} {x:+.3}")).collect::<Vec<_>>().join(", "), best_w[NS]));
+    let mut ws: Vec<(f32, f32, &str)> = (0..NS).map(|i| (best_w[i], best_w[NS + i], crate::golden_theory::STATES[i].0)).collect();
+    ws.sort_by(|a, b| (b.0.abs() + b.1.abs()).total_cmp(&(a.0.abs() + a.1.abs())));
+    say(format!("weights (best, middlegame/endgame): {}; bias {:+.3}", ws.iter().map(|(a, b, id)| format!("{id} {a:+.3}/{b:+.3}")).collect::<Vec<_>>().join(", "), best_w[2 * NS]));
     Ok(())
 }
 
