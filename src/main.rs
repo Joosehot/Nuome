@@ -857,6 +857,12 @@ E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()),
             );
             return Ok(());
         }
+        if which == "prime-instant" {
+            // prime-instant [DIGITS]: the mad attempt, an expression that knows a prime at once: floor(c^(r^n)) and floor(c r^n) with c of up to DIGITS digits, bits of prime named against bits of constant
+            let d = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(5);
+            println!("{}", nuome::prime_instant::report(d));
+            return Ok(());
+        }
         if which == "prime-formula" {
             let p = cfg.open.get("eff_prime");
             println!(

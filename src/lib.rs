@@ -71,6 +71,7 @@ pub mod p_vs_np;
 pub mod parser;
 pub mod poly;
 pub mod prime_formula;
+pub mod prime_instant;
 pub mod prime_evolve;
 pub mod prime_function;
 pub mod prime_learn;
