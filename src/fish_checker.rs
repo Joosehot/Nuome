@@ -461,7 +461,21 @@ pub fn report(size: usize, fit: u64, test: u64) -> String {
     out.push_str("Operation Fermented Fish, the checker: a shape c(A, N) and a number A, true exactly when N is prime\n\n");
     out.push_str("question: a checker invented as the generator was, a shape and a constant; is any one right on numbers it never saw, with a short constant, cheaper than a multiplication per bit?\n");
     out.push_str(&format!("the choice: every value of up to {size} symbols from N, 2, 3, floor(A h), +, x, -1, !, a^e mod N, with the predicates = 0 mod N, = 1 mod N, odd: {} shapes; A solved on N = 2..{fit}, judged on {}..{test} and {} Carmichael liars\n\n", all.len(), fit + 1, CARMICHAEL.len()));
-    let mut judged: Vec<Judged> = all.iter().map(|s| judge(s, fit, test)).collect();
+    // progress as it goes, so a long run can be watched: every 100th shape, the best balanced score so far
+    let mut judged: Vec<Judged> = Vec::new();
+    let mut best_so_far = 0f64;
+    for (i, sh) in all.iter().enumerate() {
+        let j = judge(sh, fit, test);
+        let pr = if j.primes.1 > 0 { j.primes.0 as f64 / j.primes.1 as f64 } else { 0.0 };
+        let cr = if j.composites.1 > 0 { j.composites.0 as f64 / j.composites.1 as f64 } else { 0.0 };
+        best_so_far = best_so_far.max((pr + cr) / 2.0);
+        judged.push(j);
+        if (i + 1) % 100 == 0 || i + 1 == all.len() {
+            use std::io::Write;
+            eprintln!("  {}/{} shapes judged, best balanced score so far {:.3} ({:.0} s)", i + 1, all.len(), best_so_far, t0.elapsed().as_secs_f64());
+            let _ = std::io::stderr().flush();
+        }
+    }
     // the measure: right on the unseen primes and right on the unseen composites, both (a coin or a constant answer gets a half)
     let balanced = |j: &Judged| -> f64 {
         let pr = if j.primes.1 > 0 { j.primes.0 as f64 / j.primes.1 as f64 } else { 0.0 };
