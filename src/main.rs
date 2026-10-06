@@ -284,8 +284,10 @@ fn main() -> Result<()> {
             return Ok(());
         }
         if which == "goldenboy-grow" {
-            // goldenboy-grow "<fen>": Golden Boy's move with the growing Golden Function
-            let (m, how) = nuome::golden_grow::goldenboy_move(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?;
+            // goldenboy-grow "<fen>" [SECONDS]: Golden Boy's move with the growing Golden Function, every line as deep as the time allows
+            let fen = cli.words.iter().filter(|w| w.parse::<f64>().is_err()).cloned().collect::<Vec<_>>().join(" ");
+            let secs = cli.words.iter().filter_map(|w| w.parse::<f64>().ok()).last().unwrap_or(5.0);
+            let (m, how) = nuome::golden_grow::goldenboy_move_deep(&fen, secs).map_err(|e| anyhow::anyhow!(e))?;
             println!("move: {m} ({how})");
             return Ok(());
         }

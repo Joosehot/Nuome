@@ -1016,7 +1016,7 @@ pub fn profile(fen: &str, d: usize) -> Result<String, String> {
 /// Whether the side to move has any legal move (stops at the first). Out of
 /// check, a king step to a square nobody attacks is one at once (no slider
 /// can see through the king's square without giving check).
-fn has_legal(p: &mut Position) -> bool {
+pub(crate) fn has_legal(p: &mut Position) -> bool {
     use crate::fast::bitboard::SQ64_TO_120;
     use crate::fast::movegen::{gen_moves, MAX_MOVES};
     let me = p.turn;

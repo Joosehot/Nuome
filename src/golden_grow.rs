@@ -333,3 +333,138 @@ pub fn goldenboy_move(fen: &str) -> Result<(String, String), String> {
     let l = lesson(fen, "").ok_or("no legal move")?;
     Ok((pick(&f, &l).to_string(), format!("the Golden Function ({} terms)", f.terms.len())))
 }
+
+// ---------------------------------------------------------------- the search: up to 5 s instead of 1 ply
+
+/// The function's value of position `p` for `me`, straight from the points (no allocation).
+fn eval_at(f: &Function, p: &Position, me: usize) -> f32 {
+    use crate::fast::bitboard::SQ64_TO_120;
+    let t = crate::fast::bitboard::tables();
+    let occ = p.occ;
+    let mut cnt = [[0u8; 64]; 2];
+    for c in 0..2 {
+        for ty in 0..6 {
+            let mut b = p.bb[c * 6 + ty];
+            while b != 0 {
+                let s = b.trailing_zeros() as usize;
+                b &= b - 1;
+                let mut at = match ty {
+                    0 => if c == 0 { t.att.pawn_w[s] } else { t.att.pawn_b[s] },
+                    1 => t.att.knight[s],
+                    2 => t.bishop_attacks(s, occ),
+                    3 => t.rook_attacks(s, occ),
+                    4 => t.queen_attacks(s, occ),
+                    _ => t.att.king[s],
+                };
+                while at != 0 {
+                    let q = at.trailing_zeros() as usize;
+                    at &= at - 1;
+                    cnt[c][q] += 1;
+                }
+            }
+        }
+    }
+    let mut total = 0f32;
+    for s in 0..64 {
+        let pc = p.board[SQ64_TO_120[s]];
+        let (value, side) = if pc == 0 { (0.0, 0.0) } else { (WORTH[type_of(pc) as usize], if color_of(pc) as usize == me { 1.0 } else { -1.0 }) };
+        let (am, at) = (cnt[me][s] as f32, cnt[1 - me][s] as f32);
+        let b = |x: bool| x as u8 as f32;
+        let x = [value, side, am, at, b(side > 0.0), b(side < 0.0), b(pc == 0), b(am > at), b(at > am), b(am > 0.0), b(at > 0.0), b(am == 0.0), b(at == 0.0)];
+        for (term, w) in &f.terms {
+            let mut v = *w;
+            for &i in &term.0[..term.1 as usize] {
+                v *= x[i as usize];
+            }
+            total += v;
+        }
+    }
+    total
+}
+
+const MATE: f32 = 1.0e9;
+
+/// Every line to `depth`, nothing cut; the value for the side to move. At a
+/// leaf the function's value for the side that has just moved, so minus it.
+fn search(f: &Function, p: &mut Position, depth: usize) -> f32 {
+    if depth == 0 {
+        if !crate::golden_table::has_legal(p) {
+            return if p.in_check() { -MATE } else { 0.0 };
+        }
+        return -eval_at(f, p, 1 - p.turn as usize);
+    }
+    use crate::fast::movegen::{gen_moves, MAX_MOVES};
+    let me = p.turn;
+    let mut list = [0u32; MAX_MOVES];
+    let n = gen_moves(p, &mut list, false);
+    let mut best = f32::NEG_INFINITY;
+    let mut any = false;
+    for &m in &list[..n] {
+        p.make(m);
+        if p.in_check_c(me) {
+            p.unmake();
+            continue;
+        }
+        any = true;
+        let v = -search(f, p, depth - 1);
+        p.unmake();
+        best = best.max(v);
+    }
+    if !any {
+        return if p.in_check() { -MATE } else { 0.0 };
+    }
+    best
+}
+
+fn pick_deep(f: &Function, fen: &str, depth: usize) -> Option<String> {
+    let mut p = Position::from_fen(fen).ok()?;
+    let ms = legal_moves(&mut p);
+    let vals: Vec<(f32, String)> = std::thread::scope(|s| {
+        let hs: Vec<_> = ms
+            .iter()
+            .map(|&m| {
+                s.spawn(move || {
+                    let mut q = Position::from_fen(fen).unwrap();
+                    q.make(m);
+                    (-search(f, &mut q, depth - 1), move_to_uci(m))
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    vals.into_iter().fold(None::<(f32, String)>, |b, x| match b { Some(b) if b.0 >= x.0 => Some(b), _ => Some(x) }).map(|x| x.1)
+}
+
+/// Golden Boy's move with the function at the leaves of every line, deepening while the next depth fits in `secs`.
+pub fn goldenboy_move_deep(fen: &str, secs: f64) -> Result<(String, String), String> {
+    let (m, how) = goldenboy_move(fen)?;
+    if how == "the opening table" {
+        return Ok((m, how));
+    }
+    let f = Function::load();
+    let t0 = std::time::Instant::now();
+    let (mut best, mut depth, mut last, mut factor) = (m, 1, 0.0f64, 35.0f64);
+    for d in 2..=12 {
+        let spent = t0.elapsed().as_secs_f64();
+        if d > 3 && spent + last * factor > secs {
+            break;
+        }
+        let t1 = std::time::Instant::now();
+        match pick_deep(&f, fen, d) {
+            Some(x) => {
+                best = x;
+                depth = d;
+            }
+            None => break,
+        }
+        let s = t1.elapsed().as_secs_f64();
+        if last > 0.0005 {
+            factor = (s / last).clamp(5.0, 60.0);
+        }
+        last = s;
+        if t0.elapsed().as_secs_f64() > secs {
+            break;
+        }
+    }
+    Ok((best, format!("the Golden Function ({} terms), every line to depth {depth}", f.terms.len())))
+}

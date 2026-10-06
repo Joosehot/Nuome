@@ -1,8 +1,8 @@
 """Golden Boy plays Stockfish and writes the Golden Function longer, streamed.
 
 Golden Boy: the opening table when the position is familiar, the Syzygy
-tables at five pieces or fewer, otherwise the growing Golden Function at 1
-ply (`nuome --ideas goldenboy-grow`): the net's 64 points (value, side,
+tables at five pieces or fewer, otherwise the growing Golden Function at the
+leaves of every line, as deep as 5 s allows (`nuome --ideas goldenboy-grow`): the net's 64 points (value, side,
 attackers) combined by the terms the function chose itself. Stockfish: 1 s a
 move. At every Golden Boy position Stockfish says its own move (1 s): a
 lesson, and a point when Golden Boy played it; Stockfish's own moves are
@@ -24,6 +24,7 @@ SF = r"C:\Users\joose\Desktop\ChessEngine\stockfish\stockfish-windows-x86-64-avx
 TB = r"C:\Users\joose\Tools\syzygy\345-wdl"
 SERVER = "http://localhost:5000"
 OUT = os.path.join(NUOME, "out", "golden")
+GB_SECONDS = 5.0
 MOVE = re.compile(r"^move: (\S+) \((.*)\)", re.M)
 
 
@@ -53,7 +54,7 @@ def tb_move(board, tb):
 def gb_move(board, tb):
     if len(board.piece_map()) <= 5:
         return tb_move(board, tb), "the Syzygy tables"
-    out = subprocess.run([EXE, "--ideas", "goldenboy-grow", board.fen()], cwd=NUOME, capture_output=True, text=True, timeout=600).stdout
+    out = subprocess.run([EXE, "--ideas", "goldenboy-grow", board.fen(), str(GB_SECONDS)], cwd=NUOME, capture_output=True, text=True, timeout=600).stdout
     m = MOVE.search(out)
     if not m:
         return None, out.strip()[:200]
