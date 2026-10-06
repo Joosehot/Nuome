@@ -521,7 +521,11 @@ pub type State = fn(&Position, usize) -> f32;
 /// `f(after) - f(before)` (both sides counted), so along a line the deltas
 /// sum to the state at its end. The event rules (a fork, a check, a
 /// sacrifice) have no state; a search sees those itself.
-pub const STATES: [(&str, State); 42] = [
+pub const STATES: [(&str, State); 44] = [
+    // the king's danger (theory: king_safety_middlegame, attack_king): the enemy pieces attacking the squares
+    // round the king, weighted queen 4, rook 3, minor 2, pawn 1, times the shelter missing; and the safe checks they have
+    ("king_danger", |p, c| -king_danger(p, c)),
+    ("safe_checks", |p, c| -(safe_checks(p, 1 - c) as f32)),
     // the centre, piece by piece (theory: center; a knight on the rim is dim): closeness to the middle, per piece
     ("knight_center", |p, c| centralization(p, c, 1)),
     ("bishop_center", |p, c| centralization(p, c, 2)),
@@ -572,6 +576,42 @@ pub const STATES: [(&str, State); 42] = [
     ("back_rank", st_back_rank),
     ("hanging", st_hanging),
 ];
+
+/// The danger to side `c`'s king: the enemy attackers of its ring, weighted by piece, times (1 + the shelter pawns missing of 3), per 4.
+fn king_danger(p: &Position, c: usize) -> f32 {
+    let zone = ring(p, c);
+    if zone == 0 {
+        return 0.0;
+    }
+    let o = 1 - c;
+    let mut danger = 0f32;
+    for (ty, w) in [(0usize, 1.0f32), (1, 2.0), (2, 2.0), (3, 3.0), (4, 4.0)] {
+        for s in squares(p.bb[o * 6 + ty]) {
+            if piece_attacks(p, o, ty, s) & zone != 0 {
+                danger += w;
+            }
+        }
+    }
+    let missing = 3u32.saturating_sub(shield(p, c)) as f32;
+    danger * (1.0 + missing) / 4.0
+}
+
+/// Side `c`'s checking moves to squares the other side does not attack (a check that is safe to give).
+fn safe_checks(p: &Position, c: usize) -> u32 {
+    let Some(k) = king(p, 1 - c) else { return 0 };
+    let t = tables();
+    let their = attacks(p, 1 - c);
+    let free = !p.by_color[c] & !their;
+    let mut n = 0;
+    for ty in 1..5 {
+        // squares from which a piece of type `ty` would give check
+        let from_k = match ty { 1 => t.att.knight[k], 2 => t.bishop_attacks(k, p.occ), 3 => t.rook_attacks(k, p.occ), _ => t.queen_attacks(k, p.occ) };
+        for s in squares(p.bb[c * 6 + ty]) {
+            n += (piece_attacks(p, c, ty, s) & from_k & free).count_ones();
+        }
+    }
+    n
+}
 
 /// How central side `c`'s pieces of type `ty` stand: sum of (3 - distance to the middle) / 4 per piece (a1 = -3/4, d4 = 3/4).
 fn centralization(p: &Position, c: usize, ty: usize) -> f32 {
