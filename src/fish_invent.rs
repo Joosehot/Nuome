@@ -419,6 +419,17 @@ pub fn report(size: usize, max_digits: usize) -> String {
         }
         out.push_str(&format!("  {:<22} {:>5} {:>7} {:<26} {:<34} {}{}\n", b.shape.show(), b.primes.len(), dk, b.a_string(20.min(dk.max(1))), format!("{:?}", cf), b.stop, note));
     }
+    // the chains written out for a check by other tools: shape, A to its known digits, the primes
+    let mut dump = String::new();
+    for b in built.iter().take(25) {
+        let dk = b.digits_known();
+        if b.primes.len() >= 5 && dk >= 5 {
+            // the middle of A's interval, three digits past what is known: a number inside the interval, not its lower end cut short
+            let mid = Built { shape: b.shape.clone(), primes: Vec::new(), lo: (&b.lo + &b.hi) / BigUint::from(2u32), hi: b.hi.clone(), stop: "" };
+            dump.push_str(&format!("{}\t{}\t{}\n", b.shape.show(), mid.a_string(dk + 3), b.primes.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(" ")));
+        }
+    }
+    let _ = std::fs::write("out/fish_invent_chains.tsv", dump);
     out.push_str(&format!("\nverdict ({:.0} s): ", t0.elapsed().as_secs_f64()));
     if catch.is_empty() {
         out.push_str("no A with a shorter description than its digits: every continued fraction is irregular as far as it is known, and every chain that goes on pins A down only as far as its primes. The number that completes the function is always written by the primes it names; the shapes invented here do not change that.\n");
