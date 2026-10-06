@@ -927,6 +927,43 @@ pub fn theory_misses(log: &str, ms: u64, max: usize) -> Result<String, String> {
     Ok(out)
 }
 
+/// How fast the theory value is: every state timed over the first `n` check positions (both sides), evaluations per second.
+pub fn theory_bench(n: usize) -> Result<String, String> {
+    let text = std::fs::read_to_string("out/golden/grow_check.tsv").map_err(|e| e.to_string())?;
+    let ps: Vec<Position> = text.lines().take(n).filter_map(|l| l.split('\t').next()).filter_map(|f| Position::from_fen(f).ok()).collect();
+    let ev = theory_eval()?;
+    let mut acc = 0i64;
+    let mut whole = 0.0;
+    for pass in 0..3 {
+        let t0 = std::time::Instant::now();
+        for p in &ps {
+            acc += ev.eval(p) as i64;
+        }
+        whole = t0.elapsed().as_secs_f64();
+        let t1 = std::time::Instant::now();
+        let mut y = 0f32;
+        for p in &ps {
+            y += crate::golden_theory::state_score(&ev.weights, p, p.turn as usize);
+        }
+        acc += y as i64;
+        eprintln!("pass {pass}: eval {:.1} us, state_score {:.1} us", whole / ps.len() as f64 * 1e6, t1.elapsed().as_secs_f64() / ps.len() as f64 * 1e6);
+    }
+    let mut rows: Vec<(f64, &str)> = Vec::new();
+    for (id, st) in crate::golden_theory::STATES.iter() {
+        let t = std::time::Instant::now();
+        let mut x = 0f32;
+        for p in &ps {
+            x += st(p, 0) - st(p, 1);
+        }
+        rows.push((t.elapsed().as_secs_f64() / ps.len() as f64 * 1e6, *id));
+        acc += x as i64;
+    }
+    rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let total: f64 = rows.iter().map(|r| r.0).sum();
+    Ok(format!("{} positions: {:.0} evaluations/s ({:.1} us each; states alone {total:.1} us); per state (us, both sides): {} [{acc}]
+", ps.len(), ps.len() as f64 / whole, whole / ps.len() as f64 * 1e6, rows.iter().map(|(t, id)| format!("{id} {t:.1}")).collect::<Vec<_>>().join(", ")))
+}
+
 /// The theory value of `fen` from the side to move, state by state (weighted, in cp), largest first.
 pub fn theory_static(fen: &str) -> Result<String, String> {
     let ev = theory_eval()?;

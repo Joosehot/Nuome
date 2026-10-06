@@ -359,6 +359,12 @@ fn main() -> Result<()> {
             print!("{}", nuome::golden_grandmasters::theory_misses(log, ms, max).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "theory-bench" {
+            // theory-bench [N]: the theory value's speed, state by state
+            let n = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(2000);
+            print!("{}", nuome::golden_grandmasters::theory_bench(n).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "theory-static" {
             // theory-static FEN: the theory value of the position from the side to move, state by state
             let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");

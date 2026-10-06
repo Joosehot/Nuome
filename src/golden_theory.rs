@@ -526,7 +526,8 @@ pub const STATES: [(&str, State); 28] = [
     ("space", st_space),
     ("center", st_center),
     ("defend_in_advance", |p, c| -st_undefended(p, c)),
-    ("restriction", |p, c| -(their_legal(p, c) as f32) / 4.0),
+    // the state is the cheap mobility (attacked squares not held by one's own side), not the legal count the move rule uses: a search evaluates millions of positions
+    ("restriction", |p, c| (attacks(p, c) & !p.by_color[c]).count_ones() as f32 / 4.0),
     ("pawn_structure", st_structure),
     ("knight_outpost", st_outposts),
     ("bishops_open", st_bishops_open),
