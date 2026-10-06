@@ -38,6 +38,7 @@ pub mod star_search;
 pub mod golden_pattern;
 pub mod golden_grandmasters;
 pub mod golden_move;
+pub mod theory_engine;
 pub mod golden_theory;
 pub mod golden_god;
 pub mod golden_voice;

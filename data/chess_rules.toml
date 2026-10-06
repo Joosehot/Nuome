@@ -1,0 +1,222 @@
+# The theory engine's numbers (src/theory_engine/). The rules hold the theory
+# only (one principle each, data/golden_theory.toml); what each is worth, on
+# which axes, and every threshold lives here, as rules.toml does for the
+# mathematics. No weight here was learned from data.
+#
+# Every offered move is scored on three axes:
+#   initiative - threats, attack, activity: make something happen
+#   safety     - keep the king and the pieces safe, defend before attacking
+#   simplicity - trade down, keep the structure, the plain way
+# A move scores  weight * measure * (variant axes . profile) * axis_cp,
+# in centipawns next to the rules-only material. The profile starts at
+# [profile]; the grandmasters' names and a few words shift it.
+
+[profile]
+initiative = 1.0
+safety = 1.0
+simplicity = 0.5
+
+[modifiers.tal]        # "like Tal", "aggressively", "attack"
+initiative = 1.5
+safety = -0.6
+[modifiers.kasparov]
+initiative = 1.2
+safety = -0.3
+[modifiers.morphy]
+initiative = 1.0
+simplicity = 0.3
+[modifiers.anand]
+initiative = 0.8
+simplicity = 0.3
+[modifiers.fischer]
+initiative = 0.5
+simplicity = 0.5
+[modifiers.karpov]     # "like Karpov", "safely", "solidly"
+safety = 1.5
+initiative = -0.6
+[modifiers.kramnik]
+safety = 1.2
+simplicity = 0.5
+[modifiers.botvinnik]
+safety = 0.6
+simplicity = 0.6
+[modifiers.carlsen]    # "like Carlsen", "simply", "endgame"
+simplicity = 1.5
+safety = 0.5
+[modifiers.caruana]
+safety = 0.8
+simplicity = 0.3
+
+[score]
+axis_cp = 40           # cp per unit of weight x measure x (axes . profile)
+follow_weight = 0.5    # our later plan moves count this much
+
+[search]
+width = 6              # partial plans kept
+plan = 2               # our moves per plan
+variants = 12          # best offered moves per ply that enter the beam
+reply_ms = 40          # the rules-only search that picks the opponent's reply, per node
+
+[checks]
+finalists = 3
+mate_ms = 300          # the rules-only search that looks for a forced mate against a finalist
+material = 150         # cp a finalist may lose by force beyond the best rules-only move
+reference_ms = 600     # the rules-only search for the reference (the best move by the rules alone)
+
+[judges]
+# a breakable judge is forgiven  discount x the profile's share of its axis
+[judges.threat_first]
+weight = 60            # a piece of ours stays en prise after the plan's first move
+breakable = false
+[judges.material]
+weight = 80            # the plan ends down material
+min = 100              # cp down that wakes it
+breakable = true
+discount = 1.0
+axis = "initiative"
+[judges.king_shield]
+weight = 25            # a pawn in front of our castled king moves
+breakable = true
+discount = 1.0
+axis = "initiative"
+
+# the rules: weight and axes of the moves each principle offers
+[rules.material]
+weight = 3.0
+initiative = 0.4
+safety = 0.6
+simplicity = 0.8
+[rules.space]
+weight = 0.6
+initiative = 0.8
+safety = 0.2
+[rules.center]
+weight = 0.8
+initiative = 0.6
+safety = 0.3
+simplicity = 0.2
+[rules.initiative]
+weight = 1.0
+initiative = 1.0
+[rules.defend_in_advance]
+weight = 1.5
+safety = 1.0
+simplicity = 0.3
+[rules.exchanges]
+weight = 0.8
+simplicity = 1.0
+safety = 0.4
+[rules.restriction]
+weight = 0.5
+safety = 0.6
+initiative = 0.4
+[rules.pawn_structure]
+weight = 0.8
+safety = 0.5
+simplicity = 0.6
+[rules.knight_outpost]
+weight = 0.8
+initiative = 0.5
+safety = 0.5
+[rules.bishops_open]
+weight = 0.6
+initiative = 0.5
+simplicity = 0.3
+[rules.bad_bishop]
+weight = 0.5
+simplicity = 0.6
+safety = 0.3
+[rules.rook_seventh]
+weight = 0.8
+initiative = 1.0
+[rules.rook_behind_passer]
+weight = 0.8
+safety = 0.4
+simplicity = 0.6
+[rules.queen_not_early]
+weight = 0.8
+safety = 0.8
+simplicity = 0.4
+[rules.king_safety_middlegame]
+weight = 1.0
+safety = 1.0
+[rules.development]
+weight = 1.0
+initiative = 0.5
+safety = 0.5
+simplicity = 0.4
+[rules.castle_early]
+weight = 1.2
+safety = 1.0
+simplicity = 0.4
+[rules.pawn_shield]
+weight = 0.6
+safety = 1.0
+[rules.coordination]
+weight = 0.5
+initiative = 0.5
+safety = 0.3
+[rules.classical_hypermodern]
+weight = 0.4
+initiative = 0.4
+simplicity = 0.3
+[rules.combinations]
+weight = 0.6
+initiative = 1.0
+[rules.attack_king]
+weight = 1.0
+initiative = 1.0
+[rules.king_active]
+weight = 1.0
+simplicity = 0.6
+initiative = 0.4
+[rules.passed_pawn]
+weight = 1.2
+initiative = 0.6
+simplicity = 0.6
+[rules.outside_passer]
+weight = 0.8
+simplicity = 0.8
+[rules.connected_passers]
+weight = 0.8
+initiative = 0.5
+simplicity = 0.5
+[rules.promotion_goal]
+weight = 1.5
+initiative = 0.6
+simplicity = 0.8
+[rules.rule_of_square]
+weight = 1.5
+simplicity = 1.0
+[rules.extra_pawn_decides]
+weight = 1.0
+simplicity = 1.0
+[rules.rook_endgame_initiative]
+weight = 0.8
+initiative = 1.0
+[rules.fork]
+weight = 1.2
+initiative = 1.0
+[rules.pin]
+weight = 0.6
+initiative = 0.6
+safety = 0.3
+[rules.double_check]
+weight = 1.5
+initiative = 1.0
+[rules.sacrifice]
+weight = 0.6
+initiative = 1.0
+safety = -0.5
+[rules.pawn_demolition]
+weight = 0.6
+initiative = 1.0
+[rules.back_rank]
+weight = 1.0
+initiative = 0.6
+safety = 0.6
+[rules.hanging]
+weight = 1.5
+initiative = 0.6
+safety = 0.6
+simplicity = 0.5

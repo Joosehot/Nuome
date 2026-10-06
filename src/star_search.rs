@@ -529,6 +529,19 @@ impl Eval for BlendEval {
     }
 }
 
+/// The rules alone: material by the classic values (1, 3, 3, 5, 9 pawns, 100 cp
+/// each), from the side to move; everything else (captures, checks, mates) the
+/// search knows from the rules of the game. No theory, no learned weight.
+pub struct RulesEval;
+
+impl Eval for RulesEval {
+    fn eval(&self, p: &Position) -> i32 {
+        let me = p.turn as usize;
+        let v: i32 = [100, 300, 300, 500, 900].iter().enumerate().map(|(t, w)| w * (p.bb[me * 6 + t].count_ones() as i32 - p.bb[(1 - me) * 6 + t].count_ones() as i32)).sum();
+        v
+    }
+}
+
 impl Eval for GoldennetEval {
     fn eval(&self, p: &Position) -> i32 {
         let x = crate::golden_table::points(p, 1 - p.turn as usize);

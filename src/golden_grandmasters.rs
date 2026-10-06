@@ -424,6 +424,17 @@ pub fn boy_smoke(file: &str, ms: u64) -> Result<(), String> {
     Ok(())
 }
 
+/// The theory with no learned weight: every state one pawn per unit, the piece
+/// values at the theory's own baseline (1, 3, 3, 5, 9), no phase.
+pub fn theory_eval_plain() -> crate::star_search::TheoryEval {
+    let ws = crate::golden_theory::STATES
+        .iter()
+        .enumerate()
+        .map(|(i, (id, _))| (i, match *id { "material_pawn" => 1.0, "material_knight" | "material_bishop" => 3.0, "material_rook" => 5.0, "material_queen" => 9.0, _ => 1.0 }))
+        .collect();
+    crate::star_search::TheoryEval { weights: ws, endgame: Vec::new(), bias: 0.0, scale: 100.0 }
+}
+
 /// The judge as an engine's evaluation: the theory value's weights (THEORY_VALUE_FILE) when tuned, else the move judge's (TEXEL_FILE) on the state rules.
 pub fn theory_eval() -> Result<crate::star_search::TheoryEval, String> {
     let (lw, eg) = load_value().or_else(|_| load_texel().map(|w| (w, Vec::new())))?;

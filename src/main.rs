@@ -429,6 +429,29 @@ fn main() -> Result<()> {
             nuome::star_search::smoke_file_with(&ev, tmp, n.get(1).copied().unwrap_or(2_000), false).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "plain-smoke" {
+            // plain-smoke [MS]: the smoke positions with the theory and no learned weight (every principle one pawn, the piece values 1 3 3 5 9)
+            let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            let ev = nuome::golden_grandmasters::theory_eval_plain();
+            nuome::star_search::smoke_file_with(&ev, "out/golden/smoke_reverse.tsv", ms, true).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "rules-smoke" {
+            // rules-smoke [MS]: the smoke positions with the rules alone (material, and what the search knows of the game)
+            let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            nuome::star_search::smoke_file_with(&nuome::star_search::RulesEval, "out/golden/smoke_reverse.tsv", ms, true).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "rules-check" {
+            // rules-check [N] [MS]: the check positions with the rules alone
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let text = std::fs::read_to_string("out/golden/grow_check.tsv")?;
+            let tmp = "out/golden/theory_check_set.tsv";
+            std::fs::write(tmp, text.lines().take(n.first().copied().unwrap_or(100) as usize).collect::<Vec<_>>().join("
+"))?;
+            nuome::star_search::smoke_file_with(&nuome::star_search::RulesEval, tmp, n.get(1).copied().unwrap_or(2_000), false).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "theory-smoke" {
             // theory-smoke [MS] [THEORY_W] [GOLDEN_W] [NNUE_MIX]: the smoke positions with the judge as the engine: its Texel-weighted theory (x THEORY_W) plus Goldennet (x GOLDEN_W) as StarNet's evaluation, StarNNUE mixed in by NNUE_MIX (0 = none)
             let n: Vec<f64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
@@ -443,6 +466,30 @@ fn main() -> Result<()> {
             println!("judge as engine: theory x{tw}, Goldennet x{gw}, StarNNUE {:.0}%", 100.0 * mix);
             let ev = nuome::star_search::BlendEval(parts);
             nuome::star_search::smoke_file_mix(&ev, (mix > 0.0).then_some(mix), "out/golden/smoke_reverse.tsv", ms, true).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "think" {
+            // think SENTENCE...: the theory engine (Nuome's own architecture) on "best move in FEN [like Tal | safely | simply]"
+            let sentence = cli.words.join(" ");
+            let o = nuome::theory_engine::think(&sentence).map_err(|e| anyhow::anyhow!(e))?;
+            for l in &o.lines { println!("{l}"); }
+            return Ok(());
+        }
+        if which == "engine-smoke" {
+            // engine-smoke [WORDS...]: the smoke positions with the theory engine; the full lines in out/golden/engine_smoke_lines.txt
+            let words = cli.words.join(" ");
+            nuome::theory_engine::smoke("out/golden/smoke_reverse.tsv", &words, true, "out/golden/engine_smoke_lines.txt").map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "engine-check" {
+            // engine-check [N] [WORDS...]: the first N check positions with the theory engine
+            let n: usize = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(100);
+            let words = cli.words.iter().skip(1).cloned().collect::<Vec<_>>().join(" ");
+            let text = std::fs::read_to_string("out/golden/grow_check.tsv")?;
+            let tmp = "out/golden/engine_check_set.tsv";
+            std::fs::write(tmp, text.lines().take(n).collect::<Vec<_>>().join("
+"))?;
+            nuome::theory_engine::smoke(tmp, &words, false, "out/golden/engine_check_lines.txt").map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
         if which == "golden-move" {
