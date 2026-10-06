@@ -291,6 +291,12 @@ fn main() -> Result<()> {
             println!("move: {m} ({how})");
             return Ok(());
         }
+        if which == "star-test" {
+            // star-test [N] [MS]: StarNet's search with the Golden Function and Goldennet on the fixed check set
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::star_search::test(n.first().copied().unwrap_or(100) as usize, n.get(1).copied().unwrap_or(1000)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-whole-fn" {
             // golden-whole-fn [N] [EPOCHS] [KEEP] [NEG]: every concept at once, values learned together, polished to the KEEP that weigh most
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

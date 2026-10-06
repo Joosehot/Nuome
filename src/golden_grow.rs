@@ -979,3 +979,8 @@ fn refit(f: &mut Function, train: &[Lesson], validate: &[Lesson], epochs: usize,
     }
     *f = best.1;
 }
+
+/// The function's value of position `p` seen from `me` (for other searches).
+pub fn eval_from(f: &Function, p: &Position, me: usize) -> f32 {
+    f.eval(&feat(p, me))
+}
