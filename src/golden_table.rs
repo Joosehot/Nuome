@@ -1443,7 +1443,10 @@ pub fn texel_games(max: usize, epochs: usize, batch: usize, lr: f32, every: usiz
         let (e, named, side) = whole_game_measure(w, k, &va);
         format!("whole-game error {e:.4}; result named {:.1}% of games, winner's side {:.1}% of decisive games", 100.0 * named, 100.0 * side)
     };
-    let mut w = load_goldennet_value().unwrap_or_else(|| vec![0f32; NW]);
+    // continue from where the last run of this kind stopped, else from the value net
+    let from_out: Option<Vec<f32>> = std::fs::read_to_string(out_file).ok().map(|t| t.lines().filter_map(|l| l.trim().parse().ok()).collect::<Vec<f32>>()).filter(|w| w.len() == NW);
+    let continued = from_out.is_some();
+    let mut w = from_out.unwrap_or_else(|| load_goldennet_value().unwrap_or_else(|| vec![0f32; NW]));
     let mut k = 1.0f32;
     let mut bk = (vloss(&w, k), k);
     for kk in [0.1f32, 0.2, 0.3, 0.5, 0.75, 1.0, 1.5] {
@@ -1454,7 +1457,7 @@ pub fn texel_games(max: usize, epochs: usize, batch: usize, lr: f32, every: usiz
     }
     k = bk.1;
     let mut best = (bk.0, w.clone());
-    say(format!("  K = {k}; start (from the current value net): {}", show(&w, k)));
+    say(format!("  K = {k}; start ({}): {}", if continued { "continued from the last run" } else { "from the current value net" }, show(&w, k)));
     let save = |w: &[f32]| std::fs::write(out_file, w.iter().map(|x| format!("{x}\n")).collect::<String>());
     let (b1, b2, eps) = (0.9f32, 0.999f32, 1e-8f32);
     let mut m1 = vec![0f32; NW];
