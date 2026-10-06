@@ -303,6 +303,26 @@ fn main() -> Result<()> {
             nuome::golden_table::teach_texel(n.first().copied().unwrap_or(1_500_000), n.get(1).copied().unwrap_or(3), n.get(2).copied().unwrap_or(1024), 0.001, n.get(3).copied().unwrap_or(200), n.get(4).copied().unwrap_or(4)).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "star-file" {
+            // star-file FILE [MS]: Goldennet with StarNet's search on (fen TAB move) lines, in order
+            let path = cli.words.first().context("star-file takes a file")?;
+            let ms = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            nuome::star_search::smoke_file(path, ms).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "goldennet-texel-games" {
+            // goldennet-texel-games [MAX] [EPOCHS] [PATIENCE]: Texel on whole CCRL games (the game's result), from the current value net, to out/golden/goldennet_games.txt
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            nuome::golden_table::texel_games(n.first().copied().unwrap_or(3_000_000), n.get(1).copied().unwrap_or(3), 4096, 0.001, 200, n.get(2).copied().unwrap_or(4), "out/golden/goldennet_games.txt").map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "star-quiet" {
+            // star-quiet [N] [MS] FILES...: ordinary CCRL game positions, StarNet's search with each Goldennet file
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let files: Vec<&str> = cli.words.iter().filter(|w| w.parse::<u64>().is_err()).map(|s| s.as_str()).collect();
+            nuome::star_search::quiet_test(n.first().copied().unwrap_or(100) as usize, n.get(1).copied().unwrap_or(1000), &files).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "star-smoke" {
             // star-smoke [N] [MS]: positions nothing has seen, Goldennet with StarNet's search, each reported at once
             let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

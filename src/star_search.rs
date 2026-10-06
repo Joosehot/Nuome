@@ -391,3 +391,47 @@ pub fn smoke(n: usize, ms: u64, skip: usize) -> Result<(), String> {
     println!("smoke test: Stockfish's move {hit}/{}", rows.len());
     Ok(())
 }
+
+/// The same test on a file of (fen TAB Stockfish's move), in the file's order, each reported at once.
+pub fn smoke_file(path: &str, ms: u64) -> Result<(), String> {
+    use std::io::Write;
+    let w: Vec<f32> = std::fs::read_to_string(crate::golden_table::GOLDENNET_VALUE_FILE).map_err(|e| e.to_string())?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+    let ev = GoldennetEval(w);
+    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let rows: Vec<(&str, &str)> = text.lines().filter_map(|l| l.split_once('\t')).collect();
+    let mut hit = 0;
+    for (i, (fen, sf)) in rows.iter().enumerate() {
+        let t0 = Instant::now();
+        let (m, d, k) = best_move(&ev, fen, ms).unwrap_or_default();
+        hit += (m == *sf) as usize;
+        println!("  {}/{}: played {m}, Stockfish {sf} {} (depth {d}, {:.1}M nodes, {:.1} s) — {hit}/{} so far\n    {fen}", i + 1, rows.len(), if m == *sf { "RIGHT" } else { "miss" }, k as f64 / 1e6, t0.elapsed().as_secs_f64(), i + 1);
+        let _ = std::io::stdout().flush();
+    }
+    Ok(())
+}
+
+/// Ordinary game positions (CCRL holdout games, plies 20-80, Stockfish's move in the game) with StarNet's search, each net file compared.
+pub fn quiet_test(n: usize, ms: u64, files: &[&str]) -> Result<(), String> {
+    use std::io::Write;
+    let rows = crate::golden_table::ccrl_quiet_positions(n)?;
+    println!("ordinary game positions: {} from CCRL holdout games (plies 20-80), Stockfish's move in the game, {ms} ms each", rows.len());
+    for f in files {
+        let w: Vec<f32> = std::fs::read_to_string(f).map_err(|e| format!("{f}: {e}"))?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+        if w.len() != crate::golden_table::NW {
+            println!("  {f}: not a Goldennet file");
+            continue;
+        }
+        let ev = GoldennetEval(w);
+        let t0 = Instant::now();
+        let (mut hit, mut depth) = (0, 0);
+        for (fen, sf) in &rows {
+            if let Some((m, d, _)) = best_move(&ev, fen, ms) {
+                hit += (m == *sf) as usize;
+                depth += d;
+            }
+        }
+        println!("  {f}: Stockfish's move {hit}/{} ({:.0}%), average depth {:.1} ({:.0} s)", rows.len(), 100.0 * hit as f64 / rows.len().max(1) as f64, depth as f64 / rows.len().max(1) as f64, t0.elapsed().as_secs_f64());
+        let _ = std::io::stdout().flush();
+    }
+    Ok(())
+}

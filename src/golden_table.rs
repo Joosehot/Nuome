@@ -1341,3 +1341,237 @@ pub fn teach_texel(n_train: usize, epochs: usize, batch: usize, lr: f32, every: 
     say(format!("best validate error {:.4} (RMS {:.3}), saved to {GOLDENNET_VALUE_FILE} ({:.0} s)", best.0, best.0.sqrt(), t0.elapsed().as_secs_f64()));
     Ok(())
 }
+
+// ---------------------------------------------------------------- Texel on whole games (the original Texel way)
+
+/// Positions of whole CCRL games with the game's result: after every third
+/// ply from ply 10 on (more than five pieces), the position seen from the
+/// side that has just moved, and the result for that side (1 / 0.5 / 0).
+/// Split by game: n % 10 == 8 validate, 9 holdout, the rest train.
+/// A validate game kept whole: every position from ply 10 on (more than five pieces) seen from the side that has just moved, whether that side is white, and the result for white.
+pub type WholeGame = (Vec<([u16; 64], bool)>, f32);
+
+fn game_samples(max: usize) -> Result<(Vec<([u16; 64], f32)>, Vec<WholeGame>), String> {
+    let text = std::fs::read_to_string(GAMES).map_err(|e| format!("{GAMES}: {e}"))?;
+    let mut tr = Vec::new();
+    let mut va: Vec<WholeGame> = Vec::new();
+    for (g, line) in text.lines().enumerate() {
+        if tr.len() >= max {
+            break;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+        let white = match parts[1] {
+            "1-0" => 1.0f32,
+            "0-1" => 0.0,
+            "1/2-1/2" => 0.5,
+            _ => continue,
+        };
+        let split = g % 10;
+        if split == 9 {
+            continue;
+        }
+        if split == 8 && va.len() >= 2_000 {
+            continue;
+        }
+        let mut p = Position::from_fen(START)?;
+        let mut whole = Vec::new();
+        for (ply, u) in parts[2].split_whitespace().enumerate() {
+            let Some(m) = uci_to_move(&mut p, u) else { break };
+            let mover = p.turn as usize;
+            p.make(m);
+            if ply >= 10 && p.occ.count_ones() > 5 {
+                if split == 8 {
+                    whole.push((points(&p, mover), mover == 0));
+                } else if ply % 3 == 0 {
+                    let t = if mover == 0 { white } else { 1.0 - white };
+                    tr.push((points(&p, mover), t));
+                }
+            }
+        }
+        if split == 8 && !whole.is_empty() {
+            va.push((whole, white));
+        }
+    }
+    Ok((tr, va))
+}
+
+/// The validate games judged whole: (the error per game, every game counting the same;
+/// the share of games whose result the net's mean prediction over the game names
+/// (white wins above 0.6, black below 0.4, a draw between); the share of decisive
+/// games where the mean prediction is on the winner's side).
+fn whole_game_measure(w: &[f32], k: f32, va: &[WholeGame]) -> (f64, f64, f64) {
+    let (mut err, mut named, mut side, mut decisive) = (0f64, 0usize, 0usize, 0usize);
+    for (pos, white) in va {
+        let mut e = 0f64;
+        let mut mean = 0f64;
+        for (x, mover_white) in pos {
+            let q = 1.0 / (1.0 + (-k * score(w, x)).exp());
+            let qw = if *mover_white { q } else { 1.0 - q };
+            e += ((white - qw) as f64).powi(2);
+            mean += qw as f64;
+        }
+        err += e / pos.len() as f64;
+        mean /= pos.len() as f64;
+        let called = if mean > 0.6 { 1.0 } else if mean < 0.4 { 0.0 } else { 0.5 };
+        named += (called == *white as f64) as usize;
+        if *white != 0.5 {
+            decisive += 1;
+            side += ((mean > 0.5) == (*white > 0.5)) as usize;
+        }
+    }
+    let n = va.len().max(1) as f64;
+    (err / n, named as f64 / n, side as f64 / decisive.max(1) as f64)
+}
+
+/// Texel tuning on whole games: Goldennet's points through sigmoid(K · sum)
+/// against the game's result, Adam on shuffled minibatches; the validate
+/// error shown as it trains, the best kept and saved to `out_file`.
+pub fn texel_games(max: usize, epochs: usize, batch: usize, lr: f32, every: usize, patience: usize, out_file: &str) -> Result<(), String> {
+    use std::io::Write;
+    let say = |s: String| {
+        println!("{s}");
+        let _ = std::io::stdout().flush();
+    };
+    let t0 = std::time::Instant::now();
+    let (tr, va) = game_samples(max)?;
+    say(format!("Texel on whole games: {} train positions; {} validate games kept whole ({} positions) ({:.0} s)", tr.len(), va.len(), va.iter().map(|g| g.0.len()).sum::<usize>(), t0.elapsed().as_secs_f64()));
+    let vloss = |w: &[f32], k: f32| whole_game_measure(w, k, &va).0;
+    let show = |w: &[f32], k: f32| {
+        let (e, named, side) = whole_game_measure(w, k, &va);
+        format!("whole-game error {e:.4}; result named {:.1}% of games, winner's side {:.1}% of decisive games", 100.0 * named, 100.0 * side)
+    };
+    let mut w = load_goldennet_value().unwrap_or_else(|| vec![0f32; NW]);
+    let mut k = 1.0f32;
+    let mut bk = (vloss(&w, k), k);
+    for kk in [0.1f32, 0.2, 0.3, 0.5, 0.75, 1.0, 1.5] {
+        let l = vloss(&w, kk);
+        if l < bk.0 {
+            bk = (l, kk);
+        }
+    }
+    k = bk.1;
+    let mut best = (bk.0, w.clone());
+    say(format!("  K = {k}; start (from the current value net): {}", show(&w, k)));
+    let save = |w: &[f32]| std::fs::write(out_file, w.iter().map(|x| format!("{x}\n")).collect::<String>());
+    let (b1, b2, eps) = (0.9f32, 0.999f32, 1e-8f32);
+    let mut m1 = vec![0f32; NW];
+    let mut m2 = vec![0f32; NW];
+    let mut step = 0i32;
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let mut order: Vec<usize> = (0..tr.len()).collect();
+    let mut rng = 0x6A3E5u64;
+    let (mut since, mut batches) = (0usize, 0usize);
+    'outer: for e in 1..=epochs {
+        for i in (1..order.len()).rev() {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            order.swap(i, (rng % (i as u64 + 1)) as usize);
+        }
+        for ids in order.chunks(batch) {
+            let per = ids.len().div_ceil(threads).max(1);
+            let parts: Vec<(Vec<f32>, f64)> = std::thread::scope(|s| {
+                let hs: Vec<_> = ids
+                    .chunks(per)
+                    .map(|c| {
+                        let (w, tr) = (&w, &tr);
+                        s.spawn(move || {
+                            let mut g = vec![0f32; NW];
+                            let mut loss = 0f64;
+                            for &i in c {
+                                let (x, t) = &tr[i];
+                                let q = 1.0 / (1.0 + (-k * score(w, x)).exp());
+                                let err = q - t;
+                                loss += (err * err) as f64;
+                                let d = 2.0 * err * q * (1.0 - q) * k;
+                                for &f in x {
+                                    g[f as usize] += d;
+                                }
+                            }
+                            (g, loss)
+                        })
+                    })
+                    .collect();
+                hs.into_iter().map(|h| h.join().unwrap()).collect()
+            });
+            step += 1;
+            let (c1, c2) = (1.0 - b1.powi(step), 1.0 - b2.powi(step));
+            let n = ids.len() as f32;
+            for i in 0..NW {
+                let gi: f32 = parts.iter().map(|p| p.0[i]).sum::<f32>() / n;
+                m1[i] = b1 * m1[i] + (1.0 - b1) * gi;
+                m2[i] = b2 * m2[i] + (1.0 - b2) * gi * gi;
+                w[i] -= lr * (m1[i] / c1) / ((m2[i] / c2).sqrt() + eps);
+            }
+            batches += 1;
+            if batches % every == 0 {
+                let tl: f64 = parts.iter().map(|p| p.1).sum::<f64>() / n as f64;
+                let vl = vloss(&w, k);
+                let mark = if vl < best.0 {
+                    best = (vl, w.clone());
+                    since = 0;
+                    let _ = save(&w);
+                    " (best, saved)"
+                } else {
+                    since += 1;
+                    ""
+                };
+                let _ = vl;
+                say(format!("  epoch {e}, batch {batches}: train error {tl:.4}, {}{mark} ({:.0} s)", show(&w, k), t0.elapsed().as_secs_f64()));
+                if since >= patience {
+                    say(format!("  validate has not improved for {patience} checks: stopping"));
+                    break 'outer;
+                }
+            }
+        }
+    }
+    let _ = save(&best.1);
+    say(format!("best: {}, saved to {out_file} ({:.0} s)", show(&best.1, k), t0.elapsed().as_secs_f64()));
+    Ok(())
+}
+
+/// Ordinary game positions for a test: CCRL holdout games (n % 10 == 9), plies 20-80, Stockfish to move, its move in the game.
+pub fn ccrl_quiet_positions(n: usize) -> Result<Vec<(String, String)>, String> {
+    let text = std::fs::read_to_string(GAMES).map_err(|e| format!("{GAMES}: {e}"))?;
+    let mut out = Vec::new();
+    for (g, line) in text.lines().enumerate() {
+        if g % 10 != 9 {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+        let (w, b) = (parts[0].contains('W'), parts[0].contains('B'));
+        let moves: Vec<&str> = parts[2].split_whitespace().collect();
+        if moves.len() < 40 {
+            continue;
+        }
+        // one position a game, at a ply chosen by the game's number
+        let ply = 20 + (g * 7919) % (moves.len().min(80) - 20);
+        if !((ply % 2 == 0 && w) || (ply % 2 == 1 && b)) {
+            continue;
+        }
+        let mut p = Position::from_fen(START)?;
+        let mut ok = true;
+        for u in &moves[..ply] {
+            match uci_to_move(&mut p, u) {
+                Some(m) => p.make(m),
+                None => {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        if ok && p.occ.count_ones() > 5 {
+            out.push((p.to_fen(), moves[ply].to_string()));
+            if out.len() >= n {
+                break;
+            }
+        }
+    }
+    Ok(out)
+}
