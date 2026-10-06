@@ -33,6 +33,7 @@ pub mod golden_mate_path;
 pub mod golden_table;
 pub mod golden_ntables;
 pub mod golden_optimal;
+pub mod golden_grow;
 pub mod golden_god;
 pub mod golden_voice;
 pub mod golden_heart;

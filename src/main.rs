@@ -283,6 +283,17 @@ fn main() -> Result<()> {
             print!("{}", nuome::golden_table::profile(&cli.words.join(" "), 4).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "goldenboy-grow" {
+            // goldenboy-grow "<fen>": Golden Boy's move with the growing Golden Function
+            let (m, how) = nuome::golden_grow::goldenboy_move(&cli.words.join(" ")).map_err(|e| anyhow::anyhow!(e))?;
+            println!("move: {m} ({how})");
+            return Ok(());
+        }
+        if which == "golden-grow" {
+            // golden-grow: after a game, the Golden Function grows on every lesson so far
+            print!("{}", nuome::golden_grow::grow().map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "goldenboy-net" {
             // goldenboy-net "<fen>" [SECONDS]: Golden Boy's move with the opening table and Goldennet
             let fen = cli.words.iter().filter(|w| w.parse::<f64>().is_err()).cloned().collect::<Vec<_>>().join(" ");

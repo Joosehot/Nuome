@@ -976,3 +976,27 @@ pub fn term_sum(b: &Board, terms: &[(Term, i64)]) -> i64 {
     let (s, r) = (base_sets(b), reaches(b));
     terms.iter().map(|(t, w)| w * t.value(&s, &r)).sum()
 }
+
+// ---------------------------------------------------------------- for golden_grow
+
+/// The node sets and reaches of a position, for valuing terms on it.
+pub(crate) fn features_of(b: &Board) -> ([u64; N_BASE], [i64; 12]) {
+    (base_sets(b), reaches(b))
+}
+pub(crate) fn term_value(t: Term, f: &([u64; N_BASE], [i64; 12])) -> i64 {
+    t.value(&f.0, &f.1)
+}
+pub(crate) fn term_code(t: Term) -> String {
+    t.code()
+}
+pub(crate) fn term_from_code(words: &[&str]) -> Option<Term> {
+    Term::from_code(words)
+}
+/// The term written for reading, as the mover sees it.
+pub(crate) fn term_text(t: Term) -> String {
+    t.mirrored().short()
+}
+pub(crate) fn simple_candidates() -> Vec<Term> {
+    candidates()
+}
+pub(crate) const N_SETS: usize = N_BASE;
