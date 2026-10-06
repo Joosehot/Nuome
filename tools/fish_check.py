@@ -21,7 +21,7 @@ def g(shape, A, n):
     }
     return table[shape]()
 
-rows = [l.rstrip('\n').split('\t') for l in open('out/fish_invent_chains.tsv', encoding='utf-8')]
+rows = [l.rstrip('\n').split('\t') for l in open(sys.argv[1] if len(sys.argv) > 1 else 'out/fish_invent_chains.tsv', encoding='utf-8')]
 for shape, a, primes in rows:
     primes = [int(x) for x in primes.split()]
     mpmath.mp.dps = len(a) + 50
