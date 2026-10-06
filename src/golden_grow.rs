@@ -382,7 +382,9 @@ fn read_lessons(path: &str, limit: usize) -> Vec<Lesson> {
 
 /// A piece of the Hugging Face data: `n` positions whose key falls in `bucket` (of 20), written once to `path`.
 fn hf_set(path: &str, bucket: std::ops::Range<u64>, n: usize) -> Vec<Lesson> {
-    if std::fs::metadata(path).is_err() {
+    // written once; written again when it holds fewer positions than asked for
+    let have = std::fs::read_to_string(path).map(|t| t.lines().count()).unwrap_or(0);
+    if have < n {
         let text = std::fs::read_to_string(crate::golden_table::HF_FILE).unwrap_or_default();
         let mut out = String::new();
         let mut k = 0;
@@ -672,4 +674,308 @@ pub fn goldenboy_move_deep(fen: &str, secs: f64) -> Result<(String, String), Str
         return Err("no legal move".into());
     }
     Ok((best, format!("the Golden Function ({} terms), every line to depth {depth}", f.terms.len())))
+}
+
+// ---------------------------------------------------------------- every concept at once
+
+/// Every term of the language, in a fixed order: products of 1-3 factors, then every concept.
+fn every_term() -> Vec<Term> {
+    let mut out = Vec::new();
+    for a in 0..NF as u8 {
+        out.push(Term::Prod([a, 0, 0], 1));
+    }
+    for a in 0..NF as u8 {
+        for b in a + 1..NF as u8 {
+            out.push(Term::Prod([a, b, 0], 2));
+        }
+    }
+    for a in 0..NF as u8 {
+        for b in a + 1..NF as u8 {
+            for c in b + 1..NF as u8 {
+                out.push(Term::Prod([a, b, c], 3));
+            }
+        }
+    }
+    for a in 0..=NF as u8 {
+        for b in a..=NF as u8 {
+            for r in 0..RELATIONS.len() as u8 {
+                for c in 4..NF as u8 {
+                    out.push(Term::Rel { a, b, r, c });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Every term's value on one position, in every_term()'s order (the concepts by one matrix product).
+fn every_value(f: &Feat, out: &mut Vec<f32>) {
+    out.clear();
+    let mut fm = [[0f32; NF + 1]; 64];
+    for s in 0..64 {
+        for i in 0..NF {
+            fm[s][i] = factor(f, i as u8, s);
+        }
+        fm[s][NF] = 1.0;
+    }
+    for a in 0..NF {
+        out.push((0..64).map(|s| fm[s][a]).sum());
+    }
+    for a in 0..NF {
+        for b in a + 1..NF {
+            out.push((0..64).map(|s| fm[s][a] * fm[s][b]).sum());
+        }
+    }
+    for a in 0..NF {
+        for b in a + 1..NF {
+            for c in b + 1..NF {
+                out.push((0..64).map(|s| fm[s][a] * fm[s][b] * fm[s][c]).sum());
+            }
+        }
+    }
+    // #(R ∩ C) for every relation and property, at every point
+    let nb = NF - 4;
+    let bbs: Vec<u64> = (4..NF as u8).map(|c| bool_bb(f, c)).collect();
+    let mut cnt = vec![[0f32; 64]; RELATIONS.len() * nb];
+    for r in 0..RELATIONS.len() {
+        for s in 0..64 {
+            let m = rel_mask(f, r as u8, s);
+            for ci in 0..nb {
+                cnt[r * nb + ci][s] = (m & bbs[ci]).count_ones() as f32;
+            }
+        }
+    }
+    let mut ab = [0f32; 64];
+    for a in 0..=NF {
+        for b in a..=NF {
+            for s in 0..64 {
+                ab[s] = fm[s][a] * fm[s][b];
+            }
+            for r in 0..RELATIONS.len() {
+                for ci in 0..nb {
+                    let c = &cnt[r * nb + ci];
+                    let mut v = 0f32;
+                    for s in 0..64 {
+                        v += ab[s] * c[s];
+                    }
+                    out.push(v);
+                }
+            }
+        }
+    }
+}
+
+/// The share on a set with every child valued by every live term (weights in spread units), on all cores.
+fn share_all(w: &[f32], sd: &[f32], live: &[bool], set: &[Lesson]) -> f64 {
+    let nt = w.len();
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let chunk = set.len().div_ceil(threads).max(1);
+    let hits: usize = std::thread::scope(|s| {
+        let hs: Vec<_> = set
+            .chunks(chunk)
+            .map(|ls| {
+                s.spawn(move || {
+                    let mut buf = Vec::with_capacity(nt);
+                    let mut hit = 0;
+                    for l in ls {
+                        let mut best = (f32::NEG_INFINITY, 0usize);
+                        for (ki, k) in l.kids.iter().enumerate() {
+                            let v = match k.fixed {
+                                Some(v) => v,
+                                None => {
+                                    every_value(&k.feat, &mut buf);
+                                    (0..nt).filter(|&i| live[i]).map(|i| w[i] * buf[i] / sd[i]).sum()
+                                }
+                            };
+                            if v > best.0 {
+                                best = (v, ki);
+                            }
+                        }
+                        hit += (l.kids.get(best.1).map(|k| k.uci == l.sf).unwrap_or(false)) as usize;
+                    }
+                    hit
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).sum()
+    });
+    hits as f64 / set.len().max(1) as f64
+}
+
+/// Golden writes the whole function at once: every concept, their values
+/// learned together on `n` Hugging Face positions and the games (Stockfish's
+/// move against `neg` drawn other moves), `epochs` epochs; then polished to
+/// the `keep` that weigh most, which becomes the Golden Function.
+pub fn whole(n: usize, epochs: usize, keep: usize, neg: usize) -> Result<String, String> {
+    let t0 = std::time::Instant::now();
+    let terms = every_term();
+    let nt = terms.len();
+    let mut train = hf_set("out/golden/grow_whole_train.tsv", 0..18, n);
+    train.extend(read_lessons(LESSONS, usize::MAX));
+    let validate = hf_set("out/golden/grow_validate.tsv", 18..19, 2_000);
+    let check = check_set();
+    let mut out = format!("every concept at once: {nt} terms; {} train / {} validate / {} check positions ({:.0} s to read)\n", train.len(), validate.len(), check.len(), t0.elapsed().as_secs_f64());
+    // the spread of every term (so the weights are comparable), on a sample
+    let mut sum = vec![0f64; nt];
+    let mut sq = vec![0f64; nt];
+    let mut m = 0f64;
+    let mut buf = Vec::with_capacity(nt);
+    for l in train.iter().step_by((train.len() / 300).max(1)) {
+        for k in l.kids.iter().filter(|k| k.fixed.is_none()) {
+            every_value(&k.feat, &mut buf);
+            for i in 0..nt {
+                sum[i] += buf[i] as f64;
+                sq[i] += (buf[i] as f64).powi(2);
+            }
+            m += 1.0;
+        }
+    }
+    let sd: Vec<f32> = (0..nt).map(|i| ((sq[i] / m - (sum[i] / m).powi(2)).max(0.0).sqrt()) as f32).collect();
+    let live: Vec<bool> = sd.iter().map(|&x| x > 1e-6).collect();
+    out.push_str(&format!("  {} of them vary at all ({:.0} s)\n", live.iter().filter(|&&x| x).count(), t0.elapsed().as_secs_f64()));
+    let mut w = vec![0f32; nt];
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let mut rng = 0x5EED_u64;
+    for e in 1..=epochs {
+        let lr = 0.02 / e as f32;
+        for batch in train.chunks(threads * 8) {
+            let chunk = batch.len().div_ceil(threads).max(1);
+            let grads: Vec<Vec<f32>> = std::thread::scope(|s| {
+                let hs: Vec<_> = batch
+                    .chunks(chunk)
+                    .enumerate()
+                    .map(|(ti, ls)| {
+                        let (w, sd, live) = (&w, &sd, &live);
+                        let seed = rng ^ (ti as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                        s.spawn(move || {
+                            let mut r = seed | 1;
+                            let mut g = vec![0f32; nt];
+                            let mut buf = Vec::with_capacity(nt);
+                            for l in ls {
+                                let Some(ci) = l.kids.iter().position(|k| k.uci == l.sf) else { continue };
+                                let mut pick = vec![ci];
+                                for _ in 0..neg.min(l.kids.len().saturating_sub(1)) {
+                                    r ^= r << 13;
+                                    r ^= r >> 7;
+                                    r ^= r << 17;
+                                    let j = (r % l.kids.len() as u64) as usize;
+                                    if j != ci && !pick.contains(&j) {
+                                        pick.push(j);
+                                    }
+                                }
+                                let xs: Vec<Vec<f32>> = pick
+                                    .iter()
+                                    .map(|&j| {
+                                        if l.kids[j].fixed.is_some() {
+                                            return vec![0f32; nt];
+                                        }
+                                        every_value(&l.kids[j].feat, &mut buf);
+                                        (0..nt).map(|i| if live[i] { buf[i] / sd[i] } else { 0.0 }).collect()
+                                    })
+                                    .collect();
+                                let sc: Vec<f32> = xs.iter().map(|x| x.iter().zip(w.iter()).map(|(a, b)| a * b).sum()).collect();
+                                let mx = sc.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                                let ex: Vec<f32> = sc.iter().map(|v| (v - mx).exp()).collect();
+                                let z: f32 = ex.iter().sum();
+                                for (j, x) in xs.iter().enumerate() {
+                                    let gj = if j == 0 { 1.0 } else { 0.0 } - ex[j] / z;
+                                    for i in 0..nt {
+                                        g[i] += gj * x[i];
+                                    }
+                                }
+                            }
+                            g
+                        })
+                    })
+                    .collect();
+                hs.into_iter().map(|h| h.join().unwrap()).collect()
+            });
+            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let scale = lr / batch.len() as f32;
+            for g in grads {
+                for (wi, gi) in w.iter_mut().zip(g) {
+                    *wi += scale * gi;
+                }
+            }
+        }
+        out.push_str(&format!("  epoch {e}: validate {:.1}% ({:.0} s)\n", 100.0 * share_all(&w, &sd, &live, &validate), t0.elapsed().as_secs_f64()));
+    }
+    out.push_str(&format!("  every concept: fixed check {:.1}%\n", 100.0 * share_all(&w, &sd, &live, &check)));
+    // polish: the `keep` that weigh most become the Golden Function
+    let mut order: Vec<usize> = (0..nt).filter(|&i| live[i]).collect();
+    order.sort_by(|&a, &b| w[b].abs().total_cmp(&w[a].abs()));
+    let mut f = Function { terms: order.iter().take(keep).map(|&i| (terms[i], w[i] / sd[i])).collect() };
+    let (pv0, pc0) = (share(&f, &validate), share(&f, &check));
+    out.push_str(&format!("  cut to the {} that weigh most: validate {:.1}%, fixed check {:.1}%; their values learned again together:
+", f.terms.len(), 100.0 * pv0, 100.0 * pc0));
+    refit(&mut f, &train, &validate, epochs.max(2), &mut out);
+    let (pv, pc) = (share(&f, &validate), share(&f, &check));
+    let _ = std::fs::copy(FUNCTION_FILE, "out/golden/grow_function_before_whole.txt");
+    f.save()?;
+    let concepts = f.terms.iter().filter(|t| matches!(t.0, Term::Rel { .. })).count();
+    out.push_str(&format!(
+        "  polished to the {} that weigh most ({concepts} of them concepts): validate {:.1}%, fixed check {:.1}%; saved as the Golden Function ({:.0} s)\n  the ten that weigh most: {}\n",
+        f.terms.len(),
+        100.0 * pv,
+        100.0 * pc,
+        t0.elapsed().as_secs_f64(),
+        f.terms.iter().take(10).map(|(t, w)| format!("{w:+.5}·{}", t.text())).collect::<Vec<_>>().join("  ")
+    ));
+    Ok(out)
+}
+
+/// The kept terms' values learned again together (the same conditional logit, every legal move), epochs by validate.
+fn refit(f: &mut Function, train: &[Lesson], validate: &[Lesson], epochs: usize, out: &mut String) {
+    let nt = f.terms.len();
+    let terms: Vec<Term> = f.terms.iter().map(|x| x.0).collect();
+    // the kept terms' values on every child, and their spread
+    let rows: Vec<(Vec<Vec<f32>>, usize, Vec<bool>)> = train
+        .iter()
+        .filter_map(|l| {
+            let ci = l.kids.iter().position(|k| k.uci == l.sf)?;
+            let xs = l.kids.iter().map(|k| if k.fixed.is_some() { vec![0f32; nt] } else { terms.iter().map(|t| term_value(t, &k.feat)).collect() }).collect();
+            Some((xs, ci, l.kids.iter().map(|k| k.fixed.is_some()).collect()))
+        })
+        .collect();
+    let mut sd = vec![0f64; nt];
+    let mut mean = vec![0f64; nt];
+    let mut m = 0f64;
+    for (xs, _, _) in &rows {
+        for x in xs {
+            for i in 0..nt {
+                mean[i] += x[i] as f64;
+                sd[i] += (x[i] as f64).powi(2);
+            }
+            m += 1.0;
+        }
+    }
+    let sd: Vec<f32> = (0..nt).map(|i| ((sd[i] / m - (mean[i] / m).powi(2)).max(1e-12)).sqrt() as f32).collect();
+    let mut w: Vec<f32> = (0..nt).map(|i| f.terms[i].1 * sd[i]).collect();
+    let mut best = (share(f, validate), f.clone());
+    for e in 1..=epochs {
+        let lr = 0.05 / e as f32;
+        for (xs, c, fixed) in &rows {
+            let sc: Vec<f32> = xs.iter().zip(fixed).map(|(x, &fx)| if fx { 0.0 } else { (0..nt).map(|i| w[i] * x[i] / sd[i]).sum() }).collect();
+            let mx = sc.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let ex: Vec<f32> = sc.iter().map(|v| (v - mx).exp()).collect();
+            let z: f32 = ex.iter().sum();
+            for (j, x) in xs.iter().enumerate() {
+                let g = if j == *c { 1.0 } else { 0.0 } - ex[j] / z;
+                if g.abs() < 1e-4 {
+                    continue;
+                }
+                for i in 0..nt {
+                    w[i] += lr * g * x[i] / sd[i];
+                }
+            }
+        }
+        let g = Function { terms: (0..nt).map(|i| (terms[i], w[i] / sd[i])).collect() };
+        let v = share(&g, validate);
+        out.push_str(&format!("    refit epoch {e}: validate {:.1}%
+", 100.0 * v));
+        if v > best.0 {
+            best = (v, g);
+        }
+    }
+    *f = best.1;
 }

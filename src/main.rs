@@ -291,6 +291,12 @@ fn main() -> Result<()> {
             println!("move: {m} ({how})");
             return Ok(());
         }
+        if which == "golden-whole-fn" {
+            // golden-whole-fn [N] [EPOCHS] [KEEP] [NEG]: every concept at once, values learned together, polished to the KEEP that weigh most
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            print!("{}", nuome::golden_grow::whole(n.first().copied().unwrap_or(40_000), n.get(1).copied().unwrap_or(3), n.get(2).copied().unwrap_or(300), n.get(3).copied().unwrap_or(8)).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "golden-grow" {
             // golden-grow [ROUNDS]: after a game, the Golden Function grows on every lesson so far
             let rounds = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(1);
