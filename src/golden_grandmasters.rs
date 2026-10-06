@@ -144,6 +144,15 @@ pub fn gm_move(fen: &str, ms: u64, only: &[String]) -> Result<(String, String), 
         p.unmake();
         vals.push((c.clone(), v));
     }
+    judge_candidates(fen, &vals, &star, only)
+}
+
+/// The grandmasters' choice among `vals` (candidate, its search value from the mover):
+/// every judge ranks every candidate by its theory and style (`lookahead` plies by the
+/// same theory), Borda points, ties by the value. `star` is StarNNUE's order (for the
+/// rank bonus, 0 unless set); `only` names the judges (all ten when empty). (move, how).
+pub fn judge_candidates(fen: &str, vals: &[(String, i32)], star: &[String], only: &[String]) -> Result<(String, String), String> {
+    let mut p = Position::from_fen(fen)?;
     let (sound_cp, bonus, mut judges) = load()?;
     // only the named judges; "theory" is the shared theory alone (every rule, weight 1), "texel" the weights of gm-texel
     if !only.is_empty() {
