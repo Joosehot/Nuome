@@ -1127,3 +1127,217 @@ pub fn learn_from(path: &str, epochs: usize) -> Result<String, String> {
     std::fs::write(GOLDENNET_FILE, w.iter().map(|x| format!("{x}\n")).collect::<String>()).map_err(|e| e.to_string())?;
     Ok(format!("Goldennet learned {} of Stockfish's moves from the games: {:.1}% -> {:.1}% of them\n", ch.len(), 100.0 * before, 100.0 * after))
 }
+
+/// Goldennet as a value, trained with its progress shown as it goes: every
+/// `every` positions the running error and Stockfish's share on validate are
+/// printed at once; the best weights on validate are kept and saved
+/// whenever validate improves; training stops when validate has not
+/// improved for `patience` checks in a row. The step is a quarter of the
+/// first run's and shrinks slowly.
+pub fn teach_value_watched(n_train: usize, epochs: usize, every: usize, patience: usize) -> Result<(), String> {
+    use std::io::Write;
+    let say = |s: String| {
+        println!("{s}");
+        let _ = std::io::stdout().flush();
+    };
+    let t0 = std::time::Instant::now();
+    let (tr, va, _) = read_values(n_train, 5_000, 0)?;
+    say(format!("Goldennet as a value: {} train / {} validate positions ({:.0} s to read)", tr.len(), va.len(), t0.elapsed().as_secs_f64()));
+    let agree = |w: &[f32]| -> f64 {
+        va.iter()
+            .filter(|r| {
+                let c = valued_children(r);
+                c.iter().enumerate().max_by(|a, b| score(w, &a.1 .0).total_cmp(&score(w, &b.1 .0))).map(|x| r.3[x.0].0 == r.2).unwrap_or(false)
+            })
+            .count() as f64
+            / va.len().max(1) as f64
+    };
+    let _ = std::fs::copy(GOLDENNET_VALUE_FILE, "out/golden/goldennet_value_before.txt");
+    let mut w = load_goldennet_value().unwrap_or_else(|| vec![0f32; NW]);
+    let mut best = agree(&w);
+    say(format!("  start: validate {:.1}%", 100.0 * best));
+    let save = |w: &[f32]| std::fs::write(GOLDENNET_VALUE_FILE, w.iter().map(|x| format!("{x}\n")).collect::<String>());
+    let (mut seen, mut since_best) = (0usize, 0usize);
+    let (mut se, mut n) = (0f64, 0usize);
+    'outer: for e in 1..=epochs {
+        for r in &tr {
+            let lr = 0.0005 / (1.0 + seen as f32 / 2_000_000.0);
+            for (x, t) in valued_children(r) {
+                let err = t - score(&w, &x);
+                se += (err * err) as f64;
+                n += 1;
+                for &f in &x {
+                    w[f as usize] += lr * err;
+                }
+            }
+            seen += 1;
+            if seen % every == 0 {
+                let a = agree(&w);
+                let mark = if a > best {
+                    best = a;
+                    since_best = 0;
+                    let _ = save(&w);
+                    " (best, saved)"
+                } else {
+                    since_best += 1;
+                    ""
+                };
+                say(format!("  epoch {e}, {seen} positions: running error {:.3}, validate {:.1}%{mark} ({:.0} s)", se / n.max(1) as f64, 100.0 * a, t0.elapsed().as_secs_f64()));
+                se = 0.0;
+                n = 0;
+                if since_best >= patience {
+                    say(format!("  validate has not improved for {patience} checks: stopping"));
+                    break 'outer;
+                }
+            }
+        }
+    }
+    say(format!("best validate {:.1}%, saved to {GOLDENNET_VALUE_FILE} ({:.0} s)", 100.0 * best, t0.elapsed().as_secs_f64()));
+    Ok(())
+}
+
+fn load_goldennet_value() -> Option<Vec<f32>> {
+    let w: Vec<f32> = std::fs::read_to_string(GOLDENNET_VALUE_FILE).ok()?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+    (w.len() == NW).then_some(w)
+}
+
+// ---------------------------------------------------------------- Texel tuning of Goldennet as a value
+
+/// Texel tuning (the method most classical engines tune their evaluation
+/// with): the net's 64 points summed after a move, through a sigmoid
+/// sigmoid(K · sum), against Stockfish's win probability for the mover;
+/// squared error in probability (so the near-certain positions do not
+/// dominate as they do in logits); K fitted first; Adam on shuffled
+/// minibatches, the gradients on all cores; the validate error and the
+/// 1-ply share printed as it goes; the weights with the lowest validate
+/// error kept and saved; stops when validate has not improved for
+/// `patience` checks.
+pub fn teach_texel(n_train: usize, epochs: usize, batch: usize, lr: f32, every: usize, patience: usize) -> Result<(), String> {
+    use std::io::Write;
+    let say = |s: String| {
+        println!("{s}");
+        let _ = std::io::stdout().flush();
+    };
+    let t0 = std::time::Instant::now();
+    let (tr, va, _) = read_values(n_train, 5_000, 0)?;
+    // every validate child's points and target, once
+    let vset: Vec<Vec<([u16; 64], f32)>> = va.iter().map(|r| valued_children(r).into_iter().map(|(x, t)| (x, 1.0 / (1.0 + (-t).exp()))).collect()).collect();
+    say(format!("Texel tuning of Goldennet: {} train / {} validate positions ({:.0} s to read)", tr.len(), va.len(), t0.elapsed().as_secs_f64()));
+    let mut w = load_goldennet_value().unwrap_or_else(|| vec![0f32; NW]);
+    let sig = |x: f32| 1.0 / (1.0 + (-x).exp());
+    let vloss = |w: &[f32], k: f32| -> f64 {
+        let (mut s, mut n) = (0f64, 0usize);
+        for kids in &vset {
+            for (x, p) in kids {
+                let e = (*p - sig(k * score(w, x))) as f64;
+                s += e * e;
+                n += 1;
+            }
+        }
+        s / n.max(1) as f64
+    };
+    let vshare = |w: &[f32]| -> f64 {
+        va.iter()
+            .filter(|r| {
+                let c = valued_children(r);
+                c.iter().enumerate().max_by(|a, b| score(w, &a.1 .0).total_cmp(&score(w, &b.1 .0))).map(|x| r.3[x.0].0 == r.2).unwrap_or(false)
+            })
+            .count() as f64
+            / va.len().max(1) as f64
+    };
+    // K: the scale that fits the current weights best
+    let mut k = 1.0f32;
+    let mut best_k = (vloss(&w, k), k);
+    for kk in [0.25f32, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0] {
+        let l = vloss(&w, kk);
+        if l < best_k.0 {
+            best_k = (l, kk);
+        }
+    }
+    k = best_k.1;
+    let mut best = (best_k.0, w.clone());
+    say(format!("  K = {k}; start: validate error {:.4} (RMS {:.3} in probability), 1-ply share {:.1}%", best.0, best.0.sqrt(), 100.0 * vshare(&w)));
+    let _ = std::fs::copy(GOLDENNET_VALUE_FILE, "out/golden/goldennet_value_before_texel.txt");
+    let save = |w: &[f32]| std::fs::write(GOLDENNET_VALUE_FILE, w.iter().map(|x| format!("{x}\n")).collect::<String>());
+    // Adam
+    let (b1, b2, eps) = (0.9f32, 0.999f32, 1e-8f32);
+    let mut m1 = vec![0f32; NW];
+    let mut m2 = vec![0f32; NW];
+    let mut step = 0i32;
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let mut order: Vec<usize> = (0..tr.len()).collect();
+    let mut rng = 0x7E5E1u64;
+    let (mut since, mut batches) = (0usize, 0usize);
+    'outer: for e in 1..=epochs {
+        for i in (1..order.len()).rev() {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            order.swap(i, (rng % (i as u64 + 1)) as usize);
+        }
+        for chunk_idx in order.chunks(batch) {
+            let per = chunk_idx.len().div_ceil(threads).max(1);
+            let parts: Vec<(Vec<f32>, f64, usize)> = std::thread::scope(|s| {
+                let hs: Vec<_> = chunk_idx
+                    .chunks(per)
+                    .map(|ids| {
+                        let (w, tr) = (&w, &tr);
+                        s.spawn(move || {
+                            let mut g = vec![0f32; NW];
+                            let (mut loss, mut n) = (0f64, 0usize);
+                            for &i in ids {
+                                for (x, t) in valued_children(&tr[i]) {
+                                    let p = 1.0 / (1.0 + (-t).exp());
+                                    let q = 1.0 / (1.0 + (-k * score(w, &x)).exp());
+                                    let err = q - p;
+                                    loss += (err * err) as f64;
+                                    n += 1;
+                                    let d = 2.0 * err * q * (1.0 - q) * k;
+                                    for &f in &x {
+                                        g[f as usize] += d;
+                                    }
+                                }
+                            }
+                            (g, loss, n)
+                        })
+                    })
+                    .collect();
+                hs.into_iter().map(|h| h.join().unwrap()).collect()
+            });
+            let n: usize = parts.iter().map(|p| p.2).sum();
+            if n == 0 {
+                continue;
+            }
+            step += 1;
+            let (c1, c2) = (1.0 - b1.powi(step), 1.0 - b2.powi(step));
+            for i in 0..NW {
+                let gi: f32 = parts.iter().map(|p| p.0[i]).sum::<f32>() / n as f32;
+                m1[i] = b1 * m1[i] + (1.0 - b1) * gi;
+                m2[i] = b2 * m2[i] + (1.0 - b2) * gi * gi;
+                w[i] -= lr * (m1[i] / c1) / ((m2[i] / c2).sqrt() + eps);
+            }
+            batches += 1;
+            if batches % every == 0 {
+                let train_loss: f64 = parts.iter().map(|p| p.1).sum::<f64>() / n as f64;
+                let vl = vloss(&w, k);
+                let mark = if vl < best.0 {
+                    best = (vl, w.clone());
+                    since = 0;
+                    let _ = save(&w);
+                    " (best, saved)"
+                } else {
+                    since += 1;
+                    ""
+                };
+                say(format!("  epoch {e}, batch {batches}: train error {train_loss:.4}, validate error {vl:.4} (RMS {:.3}), 1-ply share {:.1}%{mark} ({:.0} s)", vl.sqrt(), 100.0 * vshare(&w), t0.elapsed().as_secs_f64()));
+                if since >= patience {
+                    say(format!("  validate has not improved for {patience} checks: stopping"));
+                    break 'outer;
+                }
+            }
+        }
+    }
+    let _ = save(&best.1);
+    say(format!("best validate error {:.4} (RMS {:.3}), saved to {GOLDENNET_VALUE_FILE} ({:.0} s)", best.0, best.0.sqrt(), t0.elapsed().as_secs_f64()));
+    Ok(())
+}
