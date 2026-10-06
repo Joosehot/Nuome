@@ -2,7 +2,9 @@
 //! qsearch), with the evaluation pluggable: iterative deepening, PVS
 //! alpha-beta, a transposition table, check extension, null move (R = 3),
 //! move ordering (the table's move, promotions, good captures by victim and
-//! attacker, killers, quiet moves into the enemy king's zone, history), late
+//! attacker, killers, the countermove, quiet moves into the enemy king's zone,
+//! history plus, where the tree is still deep, the evaluation's gain from a
+//! silent move), late
 //! move pruning and reductions, and a capture search that skips losing
 //! captures (SEE < 0). Futility and delta pruning are left out: their margins
 //! are centipawns, and the evaluations here have their own scales. StarNet's
@@ -36,6 +38,10 @@ pub struct Searcher<'a> {
     ev: &'a dyn Eval,
     tt: Vec<Entry>,
     killers: [[u32; 2]; MAX_PLY],
+    /// the move that last refuted each move (by its from and to squares)
+    counter: Vec<u32>,
+    /// the move made at each ply of the current line (0 for a null move)
+    line: [u32; MAX_PLY + 1],
     history: Vec<i32>,
     pub nodes: u64,
     deadline: Instant,
@@ -44,7 +50,7 @@ pub struct Searcher<'a> {
 
 impl<'a> Searcher<'a> {
     pub fn new(ev: &'a dyn Eval) -> Searcher<'a> {
-        Searcher { ev, tt: vec![Entry::default(); 1 << TT_BITS], killers: [[0; 2]; MAX_PLY], history: vec![0; 2 * 120 * 120], nodes: 0, deadline: Instant::now(), stopped: false }
+        Searcher { ev, tt: vec![Entry::default(); 1 << TT_BITS], killers: [[0; 2]; MAX_PLY], counter: vec![0; 120 * 120], line: [0; MAX_PLY + 1], history: vec![0; 2 * 120 * 120], nodes: 0, deadline: Instant::now(), stopped: false }
     }
     fn hist(&self, side: u8, m: u32) -> i32 {
         self.history[side as usize * 14400 + m_from(m) as usize * 120 + m_to(m) as usize]
@@ -75,10 +81,14 @@ fn has_non_pawn_material(p: &Position) -> bool {
     (1..5).any(|t| p.bb[s * 6 + t] != 0)
 }
 
-fn score_moves(s: &Searcher, p: &Position, moves: &[u32], tt_mv: Option<u32>, ply: usize) -> Vec<(u32, i32)> {
+fn score_moves(s: &Searcher, p: &mut Position, moves: &[u32], tt_mv: Option<u32>, ply: usize, depth: usize) -> Vec<(u32, i32)> {
     let ek = p.king_sq[1 - p.turn as usize];
     let (ekf, ekr) = (file_of120(ek), rank_of120(ek));
     let killers = s.killers[ply.min(MAX_PLY - 1)];
+    let prev = if ply > 0 { s.line[ply - 1] } else { 0 };
+    let counter = if prev != 0 { s.counter[m_from(prev) as usize * 120 + m_to(prev) as usize] } else { 0 };
+    // the silent moves judged by the net where the tree is still deep: its gain from the move
+    let here = if depth >= 3 { Some(s.ev.eval(p)) } else { None };
     moves
         .iter()
         .map(|&m| {
@@ -101,10 +111,24 @@ fn score_moves(s: &Searcher, p: &Position, moves: &[u32], tt_mv: Option<u32>, pl
                     1 << 23
                 } else if killers.contains(&m) {
                     (1 << 22) + if killers[0] == m { 2 } else { 1 }
-                } else if king_zone {
-                    (1 << 21) + s.hist(p.turn, m).min((1 << 20) - 1)
+                } else if m == counter {
+                    1 << 22
                 } else {
-                    s.hist(p.turn, m)
+                    let gain = match here {
+                        Some(h) => {
+                            p.make(m);
+                            let after = -s.ev.eval(p);
+                            p.unmake();
+                            ((after - h) as i64).clamp(-(1 << 18), 1 << 18) as i32
+                        }
+                        None => 0,
+                    };
+                    let base = s.hist(p.turn, m).min((1 << 19) - 1) + gain;
+                    if king_zone {
+                        (1 << 21) + base.max(0)
+                    } else {
+                        base
+                    }
                 }
             };
             (m, sc)
@@ -189,6 +213,7 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
     }
     if !is_pv && !check && depth >= 3 && beta < MATE_ZONE && has_non_pawn_material(p) {
         p.make_null();
+        s.line[ply] = 0;
         let v = -negamax(s, p, depth.saturating_sub(4), -beta, -beta + 1, ply + 1, false);
         p.unmake_null();
         if s.stopped {
@@ -200,7 +225,7 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
     }
     let mut list = [0u32; MAX_MOVES];
     let n = gen_moves(p, &mut list, false);
-    let mut scored = score_moves(s, p, &list[..n], tt_mv, ply);
+    let mut scored = score_moves(s, p, &list[..n], tt_mv, ply, depth);
     scored.sort_by_key(|&(_, sc)| -sc);
     let (mut best, mut best_mv, mut legal) = (-INF, 0u32, 0usize);
     for &(m, _) in &scored {
@@ -212,10 +237,11 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
             continue;
         }
         legal += 1;
+        s.line[ply] = m;
         let gives_check = p.in_check();
         let quiet = !capture && !promo;
         // late move pruning: the quiet tail at low depth
-        if !is_pv && !check && depth <= 4 && quiet && !gives_check && legal > 4 + depth * depth {
+        if !is_pv && !check && depth <= 3 && quiet && !gives_check && legal > 6 + 2 * depth * depth {
             p.unmake();
             continue;
         }
@@ -251,6 +277,10 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
                     }
                     let side = p.turn;
                     s.bump(side, m, 1 << depth.min(20));
+                    if ply > 0 && s.line[ply - 1] != 0 {
+                        let prev = s.line[ply - 1];
+                        s.counter[m_from(prev) as usize * 120 + m_to(prev) as usize] = m;
+                    }
                 }
                 break;
             }
