@@ -187,7 +187,23 @@ pub fn build(hf: usize) -> Result<String, String> {
     Ok(format!("pattern table: {ccrl} CCRL positions (Stockfish's moves) + {k} Hugging Face positions; {} patterns ({:.0} s), {TABLE}\n", map.len(), t0.elapsed().as_secs_f64()))
 }
 
-/// Golden Boy's move by the known patterns: (move, where it came from, the judge's word).
+/// The strength of a pattern: how many times more often Stockfish chose it
+/// than a random choice among the `legal` moves (rate x legal), when it has
+/// been seen at least MIN_SEEN times at its most detailed level.
+pub const MIN_LIFT: f32 = 2.0;
+
+impl Table {
+    /// The fixed judge: (proved, strength, rate, seen, level).
+    pub fn judge_lift(&self, p: &mut Position, m: u32, legal: usize) -> (bool, f32, f32, u32, char) {
+        let (_, rate, seen, lv) = self.judge(p, m);
+        let lift = rate * legal as f32;
+        (seen >= MIN_SEEN && lift >= MIN_LIFT, lift, rate, seen, lv)
+    }
+}
+
+/// Golden Boy's move by the known patterns: the opening table when familiar; otherwise
+/// Golden's three best and StarNNUE's three best moves go to the judge, the strongest
+/// proved pattern is played; none proved: StarNNUE's best (unproved).
 pub fn move_by_patterns(t: &Table, fen: &str, ms: u64) -> Result<(String, String), String> {
     if let Some(m) = crate::golden_grow::table_move_pub(fen) {
         return Ok((m, "the opening table: a known line".into()));
@@ -195,22 +211,32 @@ pub fn move_by_patterns(t: &Table, fen: &str, ms: u64) -> Result<(String, String
     let gw: Vec<f32> = std::fs::read_to_string(crate::golden_table::GOLDENNET_VALUE_FILE).map_err(|e| e.to_string())?.lines().filter_map(|l| l.trim().parse().ok()).collect();
     let ev = crate::star_search::GoldennetEval(gw);
     let net = crate::fast::starnnue::net()?;
-    let (golden, _, _) = crate::star_search::best_move(&ev, fen, ms / 2).ok_or("no move")?;
-    let (star, _, _) = crate::star_search::best_move_with(&ev, Some((net, 1.0)), fen, ms / 2).ok_or("no move")?;
+    let golden = crate::star_search::best_moves(&ev, None, fen, ms / 2, 3);
+    let star = crate::star_search::best_moves(&ev, Some((net, 1.0)), fen, ms / 2, 3);
     let mut p = Position::from_fen(fen)?;
-    let mut judged = Vec::new();
-    for (who, mv) in [("Golden", &golden), ("StarNNUE", &star)] {
-        let m = uci_to_move(&mut p, mv).ok_or("illegal")?;
-        let (ok, rate, seen, lv) = t.judge(&mut p, m);
-        judged.push((who, mv.clone(), ok, rate, seen, lv));
+    let legal = legal_moves(&mut p).len();
+    let mut cands: Vec<(String, Vec<&str>)> = Vec::new();
+    for (who, list) in [("Golden", &golden), ("StarNNUE", &star)] {
+        for (i, m) in list.iter().enumerate() {
+            let tag = if who == "Golden" { ["G1", "G2", "G3"][i] } else { ["S1", "S2", "S3"][i] };
+            match cands.iter_mut().find(|c| &c.0 == m) {
+                Some(c) => c.1.push(tag),
+                None => cands.push((m.clone(), vec![tag])),
+            }
+        }
     }
-    let words: Vec<String> = judged.iter().map(|(w, m, ok, r, s, lv)| format!("{w} {m}: {} (level {lv}, Stockfish chose it {:.0}% of {s})", if *ok { "proved" } else { "not proved" }, 100.0 * r)).collect();
-    let proved: Vec<&(&str, String, bool, f32, u32, char)> = judged.iter().filter(|j| j.2).collect();
-    let pick = match proved.iter().max_by(|a, b| a.3.total_cmp(&b.3)) {
-        Some(j) => (j.1.clone(), format!("{} (proved); {}", j.0, words.join("; "))),
-        None => (star.clone(), format!("unproved, StarNNUE for now; {}", words.join("; "))),
-    };
-    Ok(pick)
+    let mut judged = Vec::new();
+    for (m, tags) in &cands {
+        let mv = uci_to_move(&mut p, m).ok_or("illegal")?;
+        let (ok, lift, rate, seen, lv) = t.judge_lift(&mut p, mv, legal);
+        judged.push((m.clone(), tags.join("+"), ok, lift, rate, seen, lv));
+    }
+    let words: Vec<String> = judged.iter().map(|(m, tags, ok, lift, rate, seen, lv)| format!("{m} [{tags}] {}x{} ({:.0}% of {seen}, {lv})", if *ok { "proved " } else { "" }, format!("{lift:.1}"), 100.0 * rate)).collect();
+    let pick = judged.iter().filter(|j| j.2).max_by(|a, b| a.3.total_cmp(&b.3));
+    Ok(match pick {
+        Some(j) => (j.0.clone(), format!("proved ({}, strength {:.1}); {}", j.1, j.3, words.join("; "))),
+        None => (star.first().cloned().unwrap_or_default(), format!("none proved: StarNNUE's best; {}", words.join("; "))),
+    })
 }
 
 /// The smoke test by patterns: each position reported at once.

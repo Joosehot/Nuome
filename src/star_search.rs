@@ -119,6 +119,8 @@ pub struct Searcher<'a> {
     pub nodes: u64,
     deadline: Instant,
     stopped: bool,
+    /// root moves left out (to find the next best)
+    exclude: Vec<u32>,
 }
 
 impl<'a> Searcher<'a> {
@@ -143,7 +145,7 @@ impl<'a> Searcher<'a> {
         }
     }
     pub fn new(ev: &'a dyn Eval) -> Searcher<'a> {
-        Searcher { ev, nn: None, tt: vec![Entry::default(); 1 << TT_BITS], killers: [[0; 2]; MAX_PLY], counter: vec![0; 120 * 120], line: [0; MAX_PLY + 1], history: vec![0; 2 * 120 * 120], nodes: 0, deadline: Instant::now(), stopped: false }
+        Searcher { ev, nn: None, tt: vec![Entry::default(); 1 << TT_BITS], killers: [[0; 2]; MAX_PLY], counter: vec![0; 120 * 120], line: [0; MAX_PLY + 1], history: vec![0; 2 * 120 * 120], nodes: 0, deadline: Instant::now(), stopped: false, exclude: Vec::new() }
     }
     fn hist(&self, side: u8, m: u32) -> i32 {
         self.history[side as usize * 14400 + m_from(m) as usize * 120 + m_to(m) as usize]
@@ -326,6 +328,9 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
     scored.sort_by_key(|&(_, sc)| -sc);
     let (mut best, mut best_mv, mut legal) = (-INF, 0u32, 0usize);
     for &(m, _) in &scored {
+        if ply == 0 && s.exclude.contains(&m) {
+            continue;
+        }
         let capture = m_flag(m) == 1 || m_flag(m) == 2;
         let promo = m_promo(m) != 0;
         p.make(m);
@@ -402,8 +407,33 @@ pub fn best_move(ev: &dyn Eval, fen: &str, ms: u64) -> Option<(String, usize, u6
 
 /// The same, with StarNNUE blended in at share `mix` when `net` is given.
 pub fn best_move_with<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64) -> Option<(String, usize, u64)> {
+    best_move_excluding(ev, net, fen, ms, &[])
+}
+
+/// The best `k` moves: the search again and again, each time without the moves already found; `ms` shared out.
+pub fn best_moves<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64, k: usize) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    let mut ex: Vec<u32> = Vec::new();
+    let Ok(mut p) = Position::from_fen(fen) else { return found };
+    let n = legal_moves(&mut p).len();
+    for _ in 0..k.min(n) {
+        match best_move_excluding(ev, net, fen, ms / k as u64, &ex) {
+            Some((m, _, _)) if !found.contains(&m) => {
+                if let Some(mv) = crate::fast::movegen::uci_to_move(&mut p, &m) {
+                    ex.push(mv);
+                }
+                found.push(m);
+            }
+            _ => break,
+        }
+    }
+    found
+}
+
+fn best_move_excluding<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64, exclude: &[u32]) -> Option<(String, usize, u64)> {
     let mut p = Position::from_fen(fen).ok()?;
     let mut s = Searcher::new(ev);
+    s.exclude = exclude.to_vec();
     if let Some((n, mix)) = net {
         let mut nn = Nn::new(n, mix);
         nn.root(&p);
@@ -411,6 +441,10 @@ pub fn best_move_with<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnn
     }
     s.deadline = Instant::now() + Duration::from_millis(ms);
     let roots = legal_moves(&mut p);
+    if roots.is_empty() {
+        return None;
+    }
+    let roots: Vec<u32> = roots.into_iter().filter(|m| !exclude.contains(m)).collect();
     if roots.is_empty() {
         return None;
     }
