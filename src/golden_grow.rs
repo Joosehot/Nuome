@@ -251,64 +251,153 @@ fn check_set() -> Vec<Lesson> {
     read_lessons(path, CHECK_N)
 }
 
-/// After a game: remove the terms the function is better without, then add the best candidate term if it helps.
-pub fn grow() -> Result<String, String> {
-    let t0 = std::time::Instant::now();
-    let lessons = read_lessons(LESSONS, usize::MAX);
-    if lessons.is_empty() {
-        return Err("no lessons yet".into());
+/// A held-out piece of the Hugging Face data: `n` positions whose key falls in `bucket` (of 20), written once to `path`.
+fn hf_set(path: &str, bucket: std::ops::Range<u64>, n: usize, skip: usize) -> Vec<Lesson> {
+    if std::fs::metadata(path).is_err() {
+        let text = std::fs::read_to_string(crate::golden_table::HF_FILE).unwrap_or_default();
+        let mut out = String::new();
+        let (mut k, mut seen) = (0, 0);
+        for line in text.lines() {
+            let mut it = line.splitn(3, '\t');
+            let (Some(_), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
+            let Ok(p) = Position::from_fen(fen) else { continue };
+            if bucket.contains(&(p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20)) {
+                seen += 1;
+                if seen <= skip {
+                    continue;
+                }
+                out.push_str(&format!("{fen}\t{mv}\n"));
+                k += 1;
+                if k >= n {
+                    break;
+                }
+            }
+        }
+        let _ = std::fs::write(path, out);
     }
-    let check = check_set();
-    let mut f = Function::load();
-    let before = (share(&f, &lessons), share(&f, &check), f.terms.len());
-    // remove what weakens
+    read_lessons(path, n)
+}
+
+/// The lessons: Stockfish's moves in PRETRAIN Hugging Face positions (train part of the data), then every position of the games.
+pub const PRETRAIN: usize = 3_000;
+
+fn all_lessons() -> Vec<Lesson> {
+    let mut l = hf_set("out/golden/grow_pretrain.tsv", 0..18, PRETRAIN, 0);
+    l.extend(read_lessons(LESSONS, usize::MAX));
+    l
+}
+
+/// One round of growth: remove what does not help, re-tune every weight, add
+/// the best new term. Every change must raise (or for a removal, not lower)
+/// Stockfish's share on the validate set as well as on the lessons, so a
+/// change that only fits the lessons is not taken. The fixed check set is
+/// only reported.
+fn round(f: &mut Function, lessons: &[Lesson], validate: &[Lesson], cols: &[Vec<Vec<f32>>], vcols: &[Vec<Vec<f32>>], cands: &[Term]) -> (Vec<String>, Option<String>, usize) {
+    // removal: shorter and not worse on either set
     let mut removed = Vec::new();
     let mut i = 0;
     while i < f.terms.len() {
         let mut g = f.clone();
         g.terms.remove(i);
-        if share(&g, &lessons) > share(&f, &lessons) {
+        if share(&g, lessons) >= share(f, lessons) && share(&g, validate) >= share(f, validate) {
             removed.push(f.terms[i].0.text());
-            f = g;
+            *f = g;
         } else {
             i += 1;
         }
     }
-    // add: every candidate term, a range of weights (the term's scale set by its spread)
-    let cands = candidates();
-    let base = base_values(&f, &lessons);
-    let cur = share_with(&lessons, &base, None);
-    let cols = table(&lessons, &cands);
-    let mut best: Option<(f64, usize, f32)> = None;
+    // re-tune every weight: a few multipliers, kept when both sets gain (the lessons strictly, validate not lower)
+    let mut tuned = 0;
+    for i in 0..f.terms.len() {
+        let (cur_l, cur_v) = (share(f, lessons), share(f, validate));
+        let mut best: Option<(f64, f32)> = None;
+        for k in [0.5f32, 0.8, 1.25, 2.0, -1.0] {
+            let mut g = f.clone();
+            g.terms[i].1 *= k;
+            let (l, v) = (share(&g, lessons), share(&g, validate));
+            if l > cur_l && v >= cur_v && best.map_or(true, |b| l > b.0) {
+                best = Some((l, g.terms[i].1));
+            }
+        }
+        if let Some((_, w)) = best {
+            f.terms[i].1 = w;
+            tuned += 1;
+        }
+    }
+    // addition: candidates ranked on the lessons; the best that also raises validate is added
+    let base = base_values(f, lessons);
+    let vbase = base_values(f, validate);
+    let (cur_l, cur_v) = (share_with(lessons, &base, None), share_with(validate, &vbase, None));
+    let scale = if f.terms.is_empty() { 1.0 } else { base.iter().flatten().filter(|x| x.abs() < 1e8).fold(0f32, |m, x| m.max(x.abs())).max(1.0) };
+    let mut ranked: Vec<(f64, usize, f32)> = Vec::new();
     for (ci, t) in cands.iter().enumerate() {
         if f.terms.iter().any(|x| x.0 == *t) {
             continue;
         }
         let col: Vec<Vec<f32>> = cols.iter().map(|l| l.iter().map(|k| k[ci]).collect()).collect();
         let spread = col.iter().flatten().fold(0f32, |m, x| m.max(x.abs())).max(1e-6);
-        let scale = if f.terms.is_empty() { 1.0 } else { base.iter().flatten().filter(|x| x.abs() < 1e8).fold(0f32, |m, x| m.max(x.abs())).max(1.0) };
         for k in [-1.0f32, -0.3, -0.1, -0.03, 0.03, 0.1, 0.3, 1.0] {
             let w = k * scale / spread;
-            let s = share_with(&lessons, &base, Some((&col, w)));
-            if s > cur && best.map_or(true, |b| s > b.0) {
-                best = Some((s, ci, w));
+            let s = share_with(lessons, &base, Some((&col, w)));
+            if s > cur_l {
+                ranked.push((s, ci, w));
             }
         }
     }
-    let added = best.map(|(_, ci, w)| {
-        f.terms.push((cands[ci], w));
-        format!("{w:+.4}·{}", cands[ci].text())
-    });
+    ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let mut added = None;
+    for &(_, ci, w) in ranked.iter().take(40) {
+        let vcol: Vec<Vec<f32>> = vcols.iter().map(|l| l.iter().map(|k| k[ci]).collect()).collect();
+        if share_with(validate, &vbase, Some((&vcol, w))) > cur_v {
+            f.terms.push((cands[ci], w));
+            added = Some(format!("{w:+.5}·{}", cands[ci].text()));
+            break;
+        }
+    }
+    (removed, added, tuned)
+}
+
+/// After a game (or before the first): `rounds` rounds of growth on every lesson so far.
+pub fn grow(rounds: usize) -> Result<String, String> {
+    let t0 = std::time::Instant::now();
+    let lessons = all_lessons();
+    if lessons.is_empty() {
+        return Err("no lessons yet".into());
+    }
+    let validate = hf_set("out/golden/grow_validate.tsv", 18..19, 2_000, 0);
+    let check = check_set();
+    let cands = candidates();
+    let cols = table(&lessons, &cands);
+    let vcols = table(&validate, &cands);
+    let mut f = Function::load();
+    let before = (share(&f, &lessons), share(&f, &validate), share(&f, &check), f.terms.len());
+    let mut out = String::new();
+    for r in 1..=rounds {
+        let (removed, added, tuned) = round(&mut f, &lessons, &validate, &cols, &vcols, &cands);
+        out.push_str(&format!(
+            "  round {r}: removed {}; re-tuned {tuned}; added {}; {} terms; lessons {:.1}%, validate {:.1}%, check {:.1}%\n",
+            if removed.is_empty() { "nothing".to_string() } else { removed.join(", ") },
+            added.clone().unwrap_or_else(|| "nothing".into()),
+            f.terms.len(),
+            100.0 * share(&f, &lessons),
+            100.0 * share(&f, &validate),
+            100.0 * share(&f, &check)
+        ));
+        if added.is_none() && removed.is_empty() && tuned == 0 {
+            break;
+        }
+    }
     f.save()?;
     Ok(format!(
-        "the Golden Function: {} lessons; removed {}; added {}; {} terms; Stockfish's move on the lessons {:.1}% -> {:.1}%, on the fixed check set {:.1}% -> {:.1}% ({:.0} s)\n  F = {}\n",
+        "the Golden Function: {} lessons ({PRETRAIN} from the data, the rest from the games); {} -> {} terms; Stockfish's move: lessons {:.1}% -> {:.1}%, validate {:.1}% -> {:.1}%, fixed check {:.1}% -> {:.1}% ({:.0} s)\n{out}  F = {}\n",
         lessons.len(),
-        if removed.is_empty() { "nothing".to_string() } else { removed.join(", ") },
-        added.unwrap_or_else(|| "nothing".into()),
+        before.3,
         f.terms.len(),
         100.0 * before.0,
         100.0 * share(&f, &lessons),
         100.0 * before.1,
+        100.0 * share(&f, &validate),
+        100.0 * before.2,
         100.0 * share(&f, &check),
         t0.elapsed().as_secs_f64(),
         f.written()

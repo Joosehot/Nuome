@@ -6,7 +6,8 @@ leaves of every line, as deep as 5 s allows (`nuome --ideas goldenboy-grow`): th
 attackers) combined by the terms the function chose itself. Stockfish: 1 s a
 move. At every Golden Boy position Stockfish says its own move (1 s): a
 lesson, and a point when Golden Boy played it; Stockfish's own moves are
-lessons too. After every game the function grows (`golden-grow`, twice).
+lessons too. After every game the function grows (`golden-grow 3`: removals, re-tuned weights,
+additions, each kept only if it also raises a validate set).
 
 Streamed to http://localhost:5000/live. Log: out/golden/grow_games.log;
 games: out/golden/grow_games.pgn; lessons: out/golden/grow_lessons.tsv;
@@ -115,10 +116,8 @@ def main():
             print(game, file=f, end="\n\n")
         with open(os.path.join(OUT, "grow_lessons.tsv"), "a", encoding="utf-8", newline="\n") as f:
             f.write("".join(r + "\n" for r in lessons))
-        grown = []
-        for _ in range(2):
-            out = subprocess.run([EXE, "--ideas", "golden-grow"], cwd=NUOME, capture_output=True, text=True).stdout.strip().splitlines()
-            grown.append(out[0] if out else "(no output)")
+        out = subprocess.run([EXE, "--ideas", "golden-grow", "3"], cwd=NUOME, capture_output=True, text=True).stdout.strip().splitlines()
+        grown = out if out else ["(no output)"]
         log(f"game {g} ({white} - {black}): {res}, Golden Boy {gb_res}, {len(moves)} plies, {time.time() - t0:.0f} s; moves by {how_count}; points {points}/{asked}; total +{score['win']} ={score['draw']} -{score['loss']}")
         for line in grown:
             log("  " + line)

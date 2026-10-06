@@ -292,8 +292,9 @@ fn main() -> Result<()> {
             return Ok(());
         }
         if which == "golden-grow" {
-            // golden-grow: after a game, the Golden Function grows on every lesson so far
-            print!("{}", nuome::golden_grow::grow().map_err(|e| anyhow::anyhow!(e))?);
+            // golden-grow [ROUNDS]: after a game, the Golden Function grows on every lesson so far
+            let rounds = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(1);
+            print!("{}", nuome::golden_grow::grow(rounds).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
         if which == "goldenboy-net" {
