@@ -748,9 +748,9 @@ pub const HF_VALUES: &str = "out/golden/hf_values.tsv";
 pub const GOLDENNET_VALUE_FILE: &str = "out/golden/goldennet_value.txt";
 
 /// One position with Stockfish's win probability after each move: (endgame?, fen, best move, [(move, win prob)]).
-type Valued = (bool, String, String, Vec<(String, f32)>);
+pub(crate) type Valued = (bool, String, String, Vec<(String, f32)>);
 
-fn read_values(n_train: usize, n_val: usize, n_hold: usize) -> Result<(Vec<Valued>, Vec<Valued>, Vec<Valued>), String> {
+pub(crate) fn read_values(n_train: usize, n_val: usize, n_hold: usize) -> Result<(Vec<Valued>, Vec<Valued>, Vec<Valued>), String> {
     let text = std::fs::read_to_string(HF_VALUES).map_err(|e| format!("{HF_VALUES}: {e}"))?;
     let (mut tr, mut va, mut ho) = (Vec::new(), Vec::new(), Vec::new());
     for line in text.lines() {

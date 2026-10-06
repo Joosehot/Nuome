@@ -431,6 +431,15 @@ pub fn best_moves<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::
 }
 
 fn best_move_excluding<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64, exclude: &[u32]) -> Option<(String, usize, u64)> {
+    search_root(ev, net, fen, ms, exclude).map(|r| (r.0, r.1, r.2))
+}
+
+/// The best move and its value for the side to move (the last whole depth).
+pub fn analyse<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64) -> Option<(String, i32)> {
+    search_root(ev, net, fen, ms, &[]).map(|r| (r.0, r.3))
+}
+
+fn search_root<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64, exclude: &[u32]) -> Option<(String, usize, u64, i32)> {
     let mut p = Position::from_fen(fen).ok()?;
     let mut s = Searcher::new(ev);
     s.exclude = exclude.to_vec();
@@ -449,11 +458,13 @@ fn best_move_excluding<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starn
         return None;
     }
     let mut best = (roots[0], 0usize);
+    let mut value = 0i32;
     for depth in 1..60 {
         let v = negamax(&mut s, &mut p, depth, -INF, INF, 0, true);
         if s.stopped {
             break;
         }
+        value = v;
         if let Some(e) = s.probe(p.key64()) {
             if e.mv != 0 {
                 best = (e.mv, depth);
@@ -463,7 +474,7 @@ fn best_move_excluding<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starn
             break;
         }
     }
-    Some((move_to_uci(best.0), best.1, s.nodes))
+    Some((move_to_uci(best.0), best.1, s.nodes, value))
 }
 
 // ---------------------------------------------------------------- the evaluations to test
@@ -479,6 +490,32 @@ impl Eval for GoldenFunctionEval {
 
 /// Goldennet (a grid net file), for the side to move: minus its value for the side that has just moved.
 pub struct GoldennetEval(pub Vec<f32>);
+/// The judge as an engine: the theory's state rules, weighted, as the
+/// evaluation inside the search (pawns x 100 = cp), from the side to move.
+pub struct TheoryEval {
+    pub weights: Vec<(usize, f32)>,
+    pub bias: f32,
+    /// cp per unit of the fitted value: 100 / the material weight, so a pawn is 100 cp
+    pub scale: f32,
+}
+
+impl Eval for TheoryEval {
+    /// From the side to move. The value was fitted from the mover's side (the
+    /// side not to move), so its bias enters with the opposite sign.
+    fn eval(&self, p: &Position) -> i32 {
+        ((crate::golden_theory::state_score(&self.weights, p, p.turn as usize) - self.bias) * self.scale).clamp(-1.0e8, 1.0e8) as i32
+    }
+}
+
+/// Several evaluations added in cp, each with a weight (the judge's theory and Goldennet together; StarNNUE joins by the search's mix).
+pub struct BlendEval(pub Vec<(Box<dyn Eval>, f32)>);
+
+impl Eval for BlendEval {
+    fn eval(&self, p: &Position) -> i32 {
+        self.0.iter().map(|(e, w)| w * e.eval(p) as f32 * e.cp()).sum::<f32>().clamp(-1.0e8, 1.0e8) as i32
+    }
+}
+
 impl Eval for GoldennetEval {
     fn eval(&self, p: &Position) -> i32 {
         let x = crate::golden_table::points(p, 1 - p.turn as usize);
@@ -571,15 +608,28 @@ pub fn smoke(n: usize, ms: u64, skip: usize) -> Result<(), String> {
 
 /// The same test on a file of (fen TAB Stockfish's move), in the file's order, each reported at once.
 pub fn smoke_file(path: &str, ms: u64) -> Result<(), String> {
-    use std::io::Write;
     let w: Vec<f32> = std::fs::read_to_string(crate::golden_table::GOLDENNET_VALUE_FILE).map_err(|e| e.to_string())?.lines().filter_map(|l| l.trim().parse().ok()).collect();
-    let ev = GoldennetEval(w);
+    smoke_file_with(&GoldennetEval(w), path, ms, false)
+}
+
+/// The same with any evaluation alone in the search; `reverse` reads the file backwards (the smoke set's order).
+pub fn smoke_file_with(ev: &dyn Eval, path: &str, ms: u64, reverse: bool) -> Result<(), String> {
+    smoke_file_mix(ev, None, path, ms, reverse)
+}
+
+/// The same with StarNNUE mixed in (`mix` = StarNNUE's share).
+pub fn smoke_file_mix(ev: &dyn Eval, mix: Option<f32>, path: &str, ms: u64, reverse: bool) -> Result<(), String> {
+    let net = if mix.is_some() { Some(crate::fast::starnnue::net()?) } else { None };
+    use std::io::Write;
     let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let rows: Vec<(&str, &str)> = text.lines().filter_map(|l| l.split_once('\t')).collect();
+    let mut rows: Vec<(&str, &str)> = text.lines().filter_map(|l| l.split_once('\t')).collect();
+    if reverse {
+        rows.reverse();
+    }
     let mut hit = 0;
     for (i, (fen, sf)) in rows.iter().enumerate() {
         let t0 = Instant::now();
-        let (m, d, k) = best_move(&ev, fen, ms).unwrap_or_default();
+        let (m, d, k) = match (net, mix) { (Some(n), Some(x)) => best_move_with(ev, Some((n, x)), fen, ms), _ => best_move(ev, fen, ms) }.unwrap_or_default();
         hit += (m == *sf) as usize;
         println!("  {}/{}: played {m}, Stockfish {sf} {} (depth {d}, {:.1}M nodes, {:.1} s) — {hit}/{} so far\n    {fen}", i + 1, rows.len(), if m == *sf { "RIGHT" } else { "miss" }, k as f64 / 1e6, t0.elapsed().as_secs_f64(), i + 1);
         let _ = std::io::stdout().flush();

@@ -1,0 +1,458 @@
+# Golden theory: the known chess theory every Golden Grandmaster stands on.
+#
+# All ten grandmasters (src/golden_grandmasters.rs) share this theory; each
+# one's style is only how much weight it gives each principle. Every principle
+# is written in our own words from the chess wiki articles named in `source`
+# (Wikipedia: Chess strategy, Chess tactic, Chess opening, Chess endgame), with
+# the measure on the board that stands for it. `measure = "none yet"` marks a
+# principle the engine cannot yet read from a position; "rule" marks one with
+# its rule in src/golden_theory.rs (same id); "the tables" one the Syzygy
+# tables settle.
+#
+# area: opening, middlegame, endgame, tactics, general
+
+# ---------------------------------------------------------------- general (board evaluation)
+
+[[principle]]
+id = "material"
+area = "general"
+statement = "Piece values give a baseline; more material raises the chances to win, tactically and strategically."
+source = "Chess strategy: Material"
+measure = "rule"
+
+[[principle]]
+id = "space"
+area = "general"
+statement = "Other things equal, the side controlling more space stands better; over-extended pawns become long-term weaknesses."
+source = "Chess strategy: Space"
+measure = "rule"
+
+[[principle]]
+id = "center"
+area = "general"
+statement = "Controlling the central squares (d4 e4 d5 e5) gives the pieces mobility; pieces may control them from afar without standing on them."
+source = "Chess strategy: Control of the center; Chess opening: center control"
+measure = "rule"
+
+[[principle]]
+id = "initiative"
+area = "general"
+statement = "The side making threats dictates the play and forces the other into reactive defence."
+source = "Chess strategy: Initiative"
+measure = "rule"
+
+[[principle]]
+id = "defend_in_advance"
+area = "general"
+statement = "Defend pieces before they are threatened; an overworked piece defending several things is a tactical target."
+source = "Chess strategy: Defending pieces"
+measure = "rule"
+
+[[principle]]
+id = "exchanges"
+area = "general"
+statement = "Exchanging pieces helps the side with less space and the side ahead in material; simplification brings the endgame where an extra pawn decides."
+source = "Chess strategy: Exchanging pieces; Middlegame: Simplification"
+measure = "rule"
+
+[[principle]]
+id = "restriction"
+area = "general"
+statement = "Restricting the opponent's mobility (prophylaxis) limits his plans and threats."
+source = "Chess opening: center control restricts the opponent's movement"
+measure = "rule"
+
+# ---------------------------------------------------------------- pieces
+
+[[principle]]
+id = "pawn_structure"
+area = "general"
+statement = "Pawns are slow and permanent, so the pawn structure sets the character of the position; avoid isolated, doubled and backward pawns and pawn islands."
+source = "Chess strategy: Pawns; Opening: Pawn structure"
+measure = "rule"
+
+[[principle]]
+id = "knight_outpost"
+area = "middlegame"
+statement = "Knights thrive in closed positions and on central outposts no enemy pawn can attack; on the edge they are weak."
+source = "Chess strategy: Knights"
+measure = "rule"
+
+[[principle]]
+id = "bishops_open"
+area = "general"
+statement = "Bishops are best in open positions, knights in closed ones; the bishop pair is an advantage, most of all in open endgames."
+source = "Chess strategy: Bishops"
+measure = "rule"
+
+[[principle]]
+id = "bad_bishop"
+area = "endgame"
+statement = "A bishop hemmed in by its own pawns is bad: it is tied to their defence."
+source = "Chess endgame: Bad bishop"
+measure = "rule"
+
+[[principle]]
+id = "rook_seventh"
+area = "middlegame"
+statement = "A rook on the seventh rank attacks unprotected pawns and confines the king."
+source = "Chess strategy: Rooks; Chess endgame: rook on the seventh"
+measure = "rule"
+
+[[principle]]
+id = "rook_behind_passer"
+area = "endgame"
+statement = "Rooks belong behind passed pawns, one's own or the opponent's (Tarrasch's rule)."
+source = "Chess strategy: Rooks; Chess endgame: Tarrasch rule"
+measure = "rule"
+
+[[principle]]
+id = "queen_not_early"
+area = "opening"
+statement = "The queen is strongest but easily harassed; bringing it out early loses tempi."
+source = "Chess strategy: Queen"
+measure = "rule"
+
+[[principle]]
+id = "king_safety_middlegame"
+area = "middlegame"
+statement = "In the middlegame the king is kept safe behind pawns by castling, which also connects the rooks."
+source = "Chess strategy: King; Opening: King safety"
+measure = "rule"
+
+# ---------------------------------------------------------------- opening
+
+[[principle]]
+id = "development"
+area = "opening"
+statement = "Bring the knights and bishops to useful squares where they act and coordinate."
+source = "Chess opening: Development; Chess strategy: Development"
+measure = "rule"
+
+[[principle]]
+id = "castle_early"
+area = "opening"
+statement = "Castle in good time: the king is safer, the back rank stronger, the rooks connected."
+source = "Chess opening: King safety"
+measure = "rule"
+
+[[principle]]
+id = "pawn_shield"
+area = "opening"
+statement = "Pawn moves in front of the castled king make escape squares but weaken its cover."
+source = "Chess strategy: King safety in the opening"
+measure = "rule"
+
+[[principle]]
+id = "coordination"
+area = "opening"
+statement = "Pieces should work together toward the same important squares."
+source = "Chess opening: Piece coordination"
+measure = "rule"
+
+[[principle]]
+id = "no_overextension"
+area = "opening"
+statement = "Do not build a pawn centre the opponent can undermine."
+source = "Chess opening: Preventing overextension"
+measure = "none yet"
+
+[[principle]]
+id = "classical_hypermodern"
+area = "opening"
+statement = "The centre can be held with pawns (classical) or controlled from afar with pieces (hypermodern)."
+source = "Chess strategy: Center control in the opening"
+measure = "rule"
+
+[[principle]]
+id = "imbalance"
+area = "opening"
+statement = "The imbalances created in the opening decide the middlegame's character and both sides' plans."
+source = "Chess opening: Dynamic imbalance"
+measure = "none yet"
+
+# ---------------------------------------------------------------- middlegame
+
+[[principle]]
+id = "combinations"
+area = "middlegame"
+statement = "Most combinations happen in the middlegame while the pieces are on the board."
+source = "Chess strategy: Combinations"
+measure = "rule"
+
+[[principle]]
+id = "attack_king"
+area = "middlegame"
+statement = "An attack on the enemy king with many pieces near it is the strongest form of initiative."
+source = "Chess strategy: Initiative; Chess tactic"
+measure = "rule"
+
+[[principle]]
+id = "opposite_bishops_drawish"
+area = "middlegame"
+statement = "Endgames with bishops of opposite colours tend to be drawn even a pawn or two down."
+source = "Chess strategy: Simplification"
+measure = "none yet"
+
+# ---------------------------------------------------------------- endgame
+
+[[principle]]
+id = "king_active"
+area = "endgame"
+statement = "In the endgame the king becomes a fighting piece: centralise it to escort pawns and attack the opponent's."
+source = "Chess strategy: King activity; Chess endgame: King activity"
+measure = "rule"
+
+[[principle]]
+id = "passed_pawn"
+area = "endgame"
+statement = "A passed pawn has no enemy pawn in front or on the next files; it must be pushed (its lust to expand)."
+source = "Chess endgame: Passed pawns; Chess strategy: Pawn promotion"
+measure = "rule"
+
+[[principle]]
+id = "outside_passer"
+area = "endgame"
+statement = "An outside passed pawn drags the enemy king away so the attacker wins material on the other side."
+source = "Chess endgame: Outside passed pawn"
+measure = "rule"
+
+[[principle]]
+id = "connected_passers"
+area = "endgame"
+statement = "Two connected passed pawns are very strong; on the sixth rank they are worth a rook."
+source = "Chess endgame: Connected passed pawns"
+measure = "rule"
+
+[[principle]]
+id = "promotion_goal"
+area = "endgame"
+statement = "With little material left, promoting a pawn is the main aim."
+source = "Chess strategy: Pawn promotion"
+measure = "rule"
+
+[[principle]]
+id = "opposition"
+area = "endgame"
+statement = "Kings facing each other with one square between: the side to move loses ground."
+source = "Chess endgame: Opposition"
+measure = "none yet"
+
+[[principle]]
+id = "triangulation"
+area = "endgame"
+statement = "A king can lose a tempo by a triangle of moves to put the opponent in zugzwang."
+source = "Chess endgame: Triangulation"
+measure = "none yet"
+
+[[principle]]
+id = "zugzwang"
+area = "endgame"
+statement = "Having to move can be a disadvantage; it decides many endings and is rare before them."
+source = "Chess endgame: Zugzwang; Chess tactic"
+measure = "none yet"
+
+[[principle]]
+id = "corresponding_squares"
+area = "endgame"
+statement = "In pawn endings, key squares correspond: who controls them decides the zugzwang."
+source = "Chess endgame: Corresponding squares"
+measure = "none yet"
+
+[[principle]]
+id = "rule_of_square"
+area = "endgame"
+statement = "A king stops a passed pawn only if it stands inside the pawn's square."
+source = "Chess endgame: Rule of the square"
+measure = "rule"
+
+[[principle]]
+id = "lucena"
+area = "endgame"
+statement = "Rook and pawn against rook: the Lucena position wins by building a bridge for the king."
+source = "Chess endgame: Lucena position"
+measure = "the tables (five pieces)"
+
+[[principle]]
+id = "philidor"
+area = "endgame"
+statement = "Rook and pawn against rook: the Philidor position draws, the defending rook on its third rank until the pawn advances."
+source = "Chess endgame: Philidor position"
+measure = "the tables (five pieces)"
+
+[[principle]]
+id = "fortress"
+area = "endgame"
+statement = "A fortress is a defence the stronger side cannot break, often with opposite-coloured bishops."
+source = "Chess endgame: Fortress"
+measure = "none yet"
+
+[[principle]]
+id = "wrong_bishop"
+area = "endgame"
+statement = "A bishop that cannot control a rook pawn's promotion square usually only draws."
+source = "Chess endgame: Wrong bishop"
+measure = "the tables (five pieces)"
+
+[[principle]]
+id = "reti"
+area = "endgame"
+statement = "A king can chase two goals at once along a diagonal (the Réti manoeuvre)."
+source = "Chess endgame: Réti manoeuvre"
+measure = "none yet"
+
+[[principle]]
+id = "extra_pawn_decides"
+area = "endgame"
+statement = "In king and pawn endings an extra pawn wins in more than nine cases out of ten."
+source = "Chess endgame: material advantage"
+measure = "rule"
+
+[[principle]]
+id = "rook_endgame_initiative"
+area = "endgame"
+statement = "In rook endings the initiative is usually worth at least a pawn."
+source = "Chess endgame: Initiative"
+measure = "rule"
+
+[[principle]]
+id = "short_side"
+area = "endgame"
+statement = "The defending rook checks from the long side of the board against an advanced pawn."
+source = "Chess endgame: Short-side defence"
+measure = "none yet"
+
+# ---------------------------------------------------------------- tactics
+
+[[principle]]
+id = "fork"
+area = "tactics"
+statement = "One piece attacks two or more of the opponent's pieces at once."
+source = "Chess tactic: Fork"
+measure = "rule"
+
+[[principle]]
+id = "pin"
+area = "tactics"
+statement = "A piece cannot move without exposing a more valuable piece behind it."
+source = "Chess tactic: Pin"
+measure = "rule"
+
+[[principle]]
+id = "skewer"
+area = "tactics"
+statement = "Like a pin with the more valuable piece in front: it moves and exposes the one behind."
+source = "Chess tactic: Skewer"
+measure = "none yet"
+
+[[principle]]
+id = "discovered_attack"
+area = "tactics"
+statement = "Moving one piece unmasks an attack by another."
+source = "Chess tactic: Discovered attack"
+measure = "none yet"
+
+[[principle]]
+id = "double_check"
+area = "tactics"
+statement = "A discovered check where both pieces give check; only a king move answers it."
+source = "Chess tactic: Double check"
+measure = "rule"
+
+[[principle]]
+id = "sacrifice"
+area = "tactics"
+statement = "Giving up material on purpose for an attack or a lasting positional gain."
+source = "Chess tactic: Sacrifice"
+measure = "rule"
+
+[[principle]]
+id = "zwischenzug"
+area = "tactics"
+statement = "An in-between move with a stronger threat instead of the expected reply."
+source = "Chess tactic: Zwischenzug"
+measure = "none yet"
+
+[[principle]]
+id = "deflection"
+area = "tactics"
+statement = "Luring a defender away from the square or piece it guards."
+source = "Chess tactic (motifs); Chess endgame: Deflection"
+measure = "none yet"
+
+[[principle]]
+id = "decoy"
+area = "tactics"
+statement = "Luring a piece onto a square where it can be exploited."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "overloading"
+area = "tactics"
+statement = "A piece with too many defensive duties cannot fulfil them all."
+source = "Chess tactic (motifs); Chess strategy: Defending pieces"
+measure = "none yet"
+
+[[principle]]
+id = "interference"
+area = "tactics"
+statement = "Placing a piece between an enemy piece and what it defends."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "undermining"
+area = "tactics"
+statement = "Capturing or driving away a defender (removing the guard)."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "clearance"
+area = "tactics"
+statement = "Vacating a square or line so another piece can use it."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "trapping"
+area = "tactics"
+statement = "Attacking a piece that has no safe square to go to."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "x_ray"
+area = "tactics"
+statement = "A line piece acts through another piece along its line."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "blockade"
+area = "tactics"
+statement = "Putting a piece in front of an enemy passed pawn to stop it."
+source = "Chess tactic (motifs)"
+measure = "none yet"
+
+[[principle]]
+id = "pawn_demolition"
+area = "tactics"
+statement = "Breaking the pawns in front of the king to open it for attack."
+source = "Chess tactic (motifs)"
+measure = "rule"
+
+[[principle]]
+id = "back_rank"
+area = "tactics"
+statement = "A king boxed in by its own pawns on the back rank can be mated there."
+source = "Chess strategy: King safety (escape squares)"
+measure = "rule"
+
+[[principle]]
+id = "hanging"
+area = "tactics"
+statement = "An enemy piece attacked and not defended, or attacked by something cheaper, can be won."
+source = "Chess strategy: Defending pieces; Chess tactic"
+measure = "rule"

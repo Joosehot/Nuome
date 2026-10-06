@@ -338,6 +338,131 @@ fn main() -> Result<()> {
             print!("{}", nuome::golden_pattern::build(n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "gm-explain" {
+            // gm-explain FEN MOVE...: the Texel judge's one- and two-ply view of each move
+            let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");
+            let moves: Vec<String> = cli.words.iter().skip(6).cloned().collect();
+            print!("{}", nuome::golden_grandmasters::explain(&fen, &moves).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "theory-texel" {
+            // theory-texel [N_TRAIN] [N_VAL] [EPOCHS] [BATCH]: Texel tuning of the theory as a position value (out/golden/theory_value.toml)
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            nuome::golden_grandmasters::texel_value(n.first().copied().unwrap_or(50_000), n.get(1).copied().unwrap_or(5_000), n.get(2).copied().unwrap_or(20), n.get(3).copied().unwrap_or(256), 0.01).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "theory-misses" {
+            // theory-misses LOG [MS] [MAX]: every miss of a theory-check/smoke log, Stockfish's move and the played one with the engine's value and line
+            let log = cli.words.first().context("theory-misses takes a log file")?;
+            let ms: u64 = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(1000);
+            let max: usize = cli.words.get(2).and_then(|w| w.parse().ok()).unwrap_or(12);
+            print!("{}", nuome::golden_grandmasters::theory_misses(log, ms, max).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "theory-static" {
+            // theory-static FEN: the theory value of the position from the side to move, state by state
+            let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");
+            print!("{}", nuome::golden_grandmasters::theory_static(&fen).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "theory-pv" {
+            // theory-pv FEN MS MOVE...: the theory engine's value and line after each move
+            let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");
+            let ms: u64 = cli.words.get(6).and_then(|w| w.parse().ok()).unwrap_or(1000);
+            let moves: Vec<String> = cli.words.iter().skip(7).cloned().collect();
+            print!("{}", nuome::golden_grandmasters::theory_pv(&fen, &moves, ms, 6).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "theory-why" {
+            // theory-why FEN MOVE_A MOVE_B: the theory value's static reasons for preferring one move to the other
+            let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");
+            let (a, b) = (cli.words.get(6).context("move A")?, cli.words.get(7).context("move B")?);
+            print!("{}", nuome::golden_grandmasters::theory_why(&fen, a, b).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "theory-check" {
+            // theory-check [N] [MS]: the first N positions of the check set with the theory engine (the development measure; the smoke set stays held out)
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let ev = nuome::golden_grandmasters::theory_eval().map_err(|e| anyhow::anyhow!(e))?;
+            let text = std::fs::read_to_string("out/golden/grow_check.tsv")?;
+            let take = n.first().copied().unwrap_or(100) as usize;
+            let tmp = "out/golden/theory_check_set.tsv";
+            std::fs::write(tmp, text.lines().take(take).collect::<Vec<_>>().join("\n"))?;
+            nuome::star_search::smoke_file_with(&ev, tmp, n.get(1).copied().unwrap_or(2_000), false).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "theory-smoke" {
+            // theory-smoke [MS] [THEORY_W] [GOLDEN_W] [NNUE_MIX]: the smoke positions with the judge as the engine: its Texel-weighted theory (x THEORY_W) plus Goldennet (x GOLDEN_W) as StarNet's evaluation, StarNNUE mixed in by NNUE_MIX (0 = none)
+            let n: Vec<f64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let ms = n.first().copied().unwrap_or(10_000.0) as u64;
+            let (tw, gw, mix) = (n.get(1).copied().unwrap_or(1.0) as f32, n.get(2).copied().unwrap_or(0.0) as f32, n.get(3).copied().unwrap_or(0.0) as f32);
+            let theory = nuome::golden_grandmasters::theory_eval().map_err(|e| anyhow::anyhow!(e))?;
+            let mut parts: Vec<(Box<dyn nuome::star_search::Eval>, f32)> = vec![(Box::new(theory), tw)];
+            if gw != 0.0 {
+                let w: Vec<f32> = std::fs::read_to_string(nuome::golden_table::GOLDENNET_VALUE_FILE)?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+                parts.push((Box::new(nuome::star_search::GoldennetEval(w)), gw));
+            }
+            println!("judge as engine: theory x{tw}, Goldennet x{gw}, StarNNUE {:.0}%", 100.0 * mix);
+            let ev = nuome::star_search::BlendEval(parts);
+            nuome::star_search::smoke_file_mix(&ev, (mix > 0.0).then_some(mix), "out/golden/smoke_reverse.tsv", ms, true).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "boy-smoke" {
+            // boy-smoke [MS]: Golden Boy's move on the smoke positions: the opening table; Stockfish's move when the exact position is known; else the theory engine
+            let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            nuome::golden_grandmasters::boy_smoke("out/golden/smoke_reverse.tsv", ms).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "known-build" {
+            // known-build: the exact known positions (HF middlegame and endgame set) with Stockfish's move, out/golden/known_positions.bin
+            println!("{}", nuome::golden_grandmasters::build_known().map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "pattern-judge" {
+            // pattern-judge FILE: for each (fen, sf, s1, g1) line, the pattern judge's verdict on s1 and g1 (proved = a known pattern)
+            let t = nuome::golden_pattern::Table::load().context("no pattern table")?;
+            let path = cli.words.first().context("pattern-judge takes a file")?;
+            for line in std::fs::read_to_string(path)?.lines() {
+                let f: Vec<&str> = line.split('\t').collect();
+                if f.len() < 4 { continue; }
+                let mut p = nuome::fast::position::Position::from_fen(f[0]).map_err(|e| anyhow::anyhow!(e))?;
+                let legal = nuome::fast::movegen::legal_moves(&mut p).len();
+                let mut out = Vec::new();
+                for (tag, u) in [("S1", f[2]), ("G1", f[3])] {
+                    let m = nuome::fast::movegen::uci_to_move(&mut p, u).context("illegal")?;
+                    let (ok, lift, rate, seen, lv) = t.judge_lift(&mut p, m, legal);
+                    out.push(format!("{tag} {u}{} {}x{:.1} ({:.0}% of {seen}, {lv})", if u == f[1] { "=SF" } else { "" }, if ok { "PROVED " } else { "" }, lift, 100.0 * rate));
+                }
+                println!("SF {} | {}", f[1], out.join(" | "));
+            }
+            return Ok(());
+        }
+        if which == "gm-recall" {
+            // gm-recall [N] [MS] [K...]: how often Stockfish's move is among Golden's and StarNNUE's k best (each search MS)
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let ks: Vec<usize> = if n.len() > 2 { n[2..].to_vec() } else { vec![3, 5, 8] };
+            print!("{}", nuome::golden_grandmasters::recall(n.first().copied().unwrap_or(300), n.get(1).copied().unwrap_or(200) as u64, &ks).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "gm-texel-deep" {
+            // gm-texel-deep [N_TRAIN] [N_VAL] [PLIES] [ROUNDS] [EPOCHS] [CAND_MS]: Texel tuning of the judge at the depth it plays, on Golden's and StarNNUE's candidates (CAND_MS each search; 0 = every move), Stockfish's move's target 1
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            nuome::golden_grandmasters::texel_deep(n.first().copied().unwrap_or(5_000), n.get(1).copied().unwrap_or(1_000), n.get(2).copied().unwrap_or(2), n.get(3).copied().unwrap_or(3), n.get(4).copied().unwrap_or(20), n.get(5).copied().unwrap_or(200) as u64).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "gm-texel" {
+            // gm-texel [N_TRAIN] [N_VAL] [EPOCHS] [BATCH]: Texel tuning of the judge's rule weights (out/golden/judge_texel.toml)
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            nuome::golden_grandmasters::texel(n.first().copied().unwrap_or(20_000), n.get(1).copied().unwrap_or(2_000), n.get(2).copied().unwrap_or(50), n.get(3).copied().unwrap_or(256), 0.01).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "gm-smoke" {
+            // gm-smoke [MS] [NAMES]: the smoke positions, the candidates ordered by the grandmaster judges (all ten, or the named; "theory" = the shared theory alone, "texel" = the weights of gm-texel)
+            let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            let only: Vec<String> = cli.words.iter().skip(1).cloned().collect();
+            nuome::golden_grandmasters::smoke("out/golden/smoke_reverse.tsv", ms, &only).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "pattern-smoke" {
             // pattern-smoke [MS]: the smoke positions, the move proved by known patterns (Golden or StarNNUE)
             let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);

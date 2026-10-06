@@ -1,0 +1,66 @@
+# The ten Golden Grandmasters: each one's weight on the principles of
+# data/golden_theory.toml (by id). A principle not named weighs 0 for that
+# grandmaster. All stand on the same theory; the weights are the style.
+# Five are attacking and five positional (`group`).
+
+# The judges see and rank every candidate; only one within `sound` cp of the best search value may be played (0 = no filter).
+sound = 0
+
+# The filter's cp: each candidate's gap to the best search value, per 100 cp, is taken from every judge's score.
+filter_weight = 1.0
+
+# Every judge adds this to StarNNUE's best moves by their rank (S1, S2, S3), in cp.
+starnnue_bonus = [100, 0, 0]
+
+# The judges look this many plies ahead: their move, the opponent's best answer by the same theory, ...
+lookahead = 2
+
+[grandmaster.Tal]
+group = "attacking"
+style = "attack on the king, sacrifices, checks, initiative at any price"
+weights = { attack_king = 3.0, sacrifice = 2.5, double_check = 2.0, initiative = 2.0, fork = 1.0, pawn_demolition = 1.5, back_rank = 1.5, center = 0.5, material = 0.5 }
+
+[grandmaster.Botvinnik]
+group = "positional"
+style = "scientific, pawn structure, the centre, technique in the endgame"
+weights = { pawn_structure = 3.0, center = 2.0, king_safety_middlegame = 1.0, king_active = 1.5, passed_pawn = 1.5, bad_bishop = 1.5, knight_outpost = 1.0, material = 1.0, rook_behind_passer = 1.0 }
+
+[grandmaster.Morphy]
+group = "attacking"
+style = "fast development, open lines, the king attacked before the opponent is ready"
+weights = { development = 3.0, castle_early = 1.5, initiative = 2.0, center = 1.0, attack_king = 1.5, queen_not_early = 1.0, material = 0.5 }
+
+[grandmaster.Caruana]
+group = "positional"
+style = "deep preparation and concrete calculation; the most accurate move"
+weights = { material = 3.0, combinations = 2.0, center = 1.0, pawn_structure = 1.0, defend_in_advance = 1.0, development = 0.5 }
+
+[grandmaster.Carlsen]
+group = "positional"
+style = "universal; small edges, endgame grinding, the active king, simplifying when ahead"
+weights = { king_active = 2.0, exchanges = 2.0, pawn_structure = 2.0, passed_pawn = 1.5, rook_endgame_initiative = 1.0, defend_in_advance = 1.0, material = 1.5, outside_passer = 1.0, bad_bishop = 1.0 }
+
+[grandmaster.Karpov]
+group = "positional"
+style = "prophylaxis: restrict the opponent, squeeze, never allow counterplay"
+weights = { restriction = 3.0, defend_in_advance = 2.0, king_safety_middlegame = 2.0, space = 1.0, pawn_structure = 1.0, knight_outpost = 1.5, exchanges = 0.5, material = 1.0 }
+
+[grandmaster.Kasparov]
+group = "attacking"
+style = "dynamic initiative, piece activity, deep attacking plans"
+weights = { initiative = 2.5, attack_king = 2.0, center = 1.0, development = 1.0, space = 1.0, sacrifice = 1.0, coordination = 1.0, material = 1.0, rook_seventh = 1.0 }
+
+[grandmaster.Fischer]
+group = "attacking"
+style = "classical clarity, the bishops, active pieces, open positions"
+weights = { center = 2.0, bishops_open = 2.0, coordination = 2.0, development = 1.0, rook_seventh = 1.5, pawn_structure = 1.0, material = 1.5, initiative = 2.0, attack_king = 1.5 }
+
+[grandmaster.Anand]
+group = "attacking"
+style = "quick and sharp: development, tactics, mobility"
+weights = { development = 2.0, double_check = 1.0, fork = 2.0, pin = 1.5, initiative = 2.0, hanging = 1.5, material = 1.0 }
+
+[grandmaster.Kramnik]
+group = "positional"
+style = "solid structure, exchanges into favourable endgames, the king safe"
+weights = { pawn_structure = 3.0, exchanges = 2.0, king_safety_middlegame = 2.0, pawn_shield = 1.0, defend_in_advance = 1.0, bad_bishop = 1.0, material = 1.0 }
