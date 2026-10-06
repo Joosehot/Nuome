@@ -397,6 +397,27 @@ fn main() -> Result<()> {
             print!("{}", nuome::golden_grandmasters::theory_why(&fen, a, b).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "theory-file" {
+            // theory-file FILE [MS]: (fen TAB move) lines with the theory engine
+            let path = cli.words.first().context("theory-file takes a file")?;
+            let ms = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            let ev = nuome::golden_grandmasters::theory_eval().map_err(|e| anyhow::anyhow!(e))?;
+            nuome::star_search::smoke_file_with(&ev, path, ms, false).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "nnue-check" {
+            // nnue-check [N] [MS]: the same check positions with StarNNUE alone in the search (the ceiling of the search at this time)
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let w: Vec<f32> = std::fs::read_to_string(nuome::golden_table::GOLDENNET_VALUE_FILE)?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+            let ev = nuome::star_search::GoldennetEval(w);
+            let text = std::fs::read_to_string("out/golden/grow_check.tsv")?;
+            let take = n.first().copied().unwrap_or(100) as usize;
+            let tmp = "out/golden/theory_check_set.tsv";
+            std::fs::write(tmp, text.lines().take(take).collect::<Vec<_>>().join("
+"))?;
+            nuome::star_search::smoke_file_mix(&ev, Some(1.0), tmp, n.get(1).copied().unwrap_or(2_000), false).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "theory-check" {
             // theory-check [N] [MS]: the first N positions of the check set with the theory engine (the development measure; the smoke set stays held out)
             let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
