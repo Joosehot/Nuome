@@ -857,6 +857,24 @@ E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()),
             );
             return Ok(());
         }
+        if which == "lucas-lehmer" {
+            // lucas-lehmer P...: is 2^P - 1 prime, by the Lucas-Lehmer test (the NTT squaring), timed; the time scales about as P^2 log P, which says what the largest known prime would cost here
+            for w in &cli.words {
+                let Ok(p) = w.parse::<usize>() else { continue };
+                let t0 = std::time::Instant::now();
+                let prime = nuome::mersenne::lucas_lehmer(p);
+                let secs = t0.elapsed().as_secs_f64();
+                let digits = (p as f64 * std::f64::consts::LOG10_2).floor() as u64 + 1;
+                println!("2^{p} - 1 ({digits} digits): {} by Lucas-Lehmer, {secs:.2} s ({:.1} us per squaring)", if prime { "PRIME" } else { "composite" }, secs / (p.max(3) - 2) as f64 * 1e6);
+            }
+            return Ok(());
+        }
+        if which == "fish-checker" {
+            // fish-checker [SIZE] [FIT] [TEST]: Nuome invents a checker as it invented the generator: a shape c(A, N) and the number A, fitted on N = 2..FIT, judged on FIT+1..TEST and the Carmichael liars, by cost and by the constant's bits
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            println!("{}", nuome::fish_checker::report(n.first().copied().unwrap_or(5) as usize, n.get(1).copied().unwrap_or(1000), n.get(2).copied().unwrap_or(100_000)));
+            return Ok(());
+        }
         if which == "fish-long" {
             // fish-long [LEN] [DIGITS] [SHAPE...]: one invented shape's chain to LEN primes (default "(A (n)!)^(2)", 500, 3000 digits), written for tools/fish_check.py
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
