@@ -857,6 +857,14 @@ E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()),
             );
             return Ok(());
         }
+        if which == "fish-long" {
+            // fish-long [LEN] [DIGITS] [SHAPE...]: one invented shape's chain to LEN primes (default "(A (n)!)^(2)", 500, 3000 digits), written for tools/fish_check.py
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let shape: Vec<String> = cli.words.iter().filter(|w| w.parse::<usize>().is_err()).cloned().collect();
+            let shape = if shape.is_empty() { "(A (n)!)^(2)".to_string() } else { shape.join(" ") };
+            println!("{}", nuome::fish_invent::long_run(&shape, n.first().copied().unwrap_or(500), n.get(1).copied().unwrap_or(3000) as u32).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
         if which == "fish-invent" {
             // fish-invent [SIZE] [MAX_DIGITS]: Nuome invents the shape floor(g(A, n)) from n, A, 2, 3, 4, +, x, ^, ! (up to SIZE symbols) and the number A that completes it, primes to MAX_DIGITS digits; A judged by its continued fraction
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
