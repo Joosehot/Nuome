@@ -982,6 +982,32 @@ pub fn theory_bench(n: usize) -> Result<String, String> {
 ", ps.len(), ps.len() as f64 / whole, whole / ps.len() as f64 * 1e6, rows.iter().map(|(t, id)| format!("{id} {t:.1}")).collect::<Vec<_>>().join(", ")))
 }
 
+/// The one-ply measure of any evaluation: on `n` validate positions (hf_values), how often the child it
+/// values best is Stockfish's move. No search: the evaluation alone.
+pub fn oneply(ev: &dyn crate::star_search::Eval, n: usize) -> Result<(usize, usize), String> {
+    let (_, va, _) = crate::golden_table::read_values(0, n, 0)?;
+    let (mut hit, mut m) = (0usize, 0usize);
+    for r in &va {
+        let Ok(mut p) = Position::from_fen(&r.1) else { continue };
+        let mut best: Option<(i32, bool)> = None;
+        for (u, _) in &r.3 {
+            let Some(mv) = uci_to_move(&mut p, u) else { continue };
+            p.make(mv);
+            // from the mover: minus the value from the side to move
+            let v = -ev.eval(&p);
+            p.unmake();
+            if best.map_or(true, |b| v > b.0) {
+                best = Some((v, *u == r.2));
+            }
+        }
+        if let Some((_, ok)) = best {
+            m += 1;
+            hit += ok as usize;
+        }
+    }
+    Ok((hit, m))
+}
+
 /// The theory value of `fen` from the side to move, state by state (weighted, in cp), largest first.
 pub fn theory_static(fen: &str) -> Result<String, String> {
     let ev = theory_eval()?;

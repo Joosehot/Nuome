@@ -521,7 +521,16 @@ pub type State = fn(&Position, usize) -> f32;
 /// `f(after) - f(before)` (both sides counted), so along a line the deltas
 /// sum to the state at its end. The event rules (a fork, a check, a
 /// sacrifice) have no state; a search sees those itself.
-pub const STATES: [(&str, State); 36] = [
+pub const STATES: [(&str, State); 42] = [
+    // the centre, piece by piece (theory: center; a knight on the rim is dim): closeness to the middle, per piece
+    ("knight_center", |p, c| centralization(p, c, 1)),
+    ("bishop_center", |p, c| centralization(p, c, 2)),
+    ("queen_center", |p, c| centralization(p, c, 4)),
+    // rooks on open and half-open files (theory: rook_open_file)
+    ("rook_open_file", |p, c| rooks_on_files(p, c, true)),
+    ("rook_half_open_file", |p, c| rooks_on_files(p, c, false)),
+    // backward pawns (theory: pawn_structure names them; the structure state counts the doubled and isolated)
+    ("pawn_backward", |p, c| -(backward_pawns(p, c) as f32) / 2.0),
     // the piece values are a baseline (theory: material): one state per piece, so the
     // weights learn each piece's worth in each phase; the pawn's sets the cp scale
     ("material_pawn", |p, c| p.bb[c * 6].count_ones() as f32),
@@ -563,6 +572,38 @@ pub const STATES: [(&str, State); 36] = [
     ("back_rank", st_back_rank),
     ("hanging", st_hanging),
 ];
+
+/// How central side `c`'s pieces of type `ty` stand: sum of (3 - distance to the middle) / 4 per piece (a1 = -3/4, d4 = 3/4).
+fn centralization(p: &Position, c: usize, ty: usize) -> f32 {
+    squares(p.bb[c * 6 + ty]).map(|s| { let (f, r) = ((s % 8) as f32, (s / 8) as f32); (3.0 - ((f - 3.5).abs() + (r - 3.5).abs() - 1.0)) / 4.0 }).sum()
+}
+
+/// Side `c`'s rooks on open files (no pawn at all) or, with `open` false, on half-open ones (no own pawn, an enemy one).
+fn rooks_on_files(p: &Position, c: usize, open: bool) -> f32 {
+    squares(p.bb[c * 6 + 3])
+        .filter(|&s| {
+            let file = FILE_A << (s % 8);
+            let own = p.bb[c * 6] & file != 0;
+            let theirs = p.bb[(1 - c) * 6] & file != 0;
+            !own && if open { !theirs } else { theirs }
+        })
+        .count() as f32
+}
+
+/// Side `c`'s backward pawns: no friendly pawn beside or behind on the next files, and the square ahead attacked by an enemy pawn.
+fn backward_pawns(p: &Position, c: usize) -> u32 {
+    let own = p.bb[c * 6];
+    let their_pawn_att = squares(p.bb[(1 - c) * 6]).fold(0u64, |a, s| a | piece_attacks(p, 1 - c, 0, s));
+    squares(own)
+        .filter(|&s| {
+            let r = s / 8;
+            let behind_or_beside = if c == 0 { ((1u64 << ((r + 1) * 8)) - 1) } else { !((1u64 << (r * 8)) - 1) };
+            let support = adjacent_files(s % 8) & behind_or_beside & own;
+            let ahead_sq = if c == 0 { s + 8 } else { s.wrapping_sub(8) };
+            support == 0 && ahead_sq < 64 && their_pawn_att & (1u64 << ahead_sq) != 0
+        })
+        .count() as u32
+}
 
 /// Side `c`'s pieces of type `ty` and the squares they attack that its own side does not hold, per 4.
 fn mobility_of(p: &Position, c: usize, ty: usize) -> f32 {

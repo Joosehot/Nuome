@@ -365,6 +365,17 @@ fn main() -> Result<()> {
             print!("{}", nuome::golden_grandmasters::theory_bench(n).map_err(|e| anyhow::anyhow!(e))?);
             return Ok(());
         }
+        if which == "oneply" {
+            // oneply [N]: the one-ply measure (best child = Stockfish's move) of the theory value, Goldennet's value and StarNNUE on N validate positions
+            let n = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(5_000);
+            let theory = nuome::golden_grandmasters::theory_eval().map_err(|e| anyhow::anyhow!(e))?;
+            let (h, m) = nuome::golden_grandmasters::oneply(&theory, n).map_err(|e| anyhow::anyhow!(e))?;
+            println!("theory value: {h}/{m} ({:.1}%)", 100.0 * h as f64 / m.max(1) as f64);
+            let w: Vec<f32> = std::fs::read_to_string(nuome::golden_table::GOLDENNET_VALUE_FILE)?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+            let (h, m) = nuome::golden_grandmasters::oneply(&nuome::star_search::GoldennetEval(w), n).map_err(|e| anyhow::anyhow!(e))?;
+            println!("Goldennet value: {h}/{m} ({:.1}%)", 100.0 * h as f64 / m.max(1) as f64);
+            return Ok(());
+        }
         if which == "theory-static" {
             // theory-static FEN: the theory value of the position from the side to move, state by state
             let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");

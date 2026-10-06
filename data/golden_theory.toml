@@ -456,3 +456,10 @@ area = "tactics"
 statement = "An enemy piece attacked and not defended, or attacked by something cheaper, can be won."
 source = "Chess strategy: Defending pieces; Chess tactic"
 measure = "rule"
+
+[[principle]]
+id = "rook_open_file"
+area = "middlegame"
+statement = "Rooks belong on open files, where nothing blocks them, and on half-open files against the enemy pawns."
+source = "Chess strategy: Open file"
+measure = "state"
