@@ -181,6 +181,13 @@ pub fn step_form(shape: &E) -> Option<String> {
             Some(format!("x_1 = A {}, x_n = x_(n-1) x {}", h.show().replace('n', "1"), show_ratio(&ratio_of(h)?)))
         }
         E::Pow(a, e) if matches!(**a, E::A) => Some(format!("x_1 = A^({}), x_n = x_(n-1)^({})", e.show().replace('n', "1"), show_ratio(&ratio_of(e)?))),
+        // (A h)^k = A^k h^k: x_n = x_(n-1) x ratio(n)^k
+        E::Pow(a, e) => {
+            let E::C(k) = **e else { return None };
+            let E::Mul(x, y) = &**a else { return None };
+            let h = if matches!(**x, E::A) { y } else if matches!(**y, E::A) { x } else { return None };
+            Some(format!("(A h)^{k} = A^{k} h^{k}: x_1 = A^{k} {}^{k}, x_n = x_(n-1) x ({})^{k}", h.show().replace('n', "1"), show_ratio(&ratio_of(h)?)))
+        }
         _ => None,
     }
 }
@@ -376,11 +383,19 @@ pub fn build_verbose(shape: &E, max_digits: usize, max_len: usize, verbose: bool
     let mut primes = Vec::new();
     let mut stop = "went on to the limit";
     // the step form: for A h(n) the engine carries h from n-1 to n by its ratio instead of computing h(n) afresh
-    let carried: Option<(E, E)> = match shape {
+    // (h, ratio, k): the shape is A^k h(n)^k, h carried by its ratio, k = 1 for A h(n)
+    let carried: Option<(E, E, u32)> = match shape {
         E::Mul(a, b) => {
             let h = if matches!(**a, E::A) { (**b).clone() } else if matches!(**b, E::A) { (**a).clone() } else { return Built { shape: shape.clone(), primes, lo, hi, stop: "no A" } };
-            ratio_of(&h).map(|r| (h, r))
+            ratio_of(&h).map(|r| (h, r, 1))
         }
+        E::Pow(a, e) => match (&**a, &**e) {
+            (E::Mul(x, y), E::C(k)) => {
+                let h = if matches!(**x, E::A) { (**y).clone() } else if matches!(**y, E::A) { (**x).clone() } else { return Built { shape: shape.clone(), primes, lo, hi, stop: "no A" } };
+                ratio_of(&h).map(|r| (h, r, *k))
+            }
+            _ => None,
+        },
         _ => None,
     };
     let mut h_now: Option<BigUint> = None;
@@ -388,15 +403,17 @@ pub fn build_verbose(shape: &E, max_digits: usize, max_len: usize, verbose: bool
     let mut t_prime = 0f64;
     for n in 1..=max_len {
         let te = std::time::Instant::now();
-        let (glo, ghi) = if let Some((h, r)) = &carried {
-            // h(n) carried: h(1) once, then x ratio(n)
+        let (glo, ghi) = if let Some((h, r, k)) = &carried {
+            // h(n) carried: h(1) once, then x ratio(n); the shape's value is A^k h(n)^k
             let h_val = match (&h_now, ratio_value(r, n as u32)) {
                 (Some(prev), Some(ratio)) if n > 1 => prev * ratio,
                 _ => match h.whole(n as u32) { Some(v) => v, None => { stop = "too large to hold"; break } },
             };
-            if h_val.bits() > 12_000_000 { stop = "too large to hold"; break }
+            if h_val.bits() as u64 * *k as u64 > 12_000_000 { stop = "too large to hold"; break }
             h_now = Some(h_val.clone());
-            (&lo * &h_val, &hi * &h_val)
+            let hk = h_val.pow(*k);
+            let (lk, hk2) = match (fpow(&lo, &BigUint::from(*k)), fpow(&hi, &BigUint::from(*k))) { (Some(a), Some(b)) => (a, b), _ => { stop = "too large to hold"; break } };
+            (lk * &hk, hk2 * &hk)
         } else {
             match (eval(shape, &lo, n as u32), eval(shape, &hi, n as u32)) { (Some(a), Some(b)) => (a, b), _ => { stop = "too large to hold"; break } }
         };
