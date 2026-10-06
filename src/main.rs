@@ -303,6 +303,12 @@ fn main() -> Result<()> {
             nuome::golden_table::teach_texel(n.first().copied().unwrap_or(1_500_000), n.get(1).copied().unwrap_or(3), n.get(2).copied().unwrap_or(1024), 0.001, n.get(3).copied().unwrap_or(200), n.get(4).copied().unwrap_or(4)).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "star-smoke" {
+            // star-smoke [N] [MS]: positions nothing has seen, Goldennet with StarNet's search, each reported at once
+            let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            nuome::star_search::smoke(n.first().copied().unwrap_or(10) as usize, n.get(1).copied().unwrap_or(10_000), 2_000).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "star-test" {
             // star-test [N] [MS]: StarNet's search with the Golden Function and Goldennet on the fixed check set
             let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

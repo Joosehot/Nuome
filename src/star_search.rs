@@ -350,3 +350,44 @@ pub fn test(n: usize, ms: u64) -> Result<String, String> {
     }
     Ok(out)
 }
+
+/// A smoke test on positions nothing has seen: the held-out bucket of the
+/// Hugging Face data past the fixed check set's first CHECK positions; each
+/// position's result printed as soon as it is done.
+pub fn smoke(n: usize, ms: u64, skip: usize) -> Result<(), String> {
+    use std::io::Write;
+    let w: Vec<f32> = std::fs::read_to_string(crate::golden_table::GOLDENNET_VALUE_FILE).map_err(|e| e.to_string())?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+    if w.len() != crate::golden_table::NW {
+        return Err("no Goldennet value file".into());
+    }
+    let ev = GoldennetEval(w);
+    let text = std::fs::read_to_string(crate::golden_table::HF_FILE).map_err(|e| e.to_string())?;
+    let mut rows = Vec::new();
+    let mut seen = 0;
+    for line in text.lines() {
+        let mut it = line.splitn(3, '\t');
+        let (Some(ph), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
+        let Ok(p) = Position::from_fen(fen) else { continue };
+        if p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20 == 19 {
+            seen += 1;
+            if seen > skip {
+                rows.push((ph.to_string(), fen.to_string(), mv.to_string()));
+                if rows.len() >= n {
+                    break;
+                }
+            }
+        }
+    }
+    println!("smoke test: {} positions never seen, Goldennet (Texel) with StarNet's search, {ms} ms each", rows.len());
+    let _ = std::io::stdout().flush();
+    let mut hit = 0;
+    for (i, (ph, fen, sf)) in rows.iter().enumerate() {
+        let t0 = Instant::now();
+        let (m, d, k) = best_move(&ev, fen, ms).unwrap_or_default();
+        hit += (m == *sf) as usize;
+        println!("  {}/{} {ph}: played {m}, Stockfish {sf} {} (depth {d}, {:.1}M nodes, {:.1} s) — {hit}/{} so far\n    {fen}", i + 1, rows.len(), if m == *sf { "RIGHT" } else { "miss" }, k as f64 / 1e6, t0.elapsed().as_secs_f64(), i + 1);
+        let _ = std::io::stdout().flush();
+    }
+    println!("smoke test: Stockfish's move {hit}/{}", rows.len());
+    Ok(())
+}
