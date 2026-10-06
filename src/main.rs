@@ -857,6 +857,12 @@ E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()),
             );
             return Ok(());
         }
+        if which == "fermented-fish" {
+            // fermented-fish [MAX_Q] [MAX_DIGITS]: a short constant (named numbers, their transforms, fractions p/q with q <= MAX_Q) whose chain floor(c^(r^n)) or floor(c r^n) of primes goes on, primes up to MAX_DIGITS digits; measured against luck
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            println!("{}", nuome::fermented_fish::report(n.first().copied().unwrap_or(30) as u32, n.get(1).copied().unwrap_or(600)));
+            return Ok(());
+        }
         if which == "prime-instant" {
             // prime-instant [DIGITS]: the mad attempt, an expression that knows a prime at once: floor(c^(r^n)) and floor(c r^n) with c of up to DIGITS digits, bits of prime named against bits of constant
             let d = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(5);
