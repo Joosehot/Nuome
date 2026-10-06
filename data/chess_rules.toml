@@ -48,7 +48,7 @@ safety = 0.8
 simplicity = 0.3
 
 [score]
-axis_cp = 40           # cp per unit of weight x measure x (axes . profile)
+axis_cp = 5           # cp per unit of weight x measure x (axes . profile)
 follow_weight = 0.5    # our later plan moves count this much
 
 [search]
@@ -56,6 +56,7 @@ width = 6              # partial plans kept
 plan = 2               # our moves per plan
 variants = 12          # best offered moves per ply that enter the beam
 reply_ms = 40          # the rules-only search that picks the opponent's reply, per node
+value_ms = 150         # the rules-only search that values the position after our first move
 
 [checks]
 finalists = 3

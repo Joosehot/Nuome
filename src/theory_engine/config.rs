@@ -47,6 +47,7 @@ pub struct Search {
     pub plan: usize,
     pub variants: usize,
     pub reply_ms: u64,
+    pub value_ms: u64,
 }
 
 #[derive(Clone, Debug, Deserialize)]

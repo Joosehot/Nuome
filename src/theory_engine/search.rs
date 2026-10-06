@@ -4,9 +4,10 @@
 //! partial plan with the variants the rules offer in its position; a variant
 //! scores
 //!     weight x measure x (axes . profile) x axis_cp
-//! (later plan moves x follow_weight), the material at the plan's end by the
-//! rules alone counts in cp, and the judges score the partial plan after
-//! every step. The best `search.width` plans survive. Ties keep candidate
+//! (later plan moves x follow_weight); the position after our first move is
+//! valued by the rules-only search (value_ms: what the rules of the game
+//! force from there, in cp) and the judges score the partial plan after
+//! every step. The theory offers and tilts; the rules value and prove. The best `search.width` plans survive. Ties keep candidate
 //! order, so the result is deterministic for a given reply search.
 
 use super::config::{Axes, Config};
@@ -31,7 +32,7 @@ pub struct Step {
 pub struct Plan {
     pub steps: Vec<Step>,
     pub end: Position,
-    /// material at the end by the rules alone, cp from our side
+    /// the rules-only search's value after our first move, cp from our side
     pub material: i32,
     pub notes: Vec<Note>,
 }
@@ -119,7 +120,7 @@ pub fn search(root: &Position, root_sit: &Situation, profile: &Axes, cfg: &Confi
                 steps.push(Step { mv: v.mv, variant: Some(v), also, tilt });
                 let mut after_first = root.clone();
                 after_first.make(steps[0].mv);
-                let material = material_for(&q, me) - material_for(root, me);
+                let material = if step == 0 { -analyse(&RulesEval, None, &q.to_fen(), cfg.search.value_ms).map(|r| r.1).unwrap_or(material_for(&q, me)) } else { plan.material };
                 let notes = judges::judge(root, root_sit, &after_first, &q, first_is_pawn || root_first_is_pawn(root, steps[0].mv), profile, cfg);
                 next.push(Plan { steps, end: q, material, notes });
             }
