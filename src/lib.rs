@@ -73,6 +73,7 @@ pub mod poly;
 pub mod prime_formula;
 pub mod prime_instant;
 pub mod fermented_fish;
+pub mod fish_invent;
 pub mod prime_evolve;
 pub mod prime_function;
 pub mod prime_learn;

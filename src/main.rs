@@ -857,6 +857,12 @@ E243 = {}", l.wrong, l.pairs, l.seconds, l.expr.text()),
             );
             return Ok(());
         }
+        if which == "fish-invent" {
+            // fish-invent [SIZE] [MAX_DIGITS]: Nuome invents the shape floor(g(A, n)) from n, A, 2, 3, 4, +, x, ^, ! (up to SIZE symbols) and the number A that completes it, primes to MAX_DIGITS digits; A judged by its continued fraction
+            let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            println!("{}", nuome::fish_invent::report(n.first().copied().unwrap_or(5), n.get(1).copied().unwrap_or(300)));
+            return Ok(());
+        }
         if which == "fermented-fish" {
             // fermented-fish [MAX_Q] [MAX_DIGITS]: a short constant (named numbers, their transforms, fractions p/q with q <= MAX_Q) whose chain floor(c^(r^n)) or floor(c r^n) of primes goes on, primes up to MAX_DIGITS digits; measured against luck
             let n: Vec<usize> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
