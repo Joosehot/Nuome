@@ -1,75 +1,125 @@
-//! Golden Boy writes the Golden Function longer as it plays Stockfish.
+//! Golden Boy writes the Golden Function longer as it plays Stockfish, and
+//! may invent new concepts for it.
 //!
 //! The net (as designed): 64 points on the grid; each point holds its own
-//! numbers only — the piece's value (100 / 325 / 325 / 500 / 975, the king
-//! and an empty square 0), the side (+1 the mover's, -1 the opponent's, 0
-//! empty), and how many of the mover's and of the opponent's pieces attack
-//! it. How they combine is the Golden Function's to decide: a term is a sum
-//! over the 64 points of a product of the point's numbers and comparisons
-//! of them; the function is a weighted sum of terms, for the position after
-//! a move, seen from the mover. Golden Boy plays the legal move the function
-//! values most. It starts empty.
+//! numbers — the piece's value (100 / 325 / 325 / 500 / 975, the king and
+//! an empty square 0), the side (+1 the mover's, -1 the opponent's, 0
+//! empty), how many of the mover's and of the opponent's pieces attack it,
+//! and what stands on it. How they combine is the function's to decide.
+//!
+//! The language of terms, each summed over the 64 points:
+//!   product   A · B · C            up to three factors of the point
+//!   concept   A · B · #(R ∩ C)     factors of the point times how many
+//!                                  points in relation R to it have the
+//!                                  property C — relations: the king's ring,
+//!                                  a knight's jump, the same file, the same
+//!                                  rank, the diagonals, the squares ahead
+//!                                  (the mover's way), the squares the point's
+//!                                  piece attacks, the squares it is attacked
+//!                                  from
+//! Golden invents concepts by drawing them from this grammar (about 45 000);
+//! a round tries a fresh draw of them with every product term.
 //!
 //! Every position of the games is a lesson: Stockfish's own moves, and for
 //! Golden Boy's positions the move Stockfish would play there (a point when
-//! Golden Boy played it). After every game the function grows: each term is
-//! tried away and removed when the function is better without it; then
-//! candidate terms with a range of weights, and the best is added only when
-//! it raises the share of Stockfish's moves over every lesson so far. A
-//! fixed check set (Stockfish's moves in middlegame and endgame positions,
-//! never learned from) shows whether it really gets better.
+//! Golden Boy played it), plus PRETRAIN positions of the Hugging Face data.
+//! A round removes terms the function is not worse without, re-tunes every
+//! weight, and adds the best new term; every change is kept only if it also
+//! raises a separate validate set. The fixed check set is only reported.
 
 use crate::fast::movegen::legal_moves;
 use crate::fast::position::{color_of, move_to_uci, type_of, Position};
 
 pub const FUNCTION_FILE: &str = "out/golden/grow_function.txt";
 pub const LESSONS: &str = "out/golden/grow_lessons.tsv";
+pub const PRETRAIN: usize = 3_000;
 const CHECK_N: usize = 2_000;
 const WORTH: [f32; 7] = [0.0, 100.0, 325.0, 325.0, 500.0, 975.0, 0.0];
+const DRAW: usize = 1_000;
 
-/// The factors a term may multiply, read from one point's numbers.
-pub const FACTORS: [&str; 13] = ["value", "side", "my_attackers", "their_attackers", "mine", "theirs", "empty", "more_mine", "more_theirs", "mine_attack", "they_attack", "none_mine", "none_theirs"];
+/// The factors of a point. The first four are numbers, the rest 0 or 1.
+pub const FACTORS: [&str; 23] = [
+    "value", "side", "my_attackers", "their_attackers", "mine", "theirs", "empty", "more_mine", "more_theirs", "mine_attack", "they_attack", "none_mine", "none_theirs",
+    "my_pawn", "my_minor", "my_rook", "my_queen", "my_king", "their_pawn", "their_minor", "their_rook", "their_queen", "their_king",
+];
 const NF: usize = FACTORS.len();
+const ONE: u8 = NF as u8;
+pub const RELATIONS: [&str; 8] = ["ring", "knight", "file", "rank", "diagonals", "ahead", "it_attacks", "attacked_from"];
 
-/// A term: the sum over the 64 points of the product of up to three factors.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Term(pub [u8; 3], pub u8);
+pub enum Term {
+    /// up to three factors of the point
+    Prod([u8; 3], u8),
+    /// a · b · #(r ∩ c); a or b may be ONE
+    Rel { a: u8, b: u8, r: u8, c: u8 },
+}
 
-impl Term {
-    fn text(&self) -> String {
-        let f: Vec<&str> = self.0[..self.1 as usize].iter().map(|&i| FACTORS[i as usize]).collect();
-        format!("Σ {}", f.join("·"))
+fn fname(i: u8) -> &'static str {
+    if i == ONE {
+        "1"
+    } else {
+        FACTORS[i as usize]
     }
 }
 
-/// Every candidate term: products of one to three different factors.
-fn candidates() -> Vec<Term> {
-    let mut out = Vec::new();
-    for a in 0..NF as u8 {
-        out.push(Term([a, 0, 0], 1));
-        for b in a + 1..NF as u8 {
-            out.push(Term([a, b, 0], 2));
-            for c in b + 1..NF as u8 {
-                out.push(Term([a, b, c], 3));
+impl Term {
+    pub fn text(&self) -> String {
+        match self {
+            Term::Prod(f, n) => format!("Σ {}", f[..*n as usize].iter().map(|&i| fname(i)).collect::<Vec<_>>().join("·")),
+            Term::Rel { a, b, r, c } => {
+                let ab: Vec<&str> = [*a, *b].iter().filter(|&&x| x != ONE).map(|&x| fname(x)).collect();
+                format!("Σ {}{}#({} ∩ {})", ab.join("·"), if ab.is_empty() { "" } else { "·" }, RELATIONS[*r as usize], fname(*c))
             }
         }
     }
-    out
+    fn code(&self) -> String {
+        match self {
+            Term::Prod(f, n) => f[..*n as usize].iter().map(|&i| fname(i)).collect::<Vec<_>>().join(" "),
+            Term::Rel { a, b, r, c } => format!("REL {} {} {} {}", fname(*a), fname(*b), RELATIONS[*r as usize], fname(*c)),
+        }
+    }
+    fn from_code(w: &[&str]) -> Option<Term> {
+        let idx = |x: &str| if x == "1" { Some(ONE) } else { FACTORS.iter().position(|n| *n == x).map(|i| i as u8) };
+        if w.first() == Some(&"REL") {
+            if w.len() != 5 {
+                return None;
+            }
+            return Some(Term::Rel { a: idx(w[1])?, b: idx(w[2])?, r: RELATIONS.iter().position(|n| *n == w[3])? as u8, c: idx(w[4])? });
+        }
+        let f: Vec<u8> = w.iter().map(|x| idx(x)).collect::<Option<Vec<_>>>()?;
+        if f.is_empty() || f.len() > 3 {
+            return None;
+        }
+        let mut a = [0u8; 3];
+        a[..f.len()].copy_from_slice(&f);
+        Some(Term::Prod(a, f.len() as u8))
+    }
 }
 
-/// The points' factors of a position seen from `me`: [point][factor].
-fn factors(p: &Position, me: usize) -> Vec<[f32; NF]> {
+/// What the function sees of a position from `me`: each point's content and attack counts, and the attack relations.
+#[derive(Clone)]
+pub struct Feat {
+    me: u8,
+    /// 0 empty, 1..6 the mover's pawn..king, 7..12 the opponent's
+    content: [u8; 64],
+    am: [u8; 64],
+    at: [u8; 64],
+    att_from: [u64; 64],
+    att_by: [u64; 64],
+}
+
+fn feat(p: &Position, me: usize) -> Feat {
     use crate::fast::bitboard::SQ64_TO_120;
     let t = crate::fast::bitboard::tables();
     let occ = p.occ;
-    let mut cnt = [[0u8; 64]; 2];
+    let mut f = Feat { me: me as u8, content: [0; 64], am: [0; 64], at: [0; 64], att_from: [0; 64], att_by: [0; 64] };
     for c in 0..2 {
         for ty in 0..6 {
             let mut b = p.bb[c * 6 + ty];
             while b != 0 {
                 let s = b.trailing_zeros() as usize;
                 b &= b - 1;
-                let mut at = match ty {
+                let at = match ty {
                     0 => if c == 0 { t.att.pawn_w[s] } else { t.att.pawn_b[s] },
                     1 => t.att.knight[s],
                     2 => t.bishop_attacks(s, occ),
@@ -77,23 +127,143 @@ fn factors(p: &Position, me: usize) -> Vec<[f32; NF]> {
                     4 => t.queen_attacks(s, occ),
                     _ => t.att.king[s],
                 };
-                while at != 0 {
-                    let q = at.trailing_zeros() as usize;
-                    at &= at - 1;
-                    cnt[c][q] += 1;
+                f.att_from[s] = at;
+                let mut x = at;
+                while x != 0 {
+                    let q = x.trailing_zeros() as usize;
+                    x &= x - 1;
+                    f.att_by[q] |= 1 << s;
+                    if c == me {
+                        f.am[q] += 1;
+                    } else {
+                        f.at[q] += 1;
+                    }
                 }
             }
         }
     }
-    (0..64)
-        .map(|s| {
-            let pc = p.board[SQ64_TO_120[s]];
-            let (value, side) = if pc == 0 { (0.0, 0.0) } else { (WORTH[type_of(pc) as usize], if color_of(pc) as usize == me { 1.0 } else { -1.0 }) };
-            let (am, at) = (cnt[me][s] as f32, cnt[1 - me][s] as f32);
-            let b = |x: bool| x as u8 as f32;
-            [value, side, am, at, b(side > 0.0), b(side < 0.0), b(pc == 0), b(am > at), b(at > am), b(am > 0.0), b(at > 0.0), b(am == 0.0), b(at == 0.0)]
-        })
-        .collect()
+    for s in 0..64 {
+        let pc = p.board[SQ64_TO_120[s]];
+        if pc != 0 {
+            f.content[s] = type_of(pc) + if color_of(pc) as usize == me { 0 } else { 6 };
+        }
+    }
+    f
+}
+
+#[inline]
+fn factor(f: &Feat, i: u8, s: usize) -> f32 {
+    let c = f.content[s];
+    let (am, at) = (f.am[s], f.at[s]);
+    let b = |x: bool| x as u8 as f32;
+    match i {
+        0 => if c == 0 { 0.0 } else { WORTH[((c - 1) % 6 + 1) as usize] },
+        1 => if c == 0 { 0.0 } else if c <= 6 { 1.0 } else { -1.0 },
+        2 => am as f32,
+        3 => at as f32,
+        4 => b(c >= 1 && c <= 6),
+        5 => b(c >= 7),
+        6 => b(c == 0),
+        7 => b(am > at),
+        8 => b(at > am),
+        9 => b(am > 0),
+        10 => b(at > 0),
+        11 => b(am == 0),
+        12 => b(at == 0),
+        13 => b(c == 1),
+        14 => b(c == 2 || c == 3),
+        15 => b(c == 4),
+        16 => b(c == 5),
+        17 => b(c == 6),
+        18 => b(c == 7),
+        19 => b(c == 8 || c == 9),
+        20 => b(c == 10),
+        21 => b(c == 11),
+        22 => b(c == 12),
+        _ => 1.0,
+    }
+}
+
+fn bool_bb(f: &Feat, c: u8) -> u64 {
+    let mut b = 0u64;
+    for s in 0..64 {
+        if factor(f, c, s) != 0.0 {
+            b |= 1 << s;
+        }
+    }
+    b
+}
+
+/// The static relations' masks: ring, knight, file, rank, diagonals; ahead for white and for black.
+fn masks() -> &'static [[u64; 64]; 7] {
+    static M: std::sync::OnceLock<[[u64; 64]; 7]> = std::sync::OnceLock::new();
+    M.get_or_init(|| {
+        let mut m = [[0u64; 64]; 7];
+        for s in 0..64i32 {
+            let (f, r) = (s % 8, s / 8);
+            for t in 0..64i32 {
+                if t == s {
+                    continue;
+                }
+                let (g, q) = (t % 8, t / 8);
+                let (df, dr) = ((g - f).abs(), (q - r).abs());
+                let bit = 1u64 << t;
+                if df <= 1 && dr <= 1 {
+                    m[0][s as usize] |= bit;
+                }
+                if (df == 1 && dr == 2) || (df == 2 && dr == 1) {
+                    m[1][s as usize] |= bit;
+                }
+                if g == f {
+                    m[2][s as usize] |= bit;
+                }
+                if q == r {
+                    m[3][s as usize] |= bit;
+                }
+                if df == dr {
+                    m[4][s as usize] |= bit;
+                }
+                if g == f && q > r {
+                    m[5][s as usize] |= bit;
+                }
+                if g == f && q < r {
+                    m[6][s as usize] |= bit;
+                }
+            }
+        }
+        m
+    })
+}
+
+#[inline]
+fn rel_mask(f: &Feat, r: u8, s: usize) -> u64 {
+    let m = masks();
+    match r {
+        0..=4 => m[r as usize][s],
+        5 => if f.me == 0 { m[5][s] } else { m[6][s] },
+        6 => f.att_from[s],
+        _ => f.att_by[s],
+    }
+}
+
+fn term_value(t: &Term, f: &Feat) -> f32 {
+    match t {
+        Term::Prod(fs, n) => {
+            let fs = &fs[..*n as usize];
+            (0..64).map(|s| fs.iter().map(|&i| factor(f, i, s)).product::<f32>()).sum()
+        }
+        Term::Rel { a, b, r, c } => {
+            let bc = bool_bb(f, *c);
+            let mut v = 0f32;
+            for s in 0..64 {
+                let ab = factor(f, *a, s) * factor(f, *b, s);
+                if ab != 0.0 {
+                    v += ab * (rel_mask(f, *r, s) & bc).count_ones() as f32;
+                }
+            }
+            v
+        }
+    }
 }
 
 /// The function: terms with their weights.
@@ -109,48 +279,36 @@ impl Function {
             .lines()
             .filter_map(|l| {
                 let w: Vec<&str> = l.split_whitespace().collect();
-                let wt: f32 = w.first()?.parse().ok()?;
-                let f: Vec<u8> = w[1..].iter().filter_map(|x| FACTORS.iter().position(|n| n == x).map(|i| i as u8)).collect();
-                if f.is_empty() || f.len() > 3 {
-                    return None;
-                }
-                let mut a = [0u8; 3];
-                a[..f.len()].copy_from_slice(&f);
-                Some((Term(a, f.len() as u8), wt))
+                Some((Term::from_code(w.get(1..)?)?, w.first()?.parse().ok()?))
             })
             .collect();
         Function { terms }
     }
     pub fn save(&self) -> Result<(), String> {
-        let s: String = self.terms.iter().map(|(t, w)| format!("{w} {}\n", t.0[..t.1 as usize].iter().map(|&i| FACTORS[i as usize]).collect::<Vec<_>>().join(" "))).collect();
+        let s: String = self.terms.iter().map(|(t, w)| format!("{w} {}\n", t.code())).collect();
         std::fs::write(FUNCTION_FILE, s).map_err(|e| e.to_string())
     }
     pub fn written(&self) -> String {
         if self.terms.is_empty() {
             return "0 (empty)".into();
         }
-        self.terms.iter().map(|(t, w)| format!("{w:+.4}·{}", t.text())).collect::<Vec<_>>().join(" ")
+        self.terms.iter().map(|(t, w)| format!("{w:+.5}·{}", t.text())).collect::<Vec<_>>().join(" ")
+    }
+    fn eval(&self, f: &Feat) -> f32 {
+        self.terms.iter().map(|(t, w)| w * term_value(t, f)).sum()
     }
 }
 
-/// One child: every term's value is computed on demand from its points.
 struct Kid {
     uci: String,
-    pts: Vec<[f32; NF]>,
+    feat: Feat,
     /// mate (+) or a draw by the rules (0): the rules' value instead of the function's
     fixed: Option<f32>,
-}
-
-fn term_value(t: &Term, pts: &[[f32; NF]]) -> f32 {
-    let f = &t.0[..t.1 as usize];
-    pts.iter().map(|p| f.iter().map(|&i| p[i as usize]).product::<f32>()).sum()
 }
 
 struct Lesson {
     kids: Vec<Kid>,
     sf: String,
-    /// every kid's value of every term in the function and of the candidates, filled as needed
-    cache: std::collections::HashMap<(usize, Term), f32>,
 }
 
 fn lesson(fen: &str, sf: &str) -> Option<Lesson> {
@@ -160,17 +318,14 @@ fn lesson(fen: &str, sf: &str) -> Option<Lesson> {
     for m in legal_moves(&mut p) {
         p.make(m);
         let fixed = if legal_moves(&mut p).is_empty() { Some(if p.in_check() { 1.0e9 } else { 0.0 }) } else { None };
-        kids.push(Kid { uci: move_to_uci(m), pts: factors(&p, me), fixed });
+        kids.push(Kid { uci: move_to_uci(m), feat: feat(&p, me), fixed });
         p.unmake();
     }
-    Some(Lesson { kids, sf: sf.to_string(), cache: Default::default() })
+    Some(Lesson { kids, sf: sf.to_string() })
 }
 
 fn value(f: &Function, k: &Kid) -> f32 {
-    if let Some(v) = k.fixed {
-        return v;
-    }
-    f.terms.iter().map(|(t, w)| w * term_value(t, &k.pts)).sum()
+    k.fixed.unwrap_or_else(|| f.eval(&k.feat))
 }
 
 fn pick<'a>(f: &Function, l: &'a Lesson) -> &'a str {
@@ -184,12 +339,18 @@ fn pick<'a>(f: &Function, l: &'a Lesson) -> &'a str {
     best.1
 }
 
-/// Every kid's value of each term (so trying a weight is a sum, not a recount).
-fn table(set: &[Lesson], terms: &[Term]) -> Vec<Vec<Vec<f32>>> {
-    set.iter().map(|l| l.kids.iter().map(|k| terms.iter().map(|t| if k.fixed.is_some() { 0.0 } else { term_value(t, &k.pts) }).collect()).collect()).collect()
+fn share(f: &Function, set: &[Lesson]) -> f64 {
+    set.iter().filter(|l| pick(f, l) == l.sf).count() as f64 / set.len().max(1) as f64
 }
 
-/// The share of Stockfish's moves, from the per-term tables: base values per kid plus `w` x the extra term column (if any).
+fn base_values(f: &Function, set: &[Lesson]) -> Vec<Vec<f32>> {
+    set.iter().map(|l| l.kids.iter().map(|k| value(f, k)).collect()).collect()
+}
+
+fn column(t: &Term, set: &[Lesson]) -> Vec<Vec<f32>> {
+    set.iter().map(|l| l.kids.iter().map(|k| if k.fixed.is_some() { 0.0 } else { term_value(t, &k.feat) }).collect()).collect()
+}
+
 fn share_with(set: &[Lesson], base: &[Vec<f32>], extra: Option<(&[Vec<f32>], f32)>) -> f64 {
     let mut hit = 0;
     for (li, l) in set.iter().enumerate() {
@@ -208,14 +369,6 @@ fn share_with(set: &[Lesson], base: &[Vec<f32>], extra: Option<(&[Vec<f32>], f32
     hit as f64 / set.len().max(1) as f64
 }
 
-fn base_values(f: &Function, set: &[Lesson]) -> Vec<Vec<f32>> {
-    set.iter().map(|l| l.kids.iter().map(|k| value(f, k)).collect()).collect()
-}
-
-fn share(f: &Function, set: &[Lesson]) -> f64 {
-    set.iter().filter(|l| pick(f, l) == l.sf).count() as f64 / set.len().max(1) as f64
-}
-
 fn read_lessons(path: &str, limit: usize) -> Vec<Lesson> {
     let text = std::fs::read_to_string(path).unwrap_or_default();
     let rows: Vec<(String, String)> = text.lines().filter_map(|l| l.split_once('\t')).map(|(a, b)| (a.to_string(), b.trim().to_string())).take(limit).collect();
@@ -227,45 +380,17 @@ fn read_lessons(path: &str, limit: usize) -> Vec<Lesson> {
     })
 }
 
-/// The fixed check set: held-out middlegame and endgame positions with Stockfish's move (Hugging Face data).
-fn check_set() -> Vec<Lesson> {
-    let path = "out/golden/grow_check.tsv";
+/// A piece of the Hugging Face data: `n` positions whose key falls in `bucket` (of 20), written once to `path`.
+fn hf_set(path: &str, bucket: std::ops::Range<u64>, n: usize) -> Vec<Lesson> {
     if std::fs::metadata(path).is_err() {
         let text = std::fs::read_to_string(crate::golden_table::HF_FILE).unwrap_or_default();
         let mut out = String::new();
-        let mut n = 0;
-        for line in text.lines() {
-            let mut it = line.splitn(3, '\t');
-            let (Some(_), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
-            let Ok(p) = Position::from_fen(fen) else { continue };
-            if p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20 == 19 {
-                out.push_str(&format!("{fen}\t{mv}\n"));
-                n += 1;
-                if n >= CHECK_N {
-                    break;
-                }
-            }
-        }
-        let _ = std::fs::write(path, out);
-    }
-    read_lessons(path, CHECK_N)
-}
-
-/// A held-out piece of the Hugging Face data: `n` positions whose key falls in `bucket` (of 20), written once to `path`.
-fn hf_set(path: &str, bucket: std::ops::Range<u64>, n: usize, skip: usize) -> Vec<Lesson> {
-    if std::fs::metadata(path).is_err() {
-        let text = std::fs::read_to_string(crate::golden_table::HF_FILE).unwrap_or_default();
-        let mut out = String::new();
-        let (mut k, mut seen) = (0, 0);
+        let mut k = 0;
         for line in text.lines() {
             let mut it = line.splitn(3, '\t');
             let (Some(_), Some(mv), Some(fen)) = (it.next(), it.next(), it.next()) else { continue };
             let Ok(p) = Position::from_fen(fen) else { continue };
             if bucket.contains(&(p.key64().wrapping_mul(0x9E37_79B9_7F4A_7C15) % 20)) {
-                seen += 1;
-                if seen <= skip {
-                    continue;
-                }
                 out.push_str(&format!("{fen}\t{mv}\n"));
                 k += 1;
                 if k >= n {
@@ -278,22 +403,54 @@ fn hf_set(path: &str, bucket: std::ops::Range<u64>, n: usize, skip: usize) -> Ve
     read_lessons(path, n)
 }
 
-/// The lessons: Stockfish's moves in PRETRAIN Hugging Face positions (train part of the data), then every position of the games.
-pub const PRETRAIN: usize = 3_000;
-
 fn all_lessons() -> Vec<Lesson> {
-    let mut l = hf_set("out/golden/grow_pretrain.tsv", 0..18, PRETRAIN, 0);
+    let mut l = hf_set("out/golden/grow_pretrain.tsv", 0..18, PRETRAIN);
     l.extend(read_lessons(LESSONS, usize::MAX));
     l
 }
 
-/// One round of growth: remove what does not help, re-tune every weight, add
-/// the best new term. Every change must raise (or for a removal, not lower)
-/// Stockfish's share on the validate set as well as on the lessons, so a
-/// change that only fits the lessons is not taken. The fixed check set is
-/// only reported.
-fn round(f: &mut Function, lessons: &[Lesson], validate: &[Lesson], cols: &[Vec<Vec<f32>>], vcols: &[Vec<Vec<f32>>], cands: &[Term]) -> (Vec<String>, Option<String>, usize) {
-    // removal: shorter and not worse on either set
+fn check_set() -> Vec<Lesson> {
+    hf_set("out/golden/grow_check.tsv", 19..20, CHECK_N)
+}
+
+/// The candidates of a round: every product of one or two factors, and a fresh draw of products of three and of concepts.
+fn candidates(seed: u64) -> Vec<Term> {
+    let mut out = Vec::new();
+    for a in 0..NF as u8 {
+        out.push(Term::Prod([a, 0, 0], 1));
+        for b in a + 1..NF as u8 {
+            out.push(Term::Prod([a, b, 0], 2));
+        }
+    }
+    let mut r = seed | 1;
+    let mut next = || {
+        r ^= r << 13;
+        r ^= r >> 7;
+        r ^= r << 17;
+        r
+    };
+    let bools: Vec<u8> = (4..NF as u8).collect();
+    for _ in 0..DRAW / 4 {
+        let (a, b, c) = ((next() % NF as u64) as u8, (next() % NF as u64) as u8, (next() % NF as u64) as u8);
+        if a < b && b < c {
+            out.push(Term::Prod([a, b, c], 3));
+        }
+    }
+    for _ in 0..DRAW {
+        let a = (next() % (NF as u64 + 1)) as u8;
+        let b = (next() % (NF as u64 + 1)) as u8;
+        let (a, b) = if a <= b { (a, b) } else { (b, a) };
+        let r = (next() % RELATIONS.len() as u64) as u8;
+        let c = bools[(next() % bools.len() as u64) as usize];
+        out.push(Term::Rel { a, b, r, c });
+    }
+    out.sort_by_key(|t| format!("{t:?}"));
+    out.dedup();
+    out
+}
+
+/// One round: remove, re-tune, add (each also raising validate). Returns (removed, added, re-tuned).
+fn round(f: &mut Function, lessons: &[Lesson], validate: &[Lesson], seed: u64) -> (Vec<String>, Option<String>, usize) {
     let mut removed = Vec::new();
     let mut i = 0;
     while i < f.terms.len() {
@@ -306,7 +463,6 @@ fn round(f: &mut Function, lessons: &[Lesson], validate: &[Lesson], cols: &[Vec<
             i += 1;
         }
     }
-    // re-tune every weight: a few multipliers, kept when both sets gain (the lessons strictly, validate not lower)
     let mut tuned = 0;
     for i in 0..f.terms.len() {
         let (cur_l, cur_v) = (share(f, lessons), share(f, validate));
@@ -324,56 +480,70 @@ fn round(f: &mut Function, lessons: &[Lesson], validate: &[Lesson], cols: &[Vec<
             tuned += 1;
         }
     }
-    // addition: candidates ranked on the lessons; the best that also raises validate is added
+    // addition: candidates scored on all cores; the best that also raises validate is added
+    let cands: Vec<Term> = candidates(seed).into_iter().filter(|t| !f.terms.iter().any(|x| x.0 == *t)).collect();
     let base = base_values(f, lessons);
     let vbase = base_values(f, validate);
-    let (cur_l, cur_v) = (share_with(lessons, &base, None), share_with(validate, &vbase, None));
+    let cur_l = share_with(lessons, &base, None);
+    let cur_v = share_with(validate, &vbase, None);
     let scale = if f.terms.is_empty() { 1.0 } else { base.iter().flatten().filter(|x| x.abs() < 1e8).fold(0f32, |m, x| m.max(x.abs())).max(1.0) };
-    let mut ranked: Vec<(f64, usize, f32)> = Vec::new();
-    for (ci, t) in cands.iter().enumerate() {
-        if f.terms.iter().any(|x| x.0 == *t) {
-            continue;
-        }
-        let col: Vec<Vec<f32>> = cols.iter().map(|l| l.iter().map(|k| k[ci]).collect()).collect();
-        let spread = col.iter().flatten().fold(0f32, |m, x| m.max(x.abs())).max(1e-6);
-        for k in [-1.0f32, -0.3, -0.1, -0.03, 0.03, 0.1, 0.3, 1.0] {
-            let w = k * scale / spread;
-            let s = share_with(lessons, &base, Some((&col, w)));
-            if s > cur_l {
-                ranked.push((s, ci, w));
-            }
-        }
-    }
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let chunk = cands.len().div_ceil(threads).max(1);
+    let mut ranked: Vec<(f64, Term, f32)> = std::thread::scope(|s| {
+        let hs: Vec<_> = cands
+            .chunks(chunk)
+            .map(|cs| {
+                let (base, lessons) = (&base, lessons);
+                s.spawn(move || {
+                    let mut out = Vec::new();
+                    for t in cs {
+                        let col = column(t, lessons);
+                        let spread = col.iter().flatten().fold(0f32, |m, x| m.max(x.abs()));
+                        if spread < 1e-6 {
+                            continue;
+                        }
+                        for k in [-1.0f32, -0.3, -0.1, -0.03, 0.03, 0.1, 0.3, 1.0] {
+                            let w = k * scale / spread;
+                            let sh = share_with(lessons, base, Some((&col, w)));
+                            if sh > cur_l {
+                                out.push((sh, *t, w));
+                            }
+                        }
+                    }
+                    out
+                })
+            })
+            .collect();
+        hs.into_iter().flat_map(|h| h.join().unwrap()).collect()
+    });
     ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
     let mut added = None;
-    for &(_, ci, w) in ranked.iter().take(40) {
-        let vcol: Vec<Vec<f32>> = vcols.iter().map(|l| l.iter().map(|k| k[ci]).collect()).collect();
+    for &(_, t, w) in ranked.iter().take(40) {
+        let vcol = column(&t, validate);
         if share_with(validate, &vbase, Some((&vcol, w))) > cur_v {
-            f.terms.push((cands[ci], w));
-            added = Some(format!("{w:+.5}·{}", cands[ci].text()));
+            f.terms.push((t, w));
+            added = Some(format!("{w:+.5}·{}{}", t.text(), if matches!(t, Term::Rel { .. }) { " (a new concept)" } else { "" }));
             break;
         }
     }
     (removed, added, tuned)
 }
 
-/// After a game (or before the first): `rounds` rounds of growth on every lesson so far.
+/// `rounds` rounds of growth on every lesson so far.
 pub fn grow(rounds: usize) -> Result<String, String> {
     let t0 = std::time::Instant::now();
     let lessons = all_lessons();
     if lessons.is_empty() {
         return Err("no lessons yet".into());
     }
-    let validate = hf_set("out/golden/grow_validate.tsv", 18..19, 2_000, 0);
+    let validate = hf_set("out/golden/grow_validate.tsv", 18..19, 2_000);
     let check = check_set();
-    let cands = candidates();
-    let cols = table(&lessons, &cands);
-    let vcols = table(&validate, &cands);
     let mut f = Function::load();
     let before = (share(&f, &lessons), share(&f, &validate), share(&f, &check), f.terms.len());
     let mut out = String::new();
+    let seed0 = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(7);
     for r in 1..=rounds {
-        let (removed, added, tuned) = round(&mut f, &lessons, &validate, &cols, &vcols, &cands);
+        let (removed, added, tuned) = round(&mut f, &lessons, &validate, seed0 ^ (r as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
         out.push_str(&format!(
             "  round {r}: removed {}; re-tuned {tuned}; added {}; {} terms; lessons {:.1}%, validate {:.1}%, check {:.1}%\n",
             if removed.is_empty() { "nothing".to_string() } else { removed.join(", ") },
@@ -383,9 +553,6 @@ pub fn grow(rounds: usize) -> Result<String, String> {
             100.0 * share(&f, &validate),
             100.0 * share(&f, &check)
         ));
-        if added.is_none() && removed.is_empty() && tuned == 0 {
-            break;
-        }
     }
     f.save()?;
     Ok(format!(
@@ -404,83 +571,30 @@ pub fn grow(rounds: usize) -> Result<String, String> {
     ))
 }
 
-/// Golden Boy's move: the opening table when the position is familiar, else the function's best (1 ply).
-pub fn goldenboy_move(fen: &str) -> Result<(String, String), String> {
-    let p = Position::from_fen(fen)?;
-    if let Ok(text) = std::fs::read_to_string(crate::golden_table::TABLE_FILE) {
-        let key = p.key64().to_string();
-        for l in text.lines() {
-            let mut it = l.splitn(3, '\t');
-            if it.next() == Some(key.as_str()) {
-                if let Some(m) = it.next() {
-                    return Ok((m.to_string(), "the opening table".into()));
-                }
-            }
-        }
-    }
-    let f = Function::load();
-    let l = lesson(fen, "").ok_or("no legal move")?;
-    Ok((pick(&f, &l).to_string(), format!("the Golden Function ({} terms)", f.terms.len())))
-}
+// ---------------------------------------------------------------- playing: the opening table, else the search
 
-// ---------------------------------------------------------------- the search: up to 5 s instead of 1 ply
-
-/// The function's value of position `p` for `me`, straight from the points (no allocation).
-fn eval_at(f: &Function, p: &Position, me: usize) -> f32 {
-    use crate::fast::bitboard::SQ64_TO_120;
-    let t = crate::fast::bitboard::tables();
-    let occ = p.occ;
-    let mut cnt = [[0u8; 64]; 2];
-    for c in 0..2 {
-        for ty in 0..6 {
-            let mut b = p.bb[c * 6 + ty];
-            while b != 0 {
-                let s = b.trailing_zeros() as usize;
-                b &= b - 1;
-                let mut at = match ty {
-                    0 => if c == 0 { t.att.pawn_w[s] } else { t.att.pawn_b[s] },
-                    1 => t.att.knight[s],
-                    2 => t.bishop_attacks(s, occ),
-                    3 => t.rook_attacks(s, occ),
-                    4 => t.queen_attacks(s, occ),
-                    _ => t.att.king[s],
-                };
-                while at != 0 {
-                    let q = at.trailing_zeros() as usize;
-                    at &= at - 1;
-                    cnt[c][q] += 1;
-                }
-            }
+fn table_move(fen: &str) -> Option<String> {
+    let p = Position::from_fen(fen).ok()?;
+    let text = std::fs::read_to_string(crate::golden_table::TABLE_FILE).ok()?;
+    let key = p.key64().to_string();
+    for l in text.lines() {
+        let mut it = l.splitn(3, '\t');
+        if it.next() == Some(key.as_str()) {
+            return it.next().map(|m| m.to_string());
         }
     }
-    let mut total = 0f32;
-    for s in 0..64 {
-        let pc = p.board[SQ64_TO_120[s]];
-        let (value, side) = if pc == 0 { (0.0, 0.0) } else { (WORTH[type_of(pc) as usize], if color_of(pc) as usize == me { 1.0 } else { -1.0 }) };
-        let (am, at) = (cnt[me][s] as f32, cnt[1 - me][s] as f32);
-        let b = |x: bool| x as u8 as f32;
-        let x = [value, side, am, at, b(side > 0.0), b(side < 0.0), b(pc == 0), b(am > at), b(at > am), b(am > 0.0), b(at > 0.0), b(am == 0.0), b(at == 0.0)];
-        for (term, w) in &f.terms {
-            let mut v = *w;
-            for &i in &term.0[..term.1 as usize] {
-                v *= x[i as usize];
-            }
-            total += v;
-        }
-    }
-    total
+    None
 }
 
 const MATE: f32 = 1.0e9;
 
-/// Every line to `depth`, nothing cut; the value for the side to move. At a
-/// leaf the function's value for the side that has just moved, so minus it.
+/// Every line to `depth`, nothing cut; at a leaf the function's value for the side that has just moved, so minus it.
 fn search(f: &Function, p: &mut Position, depth: usize) -> f32 {
     if depth == 0 {
         if !crate::golden_table::has_legal(p) {
             return if p.in_check() { -MATE } else { 0.0 };
         }
-        return -eval_at(f, p, 1 - p.turn as usize);
+        return -f.eval(&feat(p, 1 - p.turn as usize));
     }
     use crate::fast::movegen::{gen_moves, MAX_MOVES};
     let me = p.turn;
@@ -524,18 +638,17 @@ fn pick_deep(f: &Function, fen: &str, depth: usize) -> Option<String> {
     vals.into_iter().fold(None::<(f32, String)>, |b, x| match b { Some(b) if b.0 >= x.0 => Some(b), _ => Some(x) }).map(|x| x.1)
 }
 
-/// Golden Boy's move with the function at the leaves of every line, deepening while the next depth fits in `secs`.
+/// Golden Boy's move: the opening table when familiar, else every line with the function at the leaves, deepening within `secs`.
 pub fn goldenboy_move_deep(fen: &str, secs: f64) -> Result<(String, String), String> {
-    let (m, how) = goldenboy_move(fen)?;
-    if how == "the opening table" {
-        return Ok((m, how));
+    if let Some(m) = table_move(fen) {
+        return Ok((m, "the opening table".into()));
     }
     let f = Function::load();
     let t0 = std::time::Instant::now();
-    let (mut best, mut depth, mut last, mut factor) = (m, 1, 0.0f64, 35.0f64);
-    for d in 2..=12 {
+    let (mut best, mut depth, mut last, mut factor) = (String::new(), 0, 0.0f64, 35.0f64);
+    for d in 1..=12 {
         let spent = t0.elapsed().as_secs_f64();
-        if d > 3 && spent + last * factor > secs {
+        if d > 2 && spent + last * factor > secs {
             break;
         }
         let t1 = std::time::Instant::now();
@@ -554,6 +667,9 @@ pub fn goldenboy_move_deep(fen: &str, secs: f64) -> Result<(String, String), Str
         if t0.elapsed().as_secs_f64() > secs {
             break;
         }
+    }
+    if best.is_empty() {
+        return Err("no legal move".into());
     }
     Ok((best, format!("the Golden Function ({} terms), every line to depth {depth}", f.terms.len())))
 }
