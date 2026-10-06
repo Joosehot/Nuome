@@ -439,6 +439,11 @@ pub fn analyse<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net
     search_root(ev, net, fen, ms, &[]).map(|r| (r.0, r.3))
 }
 
+/// The root search with an evaluation alone: (move, depth, nodes, value from the mover).
+pub fn search_root_pub(ev: &dyn Eval, fen: &str, ms: u64) -> Option<(String, usize, u64, i32)> {
+    search_root(ev, None, fen, ms, &[])
+}
+
 fn search_root<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64, exclude: &[u32]) -> Option<(String, usize, u64, i32)> {
     let mut p = Position::from_fen(fen).ok()?;
     let mut s = Searcher::new(ev);

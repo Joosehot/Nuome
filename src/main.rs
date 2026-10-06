@@ -445,6 +445,15 @@ fn main() -> Result<()> {
             nuome::star_search::smoke_file_mix(&ev, (mix > 0.0).then_some(mix), "out/golden/smoke_reverse.tsv", ms, true).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "golden-move" {
+            // golden-move FEN [MS]: Golden Answer's one answer kind for a position, the right move and where it came from
+            let fen = cli.words.iter().take(6).cloned().collect::<Vec<_>>().join(" ");
+            let ms: u64 = cli.words.get(6).and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            let known = nuome::golden_grandmasters::Known::load().map_err(|e| anyhow::anyhow!(e))?;
+            let a = nuome::golden_move::golden_move(&known, &fen, ms).map_err(|e| anyhow::anyhow!(e))?;
+            println!("{}", a.explain());
+            return Ok(());
+        }
         if which == "boy-smoke" {
             // boy-smoke [MS]: Golden Boy's move on the smoke positions: the opening table; Stockfish's move when the exact position is known; else the theory engine
             let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);
