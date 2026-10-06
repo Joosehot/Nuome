@@ -323,6 +323,27 @@ fn main() -> Result<()> {
             nuome::star_search::quiet_test(n.first().copied().unwrap_or(100) as usize, n.get(1).copied().unwrap_or(1000), &files).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "star-blend" {
+            // star-blend [MS] [N_CHECK] MIX...: Goldennet with StarNNUE (nnue1024_sib) blended in at each share
+            let nums: Vec<f64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();
+            let ms = nums.first().copied().unwrap_or(10_000.0) as u64;
+            let nc = nums.get(1).copied().unwrap_or(100.0) as usize;
+            let mixes: Vec<f32> = if nums.len() > 2 { nums[2..].iter().map(|&x| x as f32).collect() } else { vec![1.0, 0.5, 0.0] };
+            nuome::star_search::blend_test(&mixes, ms, nc).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "golden-patterns" {
+            // golden-patterns [HF]: the known-pattern table from Stockfish's moves (CCRL games + HF train positions)
+            let n = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(1_000_000);
+            print!("{}", nuome::golden_pattern::build(n).map_err(|e| anyhow::anyhow!(e))?);
+            return Ok(());
+        }
+        if which == "pattern-smoke" {
+            // pattern-smoke [MS]: the smoke positions, the move proved by known patterns (Golden or StarNNUE)
+            let ms = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10_000);
+            nuome::golden_pattern::smoke("out/golden/smoke_reverse.tsv", ms).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "star-smoke" {
             // star-smoke [N] [MS]: positions nothing has seen, Goldennet with StarNet's search, each reported at once
             let n: Vec<u64> = cli.words.iter().filter_map(|w| w.parse().ok()).collect();

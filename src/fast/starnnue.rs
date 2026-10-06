@@ -94,6 +94,37 @@ impl Net {
         }
     }
 
+    /// One perspective's accumulator from scratch (own king squares `ksq`, 64-based).
+    pub fn refresh(&self, p: &Position, c: usize, ksq: [usize; 2], out: &mut [f32]) {
+        self.acc(p, c, ksq, out);
+    }
+
+    /// Add (+1) or remove (-1) piece `pc` on square `s64` in perspective `c`'s accumulator.
+    pub fn update(&self, acc: &mut [f32], c: usize, ksq: [usize; 2], pc: u8, s64: usize, sign: f32) {
+        let flip = if c == 1 { 56 } else { 0 };
+        let k_rel = ksq[c] ^ flip;
+        let mirror = if (k_rel & 7) >= 4 { 7 } else { 0 };
+        let kr = k_rel ^ mirror;
+        let bucket = (kr >> 3) * 4 + (kr & 7);
+        let col_rel = (color_of(pc) as usize) ^ c;
+        let ty = type_of(pc) as usize - 1;
+        let f = bucket * 768 + (col_rel * 6 + ty) * 64 + (s64 ^ flip ^ mirror);
+        let row = &self.ft_w[f * self.h..(f + 1) * self.h];
+        for (a, w) in acc.iter_mut().zip(row) {
+            *a += sign * *w;
+        }
+    }
+
+    /// The output from the two accumulators, the side to move's first: centipawns.
+    pub fn forward(&self, us: &[f32], them: &[f32]) -> f32 {
+        let mut out = self.out_b;
+        for (x, w) in us.iter().chain(them.iter()).zip(&self.out_w) {
+            let c = x.clamp(0.0, 1.0);
+            out += c * c * w;
+        }
+        out * self.scale
+    }
+
     /// Side-to-move evaluation in centipawns.
     pub fn eval(&self, p: &Position) -> i32 {
         let mut ksq = [0usize; 2];

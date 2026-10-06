@@ -984,3 +984,8 @@ fn refit(f: &mut Function, train: &[Lesson], validate: &[Lesson], epochs: usize,
 pub fn eval_from(f: &Function, p: &Position, me: usize) -> f32 {
     f.eval(&feat(p, me))
 }
+
+/// The opening table's move when the position is familiar (for other modules).
+pub fn table_move_pub(fen: &str) -> Option<String> {
+    table_move(fen)
+}

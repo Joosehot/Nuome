@@ -23,6 +23,78 @@ const TT_BITS: u32 = 20;
 /// An evaluation: the value of `p` for the side to move, in its own units (|v| well below MATE_ZONE).
 pub trait Eval: Sync {
     fn eval(&self, p: &Position) -> i32;
+    /// centipawns per unit of this evaluation (to blend it with StarNNUE)
+    fn cp(&self) -> f32 {
+        1.0
+    }
+}
+
+/// StarNNUE inside the search, updated move by move: a frame per ply with the
+/// board, the kings and both perspectives' accumulators; `mix` is StarNNUE's
+/// share of the value (the rest is the evaluation's, in centipawns).
+pub struct Nn<'n> {
+    pub net: &'n crate::fast::starnnue::Net,
+    pub mix: f32,
+    frames: Vec<(Box<[u8; 120]>, [usize; 2], Vec<f32>, Vec<f32>)>,
+    top: usize,
+}
+
+fn kings(p: &Position) -> [usize; 2] {
+    use crate::fast::bitboard::SQ120_TO_64;
+    [SQ120_TO_64[p.king_sq[0]] as usize, SQ120_TO_64[p.king_sq[1]] as usize]
+}
+
+impl<'n> Nn<'n> {
+    pub fn new(net: &'n crate::fast::starnnue::Net, mix: f32) -> Nn<'n> {
+        let h = net.h;
+        Nn { net, mix, frames: (0..MAX_PLY + 4).map(|_| (Box::new([0u8; 120]), [0usize; 2], vec![0f32; h], vec![0f32; h])).collect(), top: 0 }
+    }
+    fn root(&mut self, p: &Position) {
+        let k = kings(p);
+        let f = &mut self.frames[0];
+        f.0.copy_from_slice(&p.board);
+        f.1 = k;
+        self.net.refresh(p, 0, k, &mut f.2);
+        self.net.refresh(p, 1, k, &mut f.3);
+        self.top = 0;
+    }
+    /// After a move (or a null move): the child's frame from its parent's, only the changed squares (a king move refreshes its side).
+    fn push(&mut self, p: &Position) {
+        use crate::fast::bitboard::SQ64_TO_120;
+        let (lo, hi) = self.frames.split_at_mut(self.top + 1);
+        let (parent, child) = (&lo[self.top], &mut hi[0]);
+        let k = kings(p);
+        child.0.copy_from_slice(&p.board);
+        child.1 = k;
+        for c in 0..2 {
+            let acc = if c == 0 { &mut child.2 } else { &mut child.3 };
+            if k[c] != parent.1[c] {
+                self.net.refresh(p, c, k, acc);
+                continue;
+            }
+            acc.copy_from_slice(if c == 0 { &parent.2 } else { &parent.3 });
+            for s in 0..64 {
+                let sq = SQ64_TO_120[s];
+                let (a, b) = (parent.0[sq], p.board[sq]);
+                if a != b {
+                    if a != 0 {
+                        self.net.update(acc, c, k, a, s, -1.0);
+                    }
+                    if b != 0 {
+                        self.net.update(acc, c, k, b, s, 1.0);
+                    }
+                }
+            }
+        }
+        self.top += 1;
+    }
+    fn pop(&mut self) {
+        self.top -= 1;
+    }
+    fn cp(&self, p: &Position) -> f32 {
+        let f = &self.frames[self.top];
+        if p.turn == 0 { self.net.forward(&f.2, &f.3) } else { self.net.forward(&f.3, &f.2) }
+    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -36,6 +108,7 @@ struct Entry {
 
 pub struct Searcher<'a> {
     ev: &'a dyn Eval,
+    nn: Option<Nn<'a>>,
     tt: Vec<Entry>,
     killers: [[u32; 2]; MAX_PLY],
     /// the move that last refuted each move (by its from and to squares)
@@ -49,8 +122,28 @@ pub struct Searcher<'a> {
 }
 
 impl<'a> Searcher<'a> {
+    /// The value of the position for the side to move: the evaluation, or its blend with StarNNUE.
+    fn value(&self, p: &Position) -> i32 {
+        match &self.nn {
+            None => self.ev.eval(p),
+            Some(nn) => {
+                let own = if nn.mix < 1.0 { self.ev.eval(p) as f32 * self.ev.cp() } else { 0.0 };
+                (nn.mix * nn.cp(p) + (1.0 - nn.mix) * own).clamp(-1.0e8, 1.0e8) as i32
+            }
+        }
+    }
+    fn nn_push(&mut self, p: &Position) {
+        if let Some(nn) = self.nn.as_mut() {
+            nn.push(p);
+        }
+    }
+    fn nn_pop(&mut self) {
+        if let Some(nn) = self.nn.as_mut() {
+            nn.pop();
+        }
+    }
     pub fn new(ev: &'a dyn Eval) -> Searcher<'a> {
-        Searcher { ev, tt: vec![Entry::default(); 1 << TT_BITS], killers: [[0; 2]; MAX_PLY], counter: vec![0; 120 * 120], line: [0; MAX_PLY + 1], history: vec![0; 2 * 120 * 120], nodes: 0, deadline: Instant::now(), stopped: false }
+        Searcher { ev, nn: None, tt: vec![Entry::default(); 1 << TT_BITS], killers: [[0; 2]; MAX_PLY], counter: vec![0; 120 * 120], line: [0; MAX_PLY + 1], history: vec![0; 2 * 120 * 120], nodes: 0, deadline: Instant::now(), stopped: false }
     }
     fn hist(&self, side: u8, m: u32) -> i32 {
         self.history[side as usize * 14400 + m_from(m) as usize * 120 + m_to(m) as usize]
@@ -139,7 +232,7 @@ fn score_moves(s: &Searcher, p: &mut Position, moves: &[u32], tt_mv: Option<u32>
 fn qsearch(s: &mut Searcher, p: &mut Position, mut alpha: i32, beta: i32, ply: usize, qleft: u8) -> i32 {
     s.nodes += 1;
     s.check_time();
-    let stand = s.ev.eval(p);
+    let stand = s.value(p);
     if s.stopped || ply >= MAX_PLY || stand >= beta || qleft == 0 {
         return stand;
     }
@@ -160,7 +253,9 @@ fn qsearch(s: &mut Searcher, p: &mut Position, mut alpha: i32, beta: i32, ply: u
             p.unmake();
             continue;
         }
+        s.nn_push(p);
         let v = -qsearch(s, p, -beta, -alpha, ply + 1, qleft - 1);
+        s.nn_pop();
         p.unmake();
         if s.stopped {
             return stand;
@@ -214,7 +309,9 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
     if !is_pv && !check && depth >= 3 && beta < MATE_ZONE && has_non_pawn_material(p) {
         p.make_null();
         s.line[ply] = 0;
+        s.nn_push(p);
         let v = -negamax(s, p, depth.saturating_sub(4), -beta, -beta + 1, ply + 1, false);
+        s.nn_pop();
         p.unmake_null();
         if s.stopped {
             return 0;
@@ -238,10 +335,12 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
         }
         legal += 1;
         s.line[ply] = m;
+        s.nn_push(p);
         let gives_check = p.in_check();
         let quiet = !capture && !promo;
         // late move pruning: the quiet tail at low depth
         if !is_pv && !check && depth <= 3 && quiet && !gives_check && legal > 6 + 2 * depth * depth {
+            s.nn_pop();
             p.unmake();
             continue;
         }
@@ -258,6 +357,7 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
                 v = -negamax(s, p, depth - 1, -beta, -alpha, ply + 1, true);
             }
         }
+        s.nn_pop();
         p.unmake();
         if s.stopped {
             return 0;
@@ -297,8 +397,18 @@ fn negamax(s: &mut Searcher, p: &mut Position, mut depth: usize, mut alpha: i32,
 
 /// The move in `ms` milliseconds: iterative deepening, the last whole depth stands. (move, depth, nodes)
 pub fn best_move(ev: &dyn Eval, fen: &str, ms: u64) -> Option<(String, usize, u64)> {
+    best_move_with(ev, None, fen, ms)
+}
+
+/// The same, with StarNNUE blended in at share `mix` when `net` is given.
+pub fn best_move_with<'a>(ev: &'a dyn Eval, net: Option<(&'a crate::fast::starnnue::Net, f32)>, fen: &str, ms: u64) -> Option<(String, usize, u64)> {
     let mut p = Position::from_fen(fen).ok()?;
     let mut s = Searcher::new(ev);
+    if let Some((n, mix)) = net {
+        let mut nn = Nn::new(n, mix);
+        nn.root(&p);
+        s.nn = Some(nn);
+    }
     s.deadline = Instant::now() + Duration::from_millis(ms);
     let roots = legal_moves(&mut p);
     if roots.is_empty() {
@@ -340,6 +450,9 @@ impl Eval for GoldennetEval {
         let x = crate::golden_table::points(p, 1 - p.turn as usize);
         let v: f32 = x.iter().map(|&i| self.0[i as usize]).sum();
         (-v * 1000.0).clamp(-1.0e8, 1.0e8) as i32
+    }
+    fn cp(&self) -> f32 {
+        0.2
     }
 }
 
@@ -464,4 +577,69 @@ pub fn quiet_test(n: usize, ms: u64, files: &[&str]) -> Result<(), String> {
         let _ = std::io::stdout().flush();
     }
     Ok(())
+}
+
+/// Goldennet with the best ChessEngine eval (StarNNUE, nnue1024_sib) blended in: on the
+/// smoke positions (each reported at once) and the check set, StarNNUE's share `mixes`.
+pub fn blend_test(mixes: &[f32], ms: u64, n_check: usize) -> Result<(), String> {
+    use std::io::Write;
+    let net = crate::fast::starnnue::net()?;
+    let w: Vec<f32> = std::fs::read_to_string(crate::golden_table::GOLDENNET_VALUE_FILE).map_err(|e| e.to_string())?.lines().filter_map(|l| l.trim().parse().ok()).collect();
+    let ev = GoldennetEval(w);
+    let smoke = std::fs::read_to_string("out/golden/smoke_reverse.tsv").map_err(|e| e.to_string())?;
+    let mut smoke: Vec<(String, String)> = smoke.lines().filter_map(|l| l.split_once('\t')).map(|(a, b)| (a.to_string(), b.to_string())).collect();
+    smoke.reverse();
+    let check = std::fs::read_to_string("out/golden/grow_check.tsv").map_err(|e| e.to_string())?;
+    let check: Vec<(String, String)> = check.lines().filter_map(|l| l.split_once('\t')).map(|(a, b)| (a.to_string(), b.to_string())).take(n_check).collect();
+    for &mix in mixes {
+        let name = if mix == 0.0 { "Goldennet alone".to_string() } else if mix == 1.0 { "StarNNUE alone (nnue1024_sib)".to_string() } else { format!("StarNNUE {:.0}% + Goldennet {:.0}%", 100.0 * mix, 100.0 * (1.0 - mix)) };
+        println!("{name}:");
+        let _ = std::io::stdout().flush();
+        let mut hit = 0;
+        for (i, (fen, sf)) in smoke.iter().enumerate() {
+            let (m, d, k) = best_move_with(&ev, if mix > 0.0 { Some((net, mix)) } else { None }, fen, ms).unwrap_or_default();
+            hit += (m == *sf) as usize;
+            println!("  smoke {}/{}: played {m}, Stockfish {sf} {} (depth {d}, {:.1}M nodes)", i + 1, smoke.len(), if m == *sf { "RIGHT" } else { "miss" }, k as f64 / 1e6);
+            let _ = std::io::stdout().flush();
+        }
+        let mut ch = 0;
+        for (fen, sf) in &check {
+            if best_move_with(&ev, if mix > 0.0 { Some((net, mix)) } else { None }, fen, 1000).map(|r| r.0 == *sf).unwrap_or(false) {
+                ch += 1;
+            }
+        }
+        println!("  {name}: smoke {hit}/{} at {ms} ms; check set {ch}/{} at 1 s", smoke.len(), check.len());
+        let _ = std::io::stdout().flush();
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn incremental_starnnue_matches_from_scratch() {
+        let Ok(net) = crate::fast::starnnue::net() else { return };
+        for fen in ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "r1bq1rk1/pp2bppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R2QKB1R w KQ - 0 8"] {
+            let mut p = Position::from_fen(fen).unwrap();
+            let mut nn = Nn::new(net, 1.0);
+            nn.root(&p);
+            let mut r = 0x1234_5678u64;
+            for _ in 0..100 {
+                let ms = legal_moves(&mut p);
+                if ms.is_empty() {
+                    break;
+                }
+                r ^= r << 13;
+                r ^= r >> 7;
+                r ^= r << 17;
+                p.make(ms[(r % ms.len() as u64) as usize]);
+                nn.push(&p);
+                let a = nn.cp(&p);
+                let b = net.eval(&p) as f32;
+                assert!((a - b).abs() <= 1.0, "{a} vs {b} at {}", p.to_fen());
+            }
+        }
+    }
 }
