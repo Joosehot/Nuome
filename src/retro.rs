@@ -63,7 +63,7 @@ impl Table {
         Some(idx * 2 + (!b.white) as usize)
     }
 
-    fn board(&self, idx: usize) -> Option<Board> {
+    pub fn board(&self, idx: usize) -> Option<Board> {
         let white = idx % 2 == 0;
         let mut rest = idx / 2;
         let mut sq = [0i8; 64];
@@ -121,6 +121,30 @@ pub fn table(pieces: &[i8]) -> Option<&'static Table> {
     let mut g = TABLES.lock().unwrap();
     g.get_or_insert_with(HashMap::new).insert(key, t);
     Some(t)
+}
+
+/// A class's table of any size, solved by `solver` when it is not on disk yet (the GPU for four and five pieces).
+pub fn table_with(pieces: &[i8], solver: &dyn Fn(&[i8]) -> Result<Table, String>) -> Result<&'static Table, String> {
+    let key = key_of(pieces);
+    {
+        let g = TABLES.lock().unwrap();
+        if let Some(t) = g.as_ref().and_then(|m| m.get(&key)) {
+            return Ok(t);
+        }
+    }
+    let path = format!("out/golden/retro/{key}.bin");
+    let size = 2 * 64usize.pow(pieces.len() as u32);
+    let t: &'static Table = Box::leak(Box::new(match std::fs::read(&path) {
+        Ok(bytes) if bytes.len() == 2 * size => Table { pieces: pieces.to_vec(), val: bytes.chunks(2).map(|c| i16::from_le_bytes([c[0], c[1]])).collect() },
+        _ => {
+            let t = solver(pieces)?;
+            let _ = std::fs::create_dir_all("out/golden/retro");
+            let _ = std::fs::write(&path, t.val.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+            t
+        }
+    }));
+    TABLES.lock().unwrap().get_or_insert_with(HashMap::new).insert(key, t);
+    Ok(t)
 }
 
 /// The value, for the side to move, of the position after `m` in `b`, when

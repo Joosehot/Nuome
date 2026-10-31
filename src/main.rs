@@ -497,6 +497,15 @@ fn main() -> Result<()> {
             nuome::crack_invent::run(depth).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "retro-probe" {
+            nuome::retro_gpu::probe().map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
+        if which == "retro-gpu-check" {
+            // retro-gpu-check: the taulukonlaskija on the GPU, checked against retro.rs (3 pieces) and Syzygy (4)
+            nuome::retro_gpu::check().map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-smoke" {
             // crack-smoke [DEPTH]: the code crackers on bench/crack/smoke.tsv (positions up to five pieces, Syzygy truth)
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);

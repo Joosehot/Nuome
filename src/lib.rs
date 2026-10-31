@@ -53,6 +53,7 @@ pub mod graph_orbits;
 pub mod neuro;
 pub mod patterns;
 pub mod retro;
+pub mod retro_gpu;
 pub mod crack;
 pub mod crack_invent;
 pub mod crack_wave;
