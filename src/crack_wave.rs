@@ -24,6 +24,11 @@ pub const UNREACHED: u8 = u8::MAX;
 /// slider stops at the first piece; a square held by its own side is not entered; a pawn's wave goes to the squares
 /// it pushes to and the squares it strikes)
 pub fn times(b: &Board, from: usize) -> [u8; 64] {
+    times_to(b, from, HORIZON)
+}
+
+/// the same, `horizon` moves ahead
+pub fn times_to(b: &Board, from: usize, horizon: u8) -> [u8; 64] {
     let p = b.sq[from];
     let white = p > 0;
     let t = p.unsigned_abs();
@@ -31,7 +36,7 @@ pub fn times(b: &Board, from: usize) -> [u8; 64] {
     out[from] = 0;
     let mut front = vec![from];
     let own = |s: usize| b.sq[s] != 0 && (b.sq[s] > 0) == white && s != from;
-    for step in 1..=HORIZON {
+    for step in 1..=horizon {
         let mut next = Vec::new();
         for &s in &front {
             let (f, r) = ((s % 8) as i32, (s / 8) as i32);

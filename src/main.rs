@@ -475,6 +475,11 @@ fn main() -> Result<()> {
             for l in &o.lines { println!("{l}"); }
             return Ok(());
         }
+        if which == "crack-plan" {
+            // crack-plan: waves as moves: plans 10-20 moves ahead, the opponent's waves in reply, dissonance puts a move aside
+            nuome::crack_plan::run().map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-wave" {
             // crack-wave [DEPTH]: the wave model: every piece's pattern on the board, the patterns meeting, the value read from the waves
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);
