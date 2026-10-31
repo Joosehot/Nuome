@@ -475,6 +475,12 @@ fn main() -> Result<()> {
             for l in &o.lines { println!("{l}"); }
             return Ok(());
         }
+        if which == "crack-smoke" {
+            // crack-smoke [DEPTH]: the code crackers on bench/crack/smoke.tsv (positions up to five pieces, Syzygy truth)
+            let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);
+            nuome::crack::smoke("bench/crack/smoke.tsv", depth).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "engine-smoke" {
             // engine-smoke [WORDS...]: the smoke positions with the theory engine; the full lines in out/golden/engine_smoke_lines.txt
             let words = cli.words.join(" ");
