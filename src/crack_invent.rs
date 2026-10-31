@@ -194,7 +194,15 @@ fn load(path: &str) -> Result<Vec<(String, Board, V)>, String> {
 /// Golden's invention: climbing from random starts on the training set; the score is the share right, and a shorter
 /// function wins a tie
 pub fn invent(train: &[(String, Board, V)], restarts: usize, steps: usize) -> (Invented, f64) {
-    let xs: Vec<([i32; N], V, Option<V>)> = train.iter().map(|r| (features(&r.1), r.2, rules(&r.1))).collect();
+    invent_on(train, &features, restarts, steps)
+}
+
+/// the same invention on any raw numbers of a position (the waves' readings, ...)
+pub fn invent_on(train: &[(String, Board, V)], read: &(dyn Fn(&Board) -> [i32; N] + Sync), restarts: usize, steps: usize) -> (Invented, f64) {
+    let xs: Vec<([i32; N], V, Option<V>)> = std::thread::scope(|sc| {
+        let hs: Vec<_> = train.chunks(train.len().div_ceil(12).max(1)).map(|c| sc.spawn(move || c.iter().map(|r| (read(&r.1), r.2, rules(&r.1))).collect::<Vec<_>>())).collect();
+        hs.into_iter().flat_map(|h| h.join().unwrap()).collect()
+    });
     let score = |f: &Invented| -> f64 {
         let right = xs.iter().filter(|(x, v, ru)| ru.unwrap_or_else(|| f.value(x)) == *v).count();
         right as f64 / xs.len() as f64 - 0.0005 * f.size() as f64

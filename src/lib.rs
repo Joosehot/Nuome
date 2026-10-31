@@ -55,6 +55,7 @@ pub mod patterns;
 pub mod retro;
 pub mod crack;
 pub mod crack_invent;
+pub mod crack_wave;
 pub mod golden_terms;
 pub mod chess_network;
 pub mod chess_rules_data;

@@ -475,6 +475,12 @@ fn main() -> Result<()> {
             for l in &o.lines { println!("{l}"); }
             return Ok(());
         }
+        if which == "crack-wave" {
+            // crack-wave [DEPTH]: the wave model: every piece's pattern on the board, the patterns meeting, the value read from the waves
+            let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);
+            nuome::crack_wave::run(depth).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-invent" {
             // crack-invent [DEPTH]: Golden invents the position's function from place, movement, value and relation
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);
