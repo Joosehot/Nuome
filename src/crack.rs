@@ -102,17 +102,74 @@ pub fn intuition(b: &Board) -> V {
     }
 }
 
+/// The owner's model: every piece has a function, set by its value, its movement and its place, and the position's
+/// value is the pieces' functions put together. v1 reads them from the rules, with no chess lore written in:
+///   value:    a piece's worth (Q 9, R 5, B 3, N 3, P 1); a pawn's worth is what it becomes, a queen (9), when it
+///             reaches its last rank before the enemy king can reach that square, else 1;
+///   movement: the moves a piece needs to reach where it matters (a pawn: its queening square, a double step from its
+///             first rank; the enemy king: the same square, king steps);
+///   place:    the squares themselves, and whose move it is (the side to move gains a move in the race).
+/// The position: the side with the force to mate and the clearly larger worth (3 or more) wins, else a draw.
+pub fn piece_value(b: &Board, sq: usize) -> i32 {
+    let p = b.sq[sq];
+    match p.unsigned_abs() {
+        1 => {
+            let white = p > 0;
+            let (file, rank) = ((sq % 8) as i32, (sq / 8) as i32);
+            // the pawn's movement: its moves to the last rank (a double step from its first rank), none blocked by
+            // its own pieces in the way counted (v1)
+            let to_go = if white { 7 - rank } else { rank };
+            let first = if white { rank == 1 } else { rank == 6 };
+            let pawn_moves = to_go - first as i32;
+            let queen_sq = (if white { 56 } else { 0 }) + file;
+            // the enemy king's movement: king steps to the queening square
+            let k = b.king(!white);
+            let (kf, kr) = (k % 8, k / 8);
+            let king_moves = (kf - queen_sq % 8).abs().max((kr - queen_sq / 8).abs());
+            // place: whose move it is; the pawn's side moving first gains a move
+            let pawn_side_moves_first = b.white == white;
+            let pawn_time = pawn_moves - pawn_side_moves_first as i32;
+            if pawn_time < king_moves { 9 } else { 1 }
+        }
+        2 | 3 => 3,
+        4 => 5,
+        5 => 9,
+        _ => 0,
+    }
+}
+
+/// The intuition, v1: the pieces' functions (value, movement, place) put together.
+pub fn intuition_v1(b: &Board) -> V {
+    if let Some(v) = rules(b) {
+        return v;
+    }
+    let (me, them) = (side(b, b.white), side(b, !b.white));
+    let worth = |white: bool| (0..64).filter(|&s| b.sq[s] != 0 && (b.sq[s] > 0) == white).map(|s| piece_value(b, s)).sum::<i32>();
+    let (mw, tw) = (worth(b.white), worth(!b.white));
+    if me.mates() && (them.bare() && mw > 1 || mw - tw >= 3) && !(them.bare() && mw == 1) {
+        1
+    } else if them.mates() && (me.bare() && tw > 1 || tw - mw >= 3) && !(me.bare() && tw == 1) {
+        -1
+    } else {
+        0
+    }
+}
+
 /// Every line `d` plies deep, the intuition where the lines stop (negamax with alpha-beta on -1..1).
-pub fn searched(b: &Board, d: usize, mut alpha: V, beta: V) -> V {
+pub fn searched(b: &Board, d: usize, alpha: V, beta: V) -> V {
+    searched_with(b, d, alpha, beta, &intuition)
+}
+
+pub fn searched_with(b: &Board, d: usize, mut alpha: V, beta: V, leaf: &dyn Fn(&Board) -> V) -> V {
     if let Some(v) = rules(b) {
         return v;
     }
     if d == 0 {
-        return intuition(b);
+        return leaf(b);
     }
     let mut best = -1;
     for m in b.moves() {
-        let v = -searched(&b.play(m), d - 1, -beta, -alpha);
+        let v = -searched_with(&b.play(m), d - 1, -beta, -alpha, leaf);
         if v > best {
             best = v;
         }
@@ -157,6 +214,10 @@ pub fn smoke(path: &str, depth: usize) -> Result<(), String> {
     crackers.push(("intuition".into(), Box::new(|b: &Board| Some(intuition(b)))));
     for d in 1..=depth {
         crackers.push((format!("intuition + search {d}"), Box::new(move |b: &Board| Some(searched(b, d, -1, 1)))));
+    }
+    crackers.push(("intuition v1 (value, movement, place)".into(), Box::new(|b: &Board| Some(intuition_v1(b)))));
+    for d in 1..=depth {
+        crackers.push((format!("intuition v1 + search {d}"), Box::new(move |b: &Board| Some(searched_with(b, d, -1, 1, &intuition_v1)))));
     }
     let mut classes: Vec<String> = rows.iter().map(|r| r.0.clone()).collect();
     classes.dedup();

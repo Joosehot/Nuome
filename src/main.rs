@@ -475,6 +475,12 @@ fn main() -> Result<()> {
             for l in &o.lines { println!("{l}"); }
             return Ok(());
         }
+        if which == "crack-invent" {
+            // crack-invent [DEPTH]: Golden invents the position's function from place, movement, value and relation
+            let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);
+            nuome::crack_invent::run(depth).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-smoke" {
             // crack-smoke [DEPTH]: the code crackers on bench/crack/smoke.tsv (positions up to five pieces, Syzygy truth)
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);
