@@ -66,8 +66,88 @@ fn arrival(waves: &[(usize, [u8; 64])], b: &Board, white: bool, sq: usize, not: 
         .unwrap_or(i32::MAX)
 }
 
-/// the ply a side's pawn plan first sounds (a pawn queens unbroken), or None
+/// v2 of the plans: every piece's wave tells two times, when it reaches a square and when it strikes it (a move
+/// sooner: a piece that can step onto a square strikes it from where it stands the move before)
+fn strike(waves: &[(usize, [u8; 64])], b: &Board, white: bool, sq: usize, not: usize, kings: bool) -> i32 {
+    let moving = b.white == white;
+    waves
+        .iter()
+        .filter(|(s, _)| *s != not && b.sq[*s] != 0 && (b.sq[*s] > 0) == white && (b.sq[*s].abs() == 6) == kings)
+        .filter(|(s, _)| !(b.sq[*s].abs() == 1 && *s % 8 == sq % 8))
+        .map(|(_, t)| if t[sq] == UNREACHED { i32::MAX } else { ply(t[sq].saturating_sub(1), moving) })
+        .min()
+        .unwrap_or(i32::MAX)
+}
+
+/// v2: every piece has its plan. The pawn marches to queen (a piece of its own side on its way costs it a move);
+/// the king escorts its own pawn (it reaches a square in front of the pawn, one or two ranks ahead on its file or the
+/// next, no later than the enemy king: then the enemy king cannot stop the march; set by hand from the key squares)
+/// and blockades the enemy's (it stands on the march first); every piece stops the enemy's march by striking its
+/// squares and guards its own. Dissonance: an enemy piece stands on a square of the march before the pawn, or a piece
+/// other than the king strikes it by the ply after the pawn arrives (it takes the pawn, or gives itself for it), or the
+/// enemy king strikes it by then and nothing of the pawn's side guards it.
+fn sounding_v2(b: &Board, white: bool, waves: &[(usize, [u8; 64])]) -> Option<i32> {
+    let me_king = b.king(white) as usize;
+    let their_king = b.king(!white) as usize;
+    let king_wave = |k: usize| waves.iter().find(|(s, _)| *s == k).map(|x| x.1);
+    (0..64usize)
+        .filter(|&s| b.sq[s] == if white { 1 } else { -1 })
+        .filter_map(|s| {
+            let mut m = march(b, s);
+            // a piece of its own side on its way: the pawn waits a move for it
+            let mut delay = 0;
+            for x in m.iter_mut() {
+                if b.sq[x.0] != 0 && (b.sq[x.0] > 0) == white {
+                    delay += 2;
+                }
+                x.1 += delay;
+            }
+            // the king's escort: a square in front of the pawn reached by our king no later than by theirs
+            let (f, r) = ((s % 8) as i32, (s / 8) as i32);
+            let dr = if white { 1 } else { -1 };
+            let escorted = match (king_wave(me_king), king_wave(their_king)) {
+                (Some(mine), Some(theirs)) => (1..=2).any(|k| {
+                    (f - 1..=f + 1).any(|ff| {
+                        let rr = r + k * dr;
+                        if !(0..8).contains(&ff) || !(0..8).contains(&rr) {
+                            return false;
+                        }
+                        let q = (rr * 8 + ff) as usize;
+                        ply(mine[q], b.white == white) <= ply(theirs[q], b.white != white)
+                    })
+                }),
+                _ => false,
+            };
+            let broken = m.iter().any(|&(q, at)| {
+                let occupied = waves
+                    .iter()
+                    .filter(|(p, _)| b.sq[*p] != 0 && (b.sq[*p] > 0) != white && !(escorted && *p == their_king))
+                    .map(|(_, t)| ply(t[q], b.white != white))
+                    .min()
+                    .unwrap_or(i32::MAX);
+                let pieces = strike(waves, b, !white, q, s, false);
+                let king = if escorted { i32::MAX } else { strike(waves, b, !white, q, s, true) };
+                let guard = strike(waves, b, white, q, s, false).min(strike(waves, b, white, q, s, true));
+                occupied < at || pieces <= at + 1 || (king <= at + 1 && guard > at + 1)
+            });
+            (!broken).then(|| m.last().map_or(0, |x| x.1))
+        })
+        .min()
+}
+
+/// which plans the chord uses: 1 (pawns only) or 2 (every piece)
+static PLANS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(2);
+
 fn sounding(b: &Board, white: bool, waves: &[(usize, [u8; 64])]) -> Option<i32> {
+    if PLANS.load(std::sync::atomic::Ordering::Relaxed) == 2 {
+        sounding_v2(b, white, waves)
+    } else {
+        sounding_v1(b, white, waves)
+    }
+}
+
+/// the ply a side's pawn plan first sounds (a pawn queens unbroken), or None (v1: the pawns' plans only)
+fn sounding_v1(b: &Board, white: bool, waves: &[(usize, [u8; 64])]) -> Option<i32> {
     (0..64usize)
         .filter(|&s| b.sq[s] == if white { 1 } else { -1 })
         .filter_map(|s| {
@@ -175,6 +255,10 @@ pub fn run() -> Result<(), String> {
         })
     };
     let t0 = std::time::Instant::now();
+    for plans in [1u8, 2] {
+    PLANS.store(plans, std::sync::atomic::Ordering::Relaxed);
+    println!("
+=== plans v{plans}: {}", if plans == 1 { "the pawns' plans only" } else { "every piece's plan" });
     for (name, f) in [
         ("intuition v0 + search 2 (yardstick)", &(|b: &Board| crate::crack::searched(b, 2, -1, 1)) as &(dyn Fn(&Board) -> V + Sync)),
         ("waves as moves (2 plies, the chord where they stop)", &value),
@@ -212,6 +296,28 @@ pub fn run() -> Result<(), String> {
         let ok = par(check.len(), &|i| keeps(&check[i].0, &check[i].1, pick(&check[i].0)));
         println!("moves, {name}: keeps the best value in {}/{} ({:.1}%) of the check set's positions (bench/golden_formula/check.tsv: every one has a move that throws the value away)", ok.iter().filter(|x| **x).count(), check.len(), 100.0 * ok.iter().filter(|x| **x).count() as f64 / check.len() as f64);
     }
+    }
     println!("{:.1} s", t0.elapsed().as_secs_f64());
+    Ok(())
+}
+
+/// `nuome --ideas crack-plan-misses CLASS`: where the waves read the training set's positions of a class wrong
+pub fn misses(class: &str) -> Result<(), String> {
+    let text = std::fs::read_to_string("bench/crack/train.tsv").map_err(|e| e.to_string())?;
+    let (mut n, mut wrong) = (0, 0);
+    for l in text.lines().filter(|l| l.starts_with(&format!("{class}	"))) {
+        let f: Vec<&str> = l.split('\t').collect();
+        let b = Board::from_fen(f[1])?;
+        let truth = f[2].parse::<i32>().unwrap().signum() as V;
+        let got = value(&b);
+        n += 1;
+        if got != truth {
+            wrong += 1;
+            if wrong <= 12 {
+                println!("{}  truth {truth:+}  waves {got:+}  chord now {:?}", f[1], chord(&b));
+            }
+        }
+    }
+    println!("{class}: {wrong}/{n} wrong on train");
     Ok(())
 }

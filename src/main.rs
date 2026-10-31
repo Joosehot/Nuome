@@ -475,6 +475,11 @@ fn main() -> Result<()> {
             for l in &o.lines { println!("{l}"); }
             return Ok(());
         }
+        if which == "crack-plan-misses" {
+            let class = cli.words.first().cloned().unwrap_or_else(|| "KPvK".into());
+            nuome::crack_plan::misses(&class).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-plan" {
             // crack-plan: waves as moves: plans 10-20 moves ahead, the opponent's waves in reply, dissonance puts a move aside
             nuome::crack_plan::run().map_err(|e| anyhow::anyhow!(e))?;
