@@ -16,6 +16,11 @@
 //! Open means open here: undecided by both within their fixed number of steps. Whether anyone has asked or settled the
 //! same question is not checked.
 //!
+//! Then Nuome solves what Golden wrote, with nothing from outside: the parts a structure can hold are grown point by
+//! point (`parts`). A part with a pair F can never bring to 0 is in no structure, so when no part of d points is left no
+//! structure has d points or more, and below that every structure is among the parts, tried whole. A problem whose parts
+//! run out is solved for every n; one whose parts grow too many says how far it got.
+//!
 //! No clock in it: steps are counted and seeds fixed, so the same run writes the same problems.
 use std::collections::BTreeMap;
 
@@ -514,6 +519,75 @@ impl Sieve<'_> {
         if out { Found::OutOfSteps } else { Found::Empty }
     }
 
+    /// every free cell tried both ways: a value that fails at once is out, until nothing moves. False when a cell has no
+    /// value left. Whatever it removes holds no structure at all, so it may stand beside the swaps' cut.
+    fn force(&self, s: &mut St) -> bool {
+        loop {
+            let mut moved = false;
+            for u in 0..self.n {
+                let mut free = s.may[u] & !s.one[u];
+                if self.class != Map {
+                    free &= !((1u32 << u) - 1);
+                }
+                while free != 0 {
+                    let v = free.trailing_zeros() as usize;
+                    free &= free - 1;
+                    if s.may[u] >> v & 1 == 0 || s.one[u] >> v & 1 == 1 {
+                        continue;
+                    }
+                    let can = |b: bool| {
+                        let (mut t, mut touched) = (*s, 0);
+                        self.set(&mut t, u, v, b, &mut touched) && self.pairs_ok(&t, touched)
+                    };
+                    let (yes, no) = (can(true), can(false));
+                    if !yes && !no {
+                        return false;
+                    }
+                    if yes != no {
+                        let mut touched = 0;
+                        if !self.set(s, u, v, yes, &mut touched) || !self.pairs_ok(s, touched) {
+                            return false;
+                        }
+                        moved = true;
+                    }
+                }
+            }
+            if !moved {
+                return true;
+            }
+        }
+    }
+
+    /// the search Nuome solves with: forcing at every step, then the cell of the point with the fewest left
+    fn deep(&self, s: &St, steps: &mut u64, budget: u64) -> Found {
+        if *steps >= budget {
+            return Found::OutOfSteps;
+        }
+        *steps += 1;
+        let mut t = *s;
+        if !self.force(&mut t) || !self.largest(&t) {
+            return Found::Empty;
+        }
+        let point = (0..self.n).filter(|&u| t.may[u] & !t.one[u] != 0).min_by_key(|&u| (t.may[u] & !t.one[u]).count_ones());
+        let Some(u) = point else {
+            return Found::Built(t.one[..self.n].to_vec());
+        };
+        let v = (t.may[u] & !t.one[u]).trailing_zeros() as usize;
+        let mut out = false;
+        for b in [true, false] {
+            let mut c = t;
+            let mut touched = 0;
+            if self.set(&mut c, u, v, b, &mut touched) && self.pairs_ok(&c, touched) {
+                match self.deep(&c, steps, budget) {
+                    Found::Empty => {}
+                    Found::OutOfSteps => out = true,
+                    built => return built,
+                }
+            }
+        }
+        if out { Found::OutOfSteps } else { Found::Empty }
+    }
+
     /// what forcing alone gives from nothing: a cell is known when its other value fails at once, until nothing moves;
     /// (cells known, cells in all), None when a cell has no value left
     fn forced(&self) -> Option<(usize, usize)> {
@@ -638,6 +712,31 @@ pub fn decide(f: &E, class: Class, n: usize, budget: u64) -> Verdict {
     }
 }
 
+/// Nuome solves one n of a problem: the same verdicts, by the search that forces at every step
+pub fn solve_n(f: &E, class: Class, n: usize, budget: u64) -> Verdict {
+    for (name, rows) in plain(class, n) {
+        if holds(f, class, &rows) {
+            return Verdict::Plain(name);
+        }
+    }
+    if sum_forbids(f, class, n) {
+        return Verdict::Impossible(0);
+    }
+    let sieve = Sieve { f, class, n };
+    let Some(s) = sieve.start() else {
+        return Verdict::Impossible(0);
+    };
+    let mut steps = 0;
+    match sieve.deep(&s, &mut steps, budget) {
+        Found::Built(rows) => {
+            assert!(holds(f, class, &rows), "a structure the search built fails the check: a bug in the search");
+            Verdict::Built(rows)
+        }
+        Found::Empty => Verdict::Impossible(steps),
+        Found::OutOfSteps => Verdict::Undecided(steps),
+    }
+}
+
 /// every structure of the class on n points, tried one by one with no search; None when too many to try
 fn enumerate(f: &E, class: Class, n: usize) -> Option<usize> {
     let rows_of = |code: u64| -> Vec<u32> {
@@ -673,6 +772,125 @@ fn enumerate(f: &E, class: Class, n: usize) -> Option<usize> {
         _ => 1u64.checked_shl((n * (n - 1) / 2) as u32)?,
     };
     (total <= 1 << 17).then(|| (0..total).filter(|&c| holds(f, class, &rows_of(c))).count())
+}
+
+// ---------------------------------------------------------------- Nuome solves: the parts a structure can hold
+
+/// points outside a part: as many as you like
+const OUTSIDE: i64 = 1_000_000;
+
+/// can F still be 0 on this pair of a part, whatever points come later? What is counted can only grow, the part's edges
+/// between its own points stay; a range only widens when points are taken away, so a part of a good structure is good
+fn part_pair_ok(f: &E, rows: &[u32], x: usize, y: usize) -> bool {
+    let r = readings(rows, x, y);
+    let mut ranges = [(0, 0); READS];
+    for i in 0..READS {
+        ranges[i] = (r[i], r[i] + OUTSIDE);
+    }
+    ranges[A as usize] = (r[A as usize], r[A as usize]);
+    ranges[B as usize] = (r[B as usize], r[B as usize]);
+    let (l, h) = f.range(&ranges);
+    l <= 0 && h >= 0
+}
+
+/// the new point's edges to the old ones, one at a time, dropping a part as soon as a pair fails
+fn extend(f: &E, class: Class, rows: &mut Vec<u32>, at: usize, out: &mut Vec<Vec<u32>>) {
+    let new = rows.len() - 1;
+    if at == new {
+        out.push(rows.clone());
+        return;
+    }
+    for choice in [false, true] {
+        match (class, choice) {
+            (Tournament, true) => rows[new] |= 1 << at,
+            (Tournament, false) => rows[at] |= 1 << new,
+            (_, true) => {
+                rows[new] |= 1 << at;
+                rows[at] |= 1 << new;
+            }
+            _ => {}
+        }
+        // the pairs this edge can move, among the points whose edge to the new one is known
+        let known = |p: usize| p <= at || p == new;
+        let ok = (0..=new).filter(|&p| known(p)).all(|p| (p == at || part_pair_ok(f, rows, at, p) && part_pair_ok(f, rows, p, at)) && (p == new || (part_pair_ok(f, rows, new, p) && part_pair_ok(f, rows, p, new))));
+        if ok {
+            extend(f, class, rows, at + 1, out);
+        }
+        rows[new] &= !(1 << at);
+        rows[at] &= !(1 << new);
+    }
+}
+
+/// a part written in an order that depends little on its names: the same writing means the same structure, so dropping
+/// the same writing never loses one (two writings of one structure only cost time)
+fn canon(rows: &[u32]) -> Vec<u32> {
+    let n = rows.len();
+    let at = |i: usize, j: usize| (rows[i] >> j & 1) as u64;
+    let mut key: Vec<u64> = (0..n).map(|i| (0..n).map(|j| at(i, j) * 1_000 + at(j, i)).sum()).collect();
+    for _ in 0..3 {
+        key = (0..n)
+            .map(|i| {
+                let mut seen: Vec<u64> = (0..n).filter(|&j| j != i).map(|j| key[j].wrapping_mul(4).wrapping_add(at(i, j) * 2 + at(j, i))).collect();
+                seen.sort_unstable();
+                seen.iter().fold(key[i].wrapping_mul(0x100000001B3), |h, s| (h ^ s).wrapping_mul(0x9E3779B97F4A7C15))
+            })
+            .collect();
+    }
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&i| (key[i], i));
+    order.iter().map(|&i| order.iter().enumerate().fold(0u32, |r, (b, &j)| r | ((rows[i] >> j & 1) << b))).collect()
+}
+
+/// what the parts say of a problem
+pub struct Parts {
+    /// how many parts of each size, from 1
+    pub sizes: Vec<usize>,
+    /// the n decided, each with a structure or none: exact, every structure on n points is among the parts of size n
+    pub decided: Vec<(usize, Option<Vec<u32>>)>,
+    /// no part of this size exists, so no structure on this many points or more
+    pub dies_at: Option<usize>,
+}
+
+const PARTS_MAX: usize = 100_000;
+
+/// every part a structure can hold, size by size, until none is left or there are too many to hold
+pub fn parts(f: &E, class: Class, most: usize) -> Parts {
+    let mut level: Vec<Vec<u32>> = vec![vec![0]];
+    let mut out = Parts { sizes: vec![1], decided: Vec::new(), dies_at: None };
+    for size in 2..MAX_N {
+        let chunk = level.len().div_ceil(12);
+        let found: Vec<Vec<Vec<u32>>> = std::thread::scope(|sc| {
+            let hs: Vec<_> = level
+                .chunks(chunk)
+                .map(|c| {
+                    sc.spawn(move || {
+                        let mut got = Vec::new();
+                        for part in c {
+                            let mut rows = part.clone();
+                            rows.push(0);
+                            extend(f, class, &mut rows, 0, &mut got);
+                        }
+                        got.iter().map(|r| canon(r)).collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            hs.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        let next: std::collections::BTreeSet<Vec<u32>> = found.into_iter().flatten().collect();
+        out.sizes.push(next.len());
+        if next.is_empty() {
+            out.dies_at = Some(size);
+            return out;
+        }
+        level = next.into_iter().collect();
+        if size >= 3 {
+            out.decided.push((size, level.iter().find(|r| holds(f, class, r)).cloned()));
+        }
+        if level.len() > most {
+            return out;
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------- Golden grows the questions
@@ -915,9 +1133,46 @@ pub struct Problem {
     pub class: Class,
     pub f: E,
     pub spectrum: Vec<(usize, Verdict)>,
+    /// no structure on this many points or more
+    pub none_from: Option<usize>,
+    /// how many parts of each size Nuome found, from 1
+    pub part_sizes: Vec<usize>,
 }
 
 impl Problem {
+    /// Nuome solves it as far as the parts go; a verdict of the sieve that the parts contradict is a bug
+    fn solve(&mut self) {
+        let p = parts(&self.f, self.class, PARTS_MAX);
+        for (n, rows) in p.decided {
+            let v = rows.map_or(Verdict::Impossible(0), Verdict::Built);
+            match self.spectrum.iter_mut().find(|x| x.0 == n) {
+                Some(old) => {
+                    let same = match &old.1 {
+                        Verdict::Built(_) => matches!(v, Verdict::Built(_)),
+                        Verdict::Impossible(_) => matches!(v, Verdict::Impossible(_)),
+                        _ => true,
+                    };
+                    assert!(same, "the search and the parts disagree at n = {n}: a bug");
+                    if matches!(old.1, Verdict::Undecided(_)) {
+                        old.1 = v;
+                    }
+                }
+                None => self.spectrum.push((n, v)),
+            }
+        }
+        if let Some(d) = p.dies_at {
+            assert!(!self.spectrum.iter().any(|(n, v)| *n >= d && matches!(v, Verdict::Built(_))), "a structure the parts say cannot exist: a bug");
+            self.spectrum.retain(|(n, _)| *n < d);
+        }
+        self.spectrum.sort_by_key(|x| x.0);
+        self.none_from = p.dies_at;
+        self.part_sizes = p.sizes;
+    }
+
+    pub fn solved(&self) -> bool {
+        self.none_from.is_some() && self.first_open() == usize::MAX
+    }
+
     pub fn first_open(&self) -> usize {
         self.spectrum.iter().find(|(_, v)| matches!(v, Verdict::Undecided(_))).map_or(usize::MAX, |x| x.0)
     }
@@ -945,9 +1200,16 @@ impl Problem {
             self.statement(),
             format!("  reading: {}", self.class.explain()),
             format!("  built and checked: n = {}", list(self.answers())),
-            format!("  impossible (the search ran to its end): n = {}", list(self.none())),
-            format!("  open: n = {} ({LOOK_STEPS} steps of search and {LOOK_MOVES} moves of climbing did not decide)", list(self.open())),
+            format!("  impossible, every structure ruled out: n = {}", list(self.none())),
         ];
+        if !self.open().is_empty() {
+            out.push(format!("  open: n = {} (the sieve's search, its climb and the parts did not decide)", list(self.open())));
+        }
+        let last = self.part_sizes.len();
+        out.push(match self.none_from {
+            Some(d) => format!("  {}: no part of {d} points can be in such a structure, so none on {d} points or more; parts of each size from 1: {:?}", if self.solved() { "SOLVED for every n" } else { "solved from there on" }, self.part_sizes),
+            None => format!("  not solved: the parts grew too many at {last} points; parts of each size from 1: {:?}", self.part_sizes),
+        });
         if let Some((n, Verdict::Built(rows))) = self.spectrum.iter().find(|(_, v)| matches!(v, Verdict::Built(_))) {
             let mut edges = Vec::new();
             for x in 0..*n {
@@ -960,8 +1222,10 @@ impl Problem {
             out.push(format!("  the smallest built, n = {n}: {}", edges.join(" ")));
         }
         let n = self.first_open();
-        if let Some((known, all)) = (Sieve { f: &self.f, class: self.class, n }).forced() {
-            out.push(format!("  forced at n = {n}: {known} of {all} free cells; the choice left is the other {}", all - known));
+        if n != usize::MAX {
+            if let Some((known, all)) = (Sieve { f: &self.f, class: self.class, n }).forced() {
+                out.push(format!("  forced at n = {n}: {known} of {all} free cells; the choice left is the other {}", all - known));
+            }
         }
         let mut again = 0;
         for (n, v) in &self.spectrum {
@@ -1109,11 +1373,16 @@ pub fn invent(log: &mut dyn FnMut(String)) -> Result<Vec<Problem>, String> {
                 twins += 1;
             } else {
                 here += 1;
-                kept.push(Problem { class, f, spectrum });
+                kept.push(Problem { class, f, spectrum, none_from: None, part_sizes: Vec::new() });
             }
         }
         log(format!("{}: {} questions grown, {} looked at further: {here} kept; dropped: {plain_answer} a plain structure answers, {empty} never built or never impossible, {decided} decided on every n to {LOOK_TO}, {parity} looking like parity, {twins} with the same answers as a shorter one ({:.0} s)", class.name(), hall.len(), here + plain_answer + empty + decided + parity + twins, t0.elapsed().as_secs_f64()));
     }
+    let t0 = std::time::Instant::now();
+    for p in kept.iter_mut() {
+        p.solve();
+    }
+    log(format!("Nuome solved {} of the {} for every n ({:.0} s)", kept.iter().filter(|p| p.solved()).count(), kept.len(), t0.elapsed().as_secs_f64()));
     kept.sort_by_key(|p| (p.f.size(), p.first_open(), std::cmp::Reverse(p.built())));
     Ok(kept)
 }
@@ -1121,7 +1390,7 @@ pub fn invent(log: &mut dyn FnMut(String)) -> Result<Vec<Problem>, String> {
 /// `nuome --ideas golden-problems [HOW_MANY]`: the first problems shown, all of them written to bench/golden_problem/invented.md
 pub fn run(how_many: usize) -> Result<(), String> {
     let kept = invent(&mut |l| println!("{l}"))?;
-    let mut text = String::from("# Open problems Golden invented\n\nOpen means undecided by Golden's own short search. Whether anyone has asked or settled the same question is not checked.\n");
+    let mut text = String::from("# Problems Golden invented, solved by Nuome\n\nEach was undecided by the sieve's short search when Golden kept it; then Nuome worked on it, with nothing from outside. Open means Nuome did not decide it. Whether anyone has asked or settled the same question is not checked.\n");
     println!("\n{} problems kept; the first {}:", kept.len(), how_many.min(kept.len()));
     for (i, p) in kept.iter().enumerate() {
         let lines = p.lines();
@@ -1163,7 +1432,7 @@ pub fn answer(kind_logical: bool, kind_abstract: bool) -> Result<(String, Vec<St
     if kind_abstract {
         lines.push("this is an answer that claims nothing".into());
     } else {
-        lines.push("open means undecided by this search; whether anyone has asked or settled the same question is not checked".into());
+        lines.push("open means Nuome did not decide it; whether anyone has asked or settled the same question is not checked".into());
     }
     Ok((format!("{} problems invented", kept.len()), lines, vec![]))
 }
@@ -1294,6 +1563,64 @@ mod tests {
         let b = Mul(minus_one(COMMON_OUT), Box::new(Sub(Box::new(Read(COMMON_IN)), Box::new(Num(4)))));
         assert_eq!(fingerprint(&a, Tournament), fingerprint(&b, Tournament));
         assert_ne!(fingerprint(&a, Tournament), fingerprint(&minus_one(COMMON_IN), Tournament));
+    }
+
+    #[test]
+    fn solving_agrees_with_every_structure_tried() {
+        let mut r = Rng(2718);
+        for class in CLASSES {
+            for _ in 0..300 {
+                let f = random_tree(class, &mut r);
+                for n in 3..=5 {
+                    let any = enumerate(&f, class, n).unwrap() > 0;
+                    let v = solve_n(&f, class, n, u64::MAX);
+                    assert_eq!(any, matches!(v, Verdict::Built(_) | Verdict::Plain(_)), "{} n = {n}: {}", class.name(), f.show(class));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_parts_agree_with_every_structure_tried() {
+        let mut r = Rng(1618);
+        for class in ASKED {
+            for _ in 0..80 {
+                let f = random_tree(class, &mut r);
+                let p = parts(&f, class, 300);
+                for (n, rows) in &p.decided {
+                    if let Some(count) = enumerate(&f, class, *n) {
+                        assert_eq!(count > 0, rows.is_some(), "{} n = {n}: {}", class.name(), f.show(class));
+                    }
+                }
+                if let Some(d) = p.dies_at {
+                    for n in d..=6 {
+                        assert_eq!(enumerate(&f, class, n), Some(0), "{} dies at {d}, n = {n}: {}", class.name(), f.show(class));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn with_no_condition_every_part_is_there() {
+        // at least the structures up to renaming (OEIS A000088, A000568); a few more only if two writings of one remain
+        let sizes = |class| parts(&Num(0), class, 200).sizes;
+        let at_least = |got: Vec<usize>, known: &[usize]| known.iter().zip(&got).all(|(k, g)| g >= k);
+        assert!(at_least(sizes(Graph), &[1, 2, 4, 11, 34, 156]));
+        assert!(at_least(sizes(Tournament), &[1, 1, 2, 4, 12, 56]));
+    }
+
+    #[test]
+    fn the_first_problem_comes_out_the_same_by_the_other_search() {
+        let m = |r: u8| Box::new(Sub(Box::new(Read(r)), Box::new(Num(1))));
+        let p = parts(&Mul(m(COMMON_OUT), m(COMMON_IN)), Tournament, PARTS_MAX);
+        assert_eq!(p.dies_at, Some(11));
+        assert_eq!(p.decided.iter().filter(|x| x.1.is_some()).map(|x| x.0).collect::<Vec<_>>(), [4, 6, 7]);
+        // what the parts die of, asked whole of the search with no parts in it: no pair has two above it and two below
+        let over = |r: u8| Box::new(Max(m(r), Box::new(Num(0))));
+        let no_wings = Min(over(COMMON_OUT), over(COMMON_IN));
+        assert!(matches!(decide(&no_wings, Tournament, 10, 5_000_000), Verdict::Built(_)));
+        assert!(matches!(decide(&no_wings, Tournament, 11, 5_000_000), Verdict::Impossible(_)));
     }
 
     #[test]

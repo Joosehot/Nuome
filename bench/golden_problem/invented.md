@@ -1,6 +1,6 @@
-# Open problems Golden invented
+# Problems Golden invented, solved by Nuome
 
-Open means undecided by Golden's own short search. Whether anyone has asked or settled the same question is not checked.
+Each was undecided by the sieve's short search when Golden kept it; then Nuome worked on it, with nothing from outside. Open means Nuome did not decide it. Whether anyone has asked or settled the same question is not checked.
 
 ## 1
 
@@ -10,13 +10,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10
 
-  open: n = 19, 20 (200000 steps of search and 100000 moves of climbing did not decide)
+  SOLVED for every n: no part of 11 points can be in such a structure, so none on 11 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
-
-  forced at n = 19: 0 of 342 free cells; the choice left is the other 342
 
   the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
 
@@ -28,13 +26,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+  impossible, every structure ruled out: n = 3, 5, 8
 
-  open: n = 24 (200000 steps of search and 100000 moves of climbing did not decide)
+  SOLVED for every n: no part of 9 points can be in such a structure, so none on 9 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 18, 9, 6, 0]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
-
-  forced at n = 24: 0 of 552 free cells; the choice left is the other 552
 
   the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
 
@@ -46,9 +42,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10, 11, 12, 13
 
-  open: n = 14, 15 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 14, 15 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -58,37 +56,37 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
 ## 4
 
-For which n is there a tournament on n points with F(x, y) = 0 for every two distinct points x, y, where F(x, y) = ((2 * (-1 + beat_both(x,y))) * (beats(x,y) * (-1 + both_beat(x,y))))?
-
-  reading: beats(x,y) is 1 when x beats y, out(x) counts whom x beats, both_beat(x,y) whom both beat, beat_both(x,y) who beats both, paths(x,y) the z with x beats z beats y
-
-  built and checked: n = 4, 6, 7
-
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15
-
-  open: n = 16, 17 (200000 steps of search and 100000 moves of climbing did not decide)
-
-  the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
-
-  forced at n = 16: 0 of 240 free cells; the choice left is the other 240
-
-  the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
-
-## 5
-
 For which n is there a tournament on n points with F(x, y) = 0 for every two distinct points x, y, where F(x, y) = ((1 - both_beat(x,y)) * ((beat_both(x,y) + 3) - max(paths(x,y), 4)))?
 
   reading: beats(x,y) is 1 when x beats y, out(x) counts whom x beats, both_beat(x,y) whom both beat, beat_both(x,y) who beats both, paths(x,y) the z with x beats z beats y
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
 
-  open: n = 18, 19 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 18, 19 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
   forced at n = 18: 0 of 306 free cells; the choice left is the other 306
+
+  the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
+
+## 5
+
+For which n is there a tournament on n points with F(x, y) = 0 for every two distinct points x, y, where F(x, y) = ((2 * (-1 + beat_both(x,y))) * (beats(x,y) * (-1 + both_beat(x,y))))?
+
+  reading: beats(x,y) is 1 when x beats y, out(x) counts whom x beats, both_beat(x,y) whom both beat, beat_both(x,y) who beats both, paths(x,y) the z with x beats z beats y
+
+  built and checked: n = 4, 6, 7
+
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10
+
+  SOLVED for every n: no part of 11 points can be in such a structure, so none on 11 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0]
+
+  the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
   the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
 
@@ -100,9 +98,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 9, 11, 13, 15, 17
 
-  impossible (the search ran to its end): n = 3, 5, 8
+  impossible, every structure ruled out: n = 3, 5, 8
 
-  open: n = 10, 12, 14, 16, 18, 19 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 10, 12, 14, 16, 18, 19 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -118,9 +118,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 9
 
-  impossible (the search ran to its end): n = 3, 5, 8, 10
+  impossible, every structure ruled out: n = 3, 5, 8, 10
 
-  open: n = 11, 12 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 11, 12 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 1>2 1>3 3>0 3>2
 
@@ -136,9 +138,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 9, 11, 13, 15, 17, 19
 
-  impossible (the search ran to its end): n = 3, 5, 8, 10
+  impossible, every structure ruled out: n = 3, 5, 8, 10
 
-  open: n = 12, 14, 16, 18, 20, 21 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 12, 14, 16, 18, 20, 21 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -154,9 +158,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 13
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10, 11
 
-  open: n = 12, 14, 15 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 12, 14, 15 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 187857]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -172,9 +178,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 11
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 12, 13, 14, 15
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10, 12, 13, 14, 15
 
-  open: n = 16, 17 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 16, 17 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -190,9 +198,11 @@ For which n is there a graph on n points with F(x, y) = 0 for every two distinct
 
   built and checked: n = 6, 8, 10, 12, 14, 16, 18
 
-  impossible (the search ran to its end): n = 3, 4, 5, 7, 9, 11, 13, 15, 17, 19
+  impossible, every structure ruled out: n = 3, 4, 5, 7, 9, 11, 13, 15, 17, 19
 
-  open: n = 20, 21 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 20, 21 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 2, 4, 11, 42, 220, 1556, 17774, 349148]
 
   the smallest built, n = 6: 0-1 0-2 0-3 0-4 1-2 1-3 1-5 2-4 2-5 3-4 3-5 4-5
 
@@ -202,37 +212,33 @@ For which n is there a graph on n points with F(x, y) = 0 for every two distinct
 
 ## 12
 
-For which n is there a tournament on n points with F(x, y) = 0 for every two distinct points x, y, where F(x, y) = (min((1 - beat_both(x,y)), (beat_both(x,y) + (1 - both_beat(x,y)))) * (1 - both_beat(x,y)))?
-
-  reading: beats(x,y) is 1 when x beats y, out(x) counts whom x beats, both_beat(x,y) whom both beat, beat_both(x,y) who beats both, paths(x,y) the z with x beats z beats y
-
-  built and checked: n = 4, 6, 7
-
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
-
-  open: n = 20, 21 (200000 steps of search and 100000 moves of climbing did not decide)
-
-  the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
-
-  forced at n = 20: 0 of 380 free cells; the choice left is the other 380
-
-  the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
-
-## 13
-
 For which n is there a tournament on n points with F(x, y) = 0 for every two distinct points x, y, where F(x, y) = (min((1 - beat_both(x,y)), (3 + (1 - both_beat(x,y)))) * (1 - both_beat(x,y)))?
 
   reading: beats(x,y) is 1 when x beats y, out(x) counts whom x beats, both_beat(x,y) whom both beat, beat_both(x,y) who beats both, paths(x,y) the z with x beats z beats y
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10
 
-  open: n = 22, 23 (200000 steps of search and 100000 moves of climbing did not decide)
+  SOLVED for every n: no part of 11 points can be in such a structure, so none on 11 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 55, 93, 58, 28, 16, 0]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
-  forced at n = 22: 0 of 462 free cells; the choice left is the other 462
+  the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
+
+## 13
+
+For which n is there a tournament on n points with F(x, y) = 0 for every two distinct points x, y, where F(x, y) = (min((1 - beat_both(x,y)), (beat_both(x,y) + (1 - both_beat(x,y)))) * (1 - both_beat(x,y)))?
+
+  reading: beats(x,y) is 1 when x beats y, out(x) counts whom x beats, both_beat(x,y) whom both beat, beat_both(x,y) who beats both, paths(x,y) the z with x beats z beats y
+
+  built and checked: n = 4, 6, 7
+
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10
+
+  SOLVED for every n: no part of 11 points can be in such a structure, so none on 11 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0]
+
+  the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
   the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
 
@@ -244,13 +250,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10
 
-  open: n = 23, 24 (200000 steps of search and 100000 moves of climbing did not decide)
+  SOLVED for every n: no part of 11 points can be in such a structure, so none on 11 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
-
-  forced at n = 23: 0 of 506 free cells; the choice left is the other 506
 
   the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
 
@@ -262,13 +266,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10
 
-  open: n = 17, 18 (200000 steps of search and 100000 moves of climbing did not decide)
+  SOLVED for every n: no part of 11 points can be in such a structure, so none on 11 points or more; parts of each size from 1: [1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
-
-  forced at n = 17: 0 of 272 free cells; the choice left is the other 272
 
   the search's verdicts tried again one structure at a time, with no search: 4 of the n's above agree (the larger have too many structures)
 
@@ -280,9 +282,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10, 11, 12
 
-  open: n = 13, 14 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 13, 14 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 516, 6451, 131724]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -298,9 +302,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 8, 9
 
-  impossible (the search ran to its end): n = 3, 5, 10, 11, 12, 13
+  impossible, every structure ruled out: n = 3, 5, 10, 11, 12, 13
 
-  open: n = 14, 15 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 14, 15 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -316,9 +322,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7, 8
 
-  impossible (the search ran to its end): n = 3, 5, 9, 10, 11
+  impossible, every structure ruled out: n = 3, 5, 9, 10, 11
 
-  open: n = 12, 13 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 12, 13 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -334,9 +342,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 6, 7
 
-  impossible (the search ran to its end): n = 3, 5, 8, 9, 10, 11, 12, 13, 14
+  impossible, every structure ruled out: n = 3, 5, 8, 9, 10, 11, 12, 13, 14
 
-  open: n = 15, 16 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 15, 16 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -352,9 +362,11 @@ For which n is there a tournament on n points with F(x, y) = 0 for every two dis
 
   built and checked: n = 4, 5, 7
 
-  impossible (the search ran to its end): n = 3, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20
+  impossible, every structure ruled out: n = 3, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20
 
-  open: n = 19, 21, 22 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 19, 21, 22 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 1, 2, 5, 16, 71, 534, 7419, 196977]
 
   the smallest built, n = 4: 0>1 0>2 0>3 1>2 2>3 3>1
 
@@ -370,9 +382,11 @@ For which n is there a graph on n points with F(x, y) = 0 for every two distinct
 
   built and checked: n = 6, 8, 10, 12, 14, 16, 18, 20
 
-  impossible (the search ran to its end): n = 3, 4, 5, 7, 9, 11, 13, 15, 17, 19
+  impossible, every structure ruled out: n = 3, 4, 5, 7, 9, 11, 13, 15, 17, 19
 
-  open: n = 21, 22 (200000 steps of search and 100000 moves of climbing did not decide)
+  open: n = 21, 22 (the sieve's search, its climb and the parts did not decide)
+
+  not solved: the parts grew too many at 9 points; parts of each size from 1: [1, 2, 4, 11, 42, 220, 1556, 17774, 349148]
 
   the smallest built, n = 6: 0-1 0-2 0-3 0-4 1-2 1-3 1-5 2-4 2-5 3-4 3-5 4-5
 
