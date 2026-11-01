@@ -337,13 +337,12 @@ fn child(pop: &[(f64, E)], r: &mut Rng) -> E {
     if c.size() > MAX_NODES { a.clone() } else { c }
 }
 
-/// `nuome --ideas crack-golden [DEPTH] [ROUNDS]`: Golden grows the function on train; judged on smoke
-pub fn run(depth: usize, rounds: usize) -> Result<(), String> {
+/// Golden grows the function on train
+fn grown(rounds: usize) -> Result<E, String> {
     const ISLANDS: usize = 10;
     const POP: usize = 150;
     const GENERATIONS: usize = 40;
     let train = load("bench/crack/train.tsv")?;
-    let smoke = load("bench/crack/smoke.tsv")?;
     let seen: Seen = train.iter().map(|(_, b, v)| (rules(b), patterns(b), *v)).collect();
     let t0 = std::time::Instant::now();
     let mut pops: Vec<Vec<(f64, E)>> = (0..ISLANDS)
@@ -386,7 +385,51 @@ pub fn run(depth: usize, rounds: usize) -> Result<(), String> {
         }
         println!("  round {}: training score {:.3}, {} nodes ({:.0} s)", round + 1, best.0, best.1.size(), t0.elapsed().as_secs_f64());
     }
-    let f = best.1;
+    Ok(best.1)
+}
+
+/// `nuome --ideas crack-rest [FROM] [TO] [ROUNDS]`: the smoke positions a cracker still has wrong searching FROM plies,
+/// searched TO plies, each cracker on its own misses
+pub fn rest(from: usize, to: usize, rounds: usize) -> Result<(), String> {
+    let smoke = load("bench/crack/smoke.tsv")?;
+    let f = grown(rounds)?;
+    let f = &f;
+    let at = |g: &(dyn Fn(&Board) -> V + Sync), d: usize, rows: &[&(String, Board, V)]| -> Vec<V> {
+        let (next, out) = (std::sync::atomic::AtomicUsize::new(0), std::sync::Mutex::new(vec![0 as V; rows.len()]));
+        std::thread::scope(|sc| {
+            for _ in 0..10 {
+                sc.spawn(|| loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= rows.len() {
+                        break;
+                    }
+                    let v = searched_with(&rows[i].1, d, -1, 1, g);
+                    out.lock().unwrap()[i] = v;
+                });
+            }
+        });
+        out.into_inner().unwrap()
+    };
+    let crackers: [(&str, &(dyn Fn(&Board) -> V + Sync)); 2] = [("intuition v0", &crate::crack::intuition), ("Golden's function", &|b: &Board| value(b, f))];
+    let all: Vec<&(String, Board, V)> = smoke.iter().collect();
+    for (name, g) in crackers {
+        let t0 = std::time::Instant::now();
+        let before = at(g, from, &all);
+        let missed: Vec<&(String, Board, V)> = all.iter().zip(&before).filter(|(r, v)| r.2 != **v).map(|(r, _)| *r).collect();
+        let after = at(g, to, &missed);
+        let solved = missed.iter().zip(&after).filter(|(r, v)| r.2 == **v).count();
+        println!("\n{name}: {} of {} wrong at search {from}; at search {to} {solved} of them right, {} still wrong ({:.0} s)", missed.len(), all.len(), missed.len() - solved, t0.elapsed().as_secs_f64());
+        for (r, v) in missed.iter().zip(&after) {
+            println!("  {} {} {} truth {:+} answer {:+}", if r.2 == *v { "right" } else { "WRONG" }, r.0, r.1.fen(), r.2, v);
+        }
+    }
+    Ok(())
+}
+
+/// `nuome --ideas crack-golden [DEPTH] [ROUNDS]`: Golden grows the function on train; judged on smoke
+pub fn run(depth: usize, rounds: usize) -> Result<(), String> {
+    let smoke = load("bench/crack/smoke.tsv")?;
+    let f = grown(rounds)?;
     println!("\nGolden's function ({} nodes; > 0 a win, < 0 a loss, 0 a draw for the side to move):\n{}", f.size(), f.show());
     let f = &f;
     let judge = |name: &str, g: &(dyn Fn(&Board) -> V + Sync)| {

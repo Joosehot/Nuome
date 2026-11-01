@@ -485,6 +485,12 @@ fn main() -> Result<()> {
             nuome::crack_plan::run().map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "crack-rest" {
+            // crack-rest [FROM] [TO] [ROUNDS]: the smoke positions still wrong searching FROM plies, searched TO plies
+            let arg = |i: usize, d: usize| cli.words.get(i).and_then(|w| w.parse().ok()).unwrap_or(d);
+            nuome::crack_golden::rest(arg(0, 4), arg(1, 6), arg(2, 20)).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-golden" {
             // crack-golden [DEPTH] [ROUNDS]: the function Golden grows, looking at the board's patterns
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(2);
