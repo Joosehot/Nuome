@@ -30,6 +30,7 @@ const MEET: [&str; 6] = ["minGap", "maxGap", "aFirst", "bFirst", "together", "su
 pub struct Pat {
     g: [[i16; 64]; GRIDS],
     m: [u64; MASKS],
+    v0: i8,
 }
 
 fn worth(t: usize) -> f64 {
@@ -104,13 +105,14 @@ pub fn patterns(b: &Board) -> Pat {
         }
     }
     m[12] = u64::MAX;
-    Pat { g, m }
+    Pat { g, m, v0: crate::crack::intuition(b) }
 }
 
 /// the function Golden grows
 #[derive(Clone, Debug)]
 pub enum E {
     Num(i32),
+    Intuition,
     Size(u8),
     Read(u8, u8, u8),
     Meet(u8, u8, u8, u8),
@@ -129,6 +131,7 @@ impl E {
     pub fn eval(&self, p: &Pat) -> i64 {
         let v = match self {
             Num(n) => *n as i64,
+            Intuition => p.v0 as i64,
             Size(m) => p.m[*m as usize].count_ones() as i64,
             Read(g, m, how) => {
                 let (mut lo, mut hi, mut sum, mut any) = (i64::MAX, i64::MIN, 0i64, false);
@@ -185,7 +188,7 @@ impl E {
 
     pub fn size(&self) -> usize {
         match self {
-            Num(_) | Size(_) | Read(..) | Meet(..) => 1,
+            Num(_) | Intuition | Size(_) | Read(..) | Meet(..) => 1,
             Add(a, b) | Sub(a, b) | Mul(a, b) | Min(a, b) | Max(a, b) => 1 + a.size() + b.size(),
             If(c, a, b) => 1 + c.size() + a.size() + b.size(),
         }
@@ -194,6 +197,7 @@ impl E {
     pub fn show(&self) -> String {
         match self {
             Num(n) => n.to_string(),
+            Intuition => "v0".to_string(),
             Size(m) => format!("count{}", MASK_NAMES[*m as usize]),
             Read(g, m, h) => format!("{}({}{})", READ[*h as usize], GRID_NAMES[*g as usize], MASK_NAMES[*m as usize]),
             Meet(a, b, m, h) => format!("{}({}|{}{})", MEET[*h as usize], GRID_NAMES[*a as usize], GRID_NAMES[*b as usize], MASK_NAMES[*m as usize]),
@@ -208,7 +212,7 @@ impl E {
 
     fn kids(&self) -> Vec<&E> {
         match self {
-            Num(_) | Size(_) | Read(..) | Meet(..) => vec![],
+            Num(_) | Intuition | Size(_) | Read(..) | Meet(..) => vec![],
             Add(a, b) | Sub(a, b) | Mul(a, b) | Min(a, b) | Max(a, b) => vec![&**a, &**b],
             If(c, a, b) => vec![&**c, &**a, &**b],
         }
@@ -243,7 +247,7 @@ impl E {
             Box::new(out)
         };
         match self {
-            Num(_) | Size(_) | Read(..) | Meet(..) => unreachable!(),
+            Num(_) | Intuition | Size(_) | Read(..) | Meet(..) => unreachable!(),
             Add(a, b) => { let x = step(a); Add(x, step(b)) }
             Sub(a, b) => { let x = step(a); Sub(x, step(b)) }
             Mul(a, b) => { let x = step(a); Mul(x, step(b)) }
@@ -267,8 +271,13 @@ impl Rng {
     }
 }
 
+/// may the function Golden grows read v0's answer?
+static WITH_V0: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn leaf(r: &mut Rng) -> E {
-    match r.below(8) {
+    let kinds = if WITH_V0.load(std::sync::atomic::Ordering::Relaxed) { 9 } else { 8 };
+    match r.below(kinds) {
+        8 => Intuition,
         0 | 1 => Num([-50, -10, -3, -2, -1, 0, 1, 2, 3, 10, 50][r.below(11)]),
         2 => Size(r.below(MASKS) as u8),
         3 | 4 => Read(r.below(GRIDS) as u8, r.below(MASKS) as u8, r.below(3) as u8),
@@ -422,6 +431,81 @@ pub fn rest(from: usize, to: usize, rounds: usize) -> Result<(), String> {
         for (r, v) in missed.iter().zip(&after) {
             println!("  {} {} {} truth {:+} answer {:+}", if r.2 == *v { "right" } else { "WRONG" }, r.0, r.1.fen(), r.2, v);
         }
+    }
+    Ok(())
+}
+
+/// v0 and Golden's function joined by a table of nine answers, chosen on train alone: the answer for each pair
+#[derive(Clone, Copy)]
+struct Joint([V; 9]);
+impl Joint {
+    fn at(&self, a: V, b: V) -> V {
+        self.0[((a + 1) * 3 + (b + 1)) as usize]
+    }
+}
+
+/// `nuome --ideas crack-both [DEPTH] [ROUNDS]`: can v0 and Golden's function be joined? Three ways, judged on smoke:
+/// a table of their answers at the search's leaves; each searching alone with the disagreements drawn; a function grown
+/// again that may read v0's answer as one of its patterns
+pub fn both(depth: usize, rounds: usize) -> Result<(), String> {
+    let train = load("bench/crack/train.tsv")?;
+    let smoke = load("bench/crack/smoke.tsv")?;
+    let f = grown(rounds)?;
+    WITH_V0.store(true, std::sync::atomic::Ordering::Relaxed);
+    let g = grown(rounds)?;
+    WITH_V0.store(false, std::sync::atomic::Ordering::Relaxed);
+    println!("\nGrown with v0 ({} nodes): {}", g.size(), g.show());
+    let (f, g) = (&f, &g);
+    // every table of nine answers, the best on train (ties: the one closest to v0's own answers)
+    let pairs: Vec<(V, V, V)> = train.iter().map(|(_, b, v)| (crate::crack::intuition(b), value(b, f), *v)).collect();
+    let mut counts = [[0usize; 3]; 9];
+    for (a, b, v) in &pairs {
+        counts[((a + 1) * 3 + (b + 1)) as usize][(v + 1) as usize] += 1;
+    }
+    let mut joint = Joint([0; 9]);
+    for k in 0..9 {
+        let v0 = (k / 3) as V - 1;
+        let top = *counts[k].iter().max().unwrap();
+        joint.0[k] = if counts[k][(v0 + 1) as usize] == top { v0 } else { (0..3).find(|&o| counts[k][o] == top).unwrap() as V - 1 };
+    }
+    println!("\nThe table Golden chose on train (v0, function -> answer), with the truth's counts [loss draw win]:");
+    for k in 0..9 {
+        println!("  {:+} {:+} -> {:+}   {:?}", (k / 3) as i32 - 1, (k % 3) as i32 - 1, joint.0[k], counts[k]);
+    }
+    let joined = |b: &Board| joint.at(crate::crack::intuition(b), value(b, f));
+    let joined = &joined;
+    let judge = |name: &str, h: &(dyn Fn(&Board) -> V + Sync)| {
+        let right: Vec<bool> = std::thread::scope(|sc| {
+            let hs: Vec<_> = smoke.chunks(smoke.len().div_ceil(10)).map(|c| sc.spawn(move || c.iter().map(|r| h(&r.1) == r.2).collect::<Vec<_>>())).collect();
+            hs.into_iter().flat_map(|h| h.join().unwrap()).collect()
+        });
+        let mut by: std::collections::BTreeMap<&str, (usize, usize)> = Default::default();
+        for (r, ok) in smoke.iter().zip(&right) {
+            let e = by.entry(r.0.as_str()).or_default();
+            e.0 += *ok as usize;
+            e.1 += 1;
+        }
+        let total = right.iter().filter(|x| **x).count();
+        let mut classes: Vec<&str> = smoke.iter().map(|r| r.0.as_str()).collect();
+        classes.dedup();
+        println!("{name}: {total}/{} ({:.1}%)\n    {}", smoke.len(), 100.0 * total as f64 / smoke.len() as f64, classes.iter().filter(|c| by[**c].0 < by[**c].1).map(|c| format!("{c} {}", by[c].0)).collect::<Vec<_>>().join("  "));
+    };
+    let v0 = |b: &Board| crate::crack::intuition(b);
+    let v0 = &v0;
+    let one = |b: &Board| value(b, f);
+    let one = &one;
+    let two = |b: &Board| value(b, g);
+    let two = &two;
+    for d in 0..=depth {
+        println!("\nsearch {d} (the classes not full, n = 25 each):");
+        judge("  v0", &|b: &Board| searched_with(b, d, -1, 1, v0));
+        judge("  the function", &|b: &Board| searched_with(b, d, -1, 1, one));
+        judge("  joined by the table at the leaves", &|b: &Board| searched_with(b, d, -1, 1, joined));
+        judge("  each alone, disagreement a draw", &|b: &Board| {
+            let (x, y) = (searched_with(b, d, -1, 1, v0), searched_with(b, d, -1, 1, one));
+            if x == y { x } else { 0 }
+        });
+        judge("  grown with v0", &|b: &Board| searched_with(b, d, -1, 1, two));
     }
     Ok(())
 }
