@@ -492,9 +492,10 @@ fn main() -> Result<()> {
             return Ok(());
         }
         if which == "crack-rest" {
-            // crack-rest [FROM] [TO] [ROUNDS]: the smoke positions still wrong searching FROM plies, searched TO plies
+            // crack-rest [FROM] [TO,TO,...] [ROUNDS]: the smoke positions still wrong searching FROM plies, searched TO plies
             let arg = |i: usize, d: usize| cli.words.get(i).and_then(|w| w.parse().ok()).unwrap_or(d);
-            nuome::crack_golden::rest(arg(0, 4), arg(1, 6), arg(2, 20)).map_err(|e| anyhow::anyhow!(e))?;
+            let tos: Vec<usize> = cli.words.get(1).map_or(vec![6], |w| w.split(',').filter_map(|x| x.parse().ok()).collect());
+            nuome::crack_golden::rest(arg(0, 4), &tos, arg(2, 20)).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
         if which == "crack-golden" {
