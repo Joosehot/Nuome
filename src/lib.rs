@@ -57,6 +57,7 @@ pub mod retro_gpu;
 pub mod crack;
 pub mod crack_invent;
 pub mod crack_wave;
+pub mod crack_golden;
 pub mod crack_plan;
 pub mod golden_terms;
 pub mod chess_network;

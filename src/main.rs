@@ -485,6 +485,13 @@ fn main() -> Result<()> {
             nuome::crack_plan::run().map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "crack-golden" {
+            // crack-golden [DEPTH] [ROUNDS]: the function Golden grows, looking at the board's patterns
+            let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(2);
+            let rounds = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(20);
+            nuome::crack_golden::run(depth, rounds).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-wave" {
             // crack-wave [DEPTH]: the wave model: every piece's pattern on the board, the patterns meeting, the value read from the waves
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(3);

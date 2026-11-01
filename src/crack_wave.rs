@@ -215,7 +215,7 @@ pub fn names() -> Vec<String> {
     v
 }
 
-fn load(path: &str) -> Result<Vec<(String, Board, V)>, String> {
+pub fn load(path: &str) -> Result<Vec<(String, Board, V)>, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
     text.lines()
         .filter(|l| !l.trim().is_empty())
