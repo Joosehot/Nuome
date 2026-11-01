@@ -500,7 +500,7 @@ fn main() -> Result<()> {
         }
         if which == "crack-golden" {
             // crack-golden [DEPTH] [ROUNDS]: the function Golden grows, looking at the board's patterns
-            let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(2);
+            let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(6);
             let rounds = cli.words.get(1).and_then(|w| w.parse().ok()).unwrap_or(20);
             nuome::crack_golden::run(depth, rounds).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
