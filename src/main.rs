@@ -498,6 +498,12 @@ fn main() -> Result<()> {
             nuome::crack_golden::rest(arg(0, 4), &tos, arg(2, 20)).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "golden-problems" {
+            // golden-problems [HOW_MANY]: Golden invents new open problems; written to bench/golden_problem/invented.md
+            let how_many = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10);
+            nuome::golden_problem::run(how_many).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "crack-golden" {
             // crack-golden [DEPTH] [ROUNDS]: the function Golden grows, looking at the board's patterns
             let depth = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(6);

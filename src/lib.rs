@@ -36,6 +36,7 @@ pub mod golden_optimal;
 pub mod golden_grow;
 pub mod star_search;
 pub mod golden_pattern;
+pub mod golden_problem;
 pub mod golden_grandmasters;
 pub mod golden_move;
 pub mod theory_engine;
