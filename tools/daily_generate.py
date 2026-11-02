@@ -5,7 +5,7 @@ more from the next seed (`nuome --ideas golden-daily SEED OUT`, about 3 minutes 
 as they are. Before a puzzle is written it is checked here with no code from Nuome: every structure built, and every
 structure there is on up to 6 points.
 
-Usage: python tools/daily_generate.py [--days 60] [--launch 2026-11-03]
+Usage: python tools/daily_generate.py [--days 60] [--launch 2026-11-02]
 """
 import argparse, datetime, glob, itertools, json, os, re, subprocess, sys
 
@@ -117,7 +117,7 @@ def solution(p):
 def main():
     a = argparse.ArgumentParser()
     a.add_argument("--days", type=int, default=60)
-    a.add_argument("--launch", default="2026-11-03")
+    a.add_argument("--launch", default="2026-11-02")
     args = a.parse_args()
     launch = datetime.date.fromisoformat(args.launch)
     today = datetime.datetime.now(datetime.timezone.utc).date()

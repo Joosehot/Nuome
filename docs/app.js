@@ -2,6 +2,7 @@
 
 const MOST_ATTEMPTS = 3;
 const STEP_MS = 450;
+const MOST_DAYS_BACK = 7;
 const $ = id => document.getElementById(id);
 
 function load(key, otherwise) {
@@ -222,14 +223,20 @@ function play(p, day) {
 
 async function main() {
   showStats();
-  const day = utcDay(new Date());
-  try {
-    const r = await fetch(`puzzles/${day}.json`);
-    if (!r.ok) throw new Error(String(r.status));
-    play(await r.json(), day);
-  } catch (e) {
-    $("none").hidden = false;
+  // today's, or the latest one until the next is out
+  let day = utcDay(new Date());
+  for (let back = 0; back < MOST_DAYS_BACK; back++, day = dayBefore(day)) {
+    try {
+      const r = await fetch(`puzzles/${day}.json`);
+      if (r.ok) {
+        play(await r.json(), day);
+        return;
+      }
+    } catch (e) {
+      break;
+    }
   }
+  $("none").hidden = false;
 }
 
 main();
