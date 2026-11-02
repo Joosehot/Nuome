@@ -498,6 +498,13 @@ fn main() -> Result<()> {
             nuome::crack_golden::rest(arg(0, 4), &tos, arg(2, 20)).map_err(|e| anyhow::anyhow!(e))?;
             return Ok(());
         }
+        if which == "golden-daily" {
+            // golden-daily SEED OUT: the puzzles Nuome Daily can ask from one seed, written to the file OUT
+            let seed = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(0);
+            let out = cli.words.get(1).map_or("daily.json", |w| w.as_str());
+            nuome::golden_daily::run(seed, out).map_err(|e| anyhow::anyhow!(e))?;
+            return Ok(());
+        }
         if which == "golden-problems" {
             // golden-problems [HOW_MANY]: Golden invents new open problems; written to bench/golden_problem/invented.md
             let how_many = cli.words.first().and_then(|w| w.parse().ok()).unwrap_or(10);

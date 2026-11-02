@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuome Daily</title>
+<meta name="description" content="A new math problem every day, invented by Nuome. Solve it, then see how Nuome worked it out.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Nuome Daily</h1>
+    <p id="meta" class="muted"></p>
+  </header>
+
+  <section id="puzzle" hidden>
+    <p id="question" class="math"></p>
+    <ul id="definitions" class="math muted"></ul>
+    <form id="form" autocomplete="off">
+      <label for="guess">Your answer: every n that works</label>
+      <div class="row">
+        <input id="guess" class="math" inputmode="text" placeholder="e.g. 4, 6, 7">
+        <button type="submit">Submit</button>
+      </div>
+    </form>
+    <p id="message" role="status"></p>
+    <ul id="attempts" class="math"></ul>
+    <div class="row actions">
+      <button id="giveup" type="button" class="quiet">Give up</button>
+      <button id="reveal" type="button" hidden>Show Nuome's solution</button>
+      <button id="share" type="button" class="quiet" hidden>Share result</button>
+    </div>
+    <p id="shared" class="muted" role="status"></p>
+    <div id="solution" class="math" hidden></div>
+  </section>
+
+  <p id="none" hidden>No puzzle today. The next one is on its way.</p>
+
+  <section id="stats" class="muted" aria-label="Your stats"></section>
+</main>
+<footer>
+  <p>Solved and checked by Nuome — a deterministic math engine, no neural network.
+  <a href="https://github.com/Joosehot/Nuome">Nuome on GitHub</a></p>
+  <p class="muted">Each problem is invented by Nuome's Golden function. Whether anyone has asked it before is not checked.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

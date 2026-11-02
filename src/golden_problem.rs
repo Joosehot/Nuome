@@ -39,17 +39,17 @@ pub const CLASSES: [Class; 3] = [Graph, Tournament, Map];
 /// the classes Golden writes problems in
 const ASKED: [Class; 2] = [Graph, Tournament];
 
-const READS: usize = 10;
-const A: u8 = 0;
-const B: u8 = 1;
-const OUT_X: u8 = 2;
-const OUT_Y: u8 = 3;
-const IN_X: u8 = 4;
-const IN_Y: u8 = 5;
-const COMMON_OUT: u8 = 6;
-const COMMON_IN: u8 = 7;
-const PATHS: u8 = 8;
-const SIZE: u8 = 9;
+pub(crate) const READS: usize = 10;
+pub(crate) const A: u8 = 0;
+pub(crate) const B: u8 = 1;
+pub(crate) const OUT_X: u8 = 2;
+pub(crate) const OUT_Y: u8 = 3;
+pub(crate) const IN_X: u8 = 4;
+pub(crate) const IN_Y: u8 = 5;
+pub(crate) const COMMON_OUT: u8 = 6;
+pub(crate) const COMMON_IN: u8 = 7;
+pub(crate) const PATHS: u8 = 8;
+pub(crate) const SIZE: u8 = 9;
 
 impl Class {
     pub fn name(self) -> &'static str {
@@ -104,7 +104,7 @@ fn clamp(x: i64) -> i64 {
 
 impl E {
     /// the value on readings all known
-    fn val(&self, r: &[i64; READS]) -> i64 {
+    pub(crate) fn val(&self, r: &[i64; READS]) -> i64 {
         match self {
             Num(n) => *n,
             Read(i) => r[*i as usize],
@@ -174,7 +174,7 @@ impl E {
         }
     }
 
-    fn kids(&self) -> Vec<&E> {
+    pub(crate) fn kids(&self) -> Vec<&E> {
         match self {
             Num(_) | Read(_) => vec![],
             Add(a, b) | Sub(a, b) | Mul(a, b) | Min(a, b) | Max(a, b) => vec![a, b],
@@ -276,7 +276,7 @@ impl E {
 // ---------------------------------------------------------------- one structure, whole
 
 /// the readings of two points of a whole structure, counted one by one (the search's masks are not used here)
-fn readings(rows: &[u32], x: usize, y: usize) -> [i64; READS] {
+pub(crate) fn readings(rows: &[u32], x: usize, y: usize) -> [i64; READS] {
     let n = rows.len();
     let at = |i: usize, j: usize| (rows[i] >> j & 1) as i64;
     let mut r = [0i64; READS];
@@ -855,9 +855,18 @@ const PARTS_MAX: usize = 100_000;
 
 /// every part a structure can hold, size by size, until none is left or there are too many to hold
 pub fn parts(f: &E, class: Class, most: usize) -> Parts {
+    parts_to(f, class, most, MAX_N).0
+}
+
+/// the parts of one size themselves (up to two writings of one structure)
+pub fn all_parts(f: &E, class: Class, size: usize, most: usize) -> Vec<Vec<u32>> {
+    parts_to(f, class, most, size + 1).1
+}
+
+fn parts_to(f: &E, class: Class, most: usize, stop: usize) -> (Parts, Vec<Vec<u32>>) {
     let mut level: Vec<Vec<u32>> = vec![vec![0]];
     let mut out = Parts { sizes: vec![1], decided: Vec::new(), dies_at: None };
-    for size in 2..MAX_N {
+    for size in 2..stop {
         let chunk = level.len().div_ceil(12);
         let found: Vec<Vec<Vec<u32>>> = std::thread::scope(|sc| {
             let hs: Vec<_> = level
@@ -880,22 +889,22 @@ pub fn parts(f: &E, class: Class, most: usize) -> Parts {
         out.sizes.push(next.len());
         if next.is_empty() {
             out.dies_at = Some(size);
-            return out;
+            return (out, Vec::new());
         }
         level = next.into_iter().collect();
         if size >= 3 {
             out.decided.push((size, level.iter().find(|r| holds(f, class, r)).cloned()));
         }
         if level.len() > most {
-            return out;
+            return (out, level);
         }
     }
-    out
+    (out, level)
 }
 
 // ---------------------------------------------------------------- Golden grows the questions
 
-struct Rng(u64);
+pub(crate) struct Rng(pub(crate) u64);
 impl Rng {
     fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
@@ -917,7 +926,7 @@ fn leaf(class: Class, r: &mut Rng) -> E {
     }
 }
 
-fn grow(class: Class, r: &mut Rng, depth: usize) -> E {
+pub(crate) fn grow(class: Class, r: &mut Rng, depth: usize) -> E {
     if depth == 0 || r.below(5) == 0 {
         return leaf(class, r);
     }
@@ -1061,6 +1070,10 @@ fn score(f: &E, class: Class) -> f64 {
 }
 
 fn child(class: Class, pop: &[(f64, E)], r: &mut Rng) -> E {
+    child_up_to(class, pop, r, MAX_NODES)
+}
+
+pub(crate) fn child_up_to(class: Class, pop: &[(f64, E)], r: &mut Rng, most: usize) -> E {
     let pick = |r: &mut Rng| {
         let mut best = r.below(pop.len());
         for _ in 0..3 {
@@ -1082,16 +1095,16 @@ fn child(class: Class, pop: &[(f64, E)], r: &mut Rng) -> E {
         _ => leaf(class, r),
     };
     let c = a.with(at, &new);
-    if c.size() > MAX_NODES { a.clone() } else { c }
+    if c.size() > most { a.clone() } else { c }
 }
 
-/// the questions Golden grew for a class, best first
-fn grown(class: Class) -> Vec<(f64, E)> {
+/// the questions Golden grew for a class, best first; another seed grows others, seed 0 is the first run's
+fn grown(class: Class, seed: u64) -> Vec<(f64, E)> {
     let halls: Vec<BTreeMap<String, (f64, E)>> = std::thread::scope(|sc| {
         let hs: Vec<_> = (0..ISLANDS)
             .map(|i| {
                 sc.spawn(move || {
-                    let mut r = Rng(0x9E3779B97F4A7C15 ^ ((class as u64 * 97 + i as u64 + 1) << 32));
+                    let mut r = Rng(0x9E3779B97F4A7C15 ^ ((class as u64 * 97 + i as u64 + 1) << 32) ^ seed.wrapping_mul(0xD1342543DE82EF95));
                     let mut pop: Vec<(f64, E)> = (0..POP).map(|k| { let e = grow(class, &mut r, 1 + k % 5); (score(&e, class), e) }).collect();
                     let mut hall = BTreeMap::new();
                     for _ in 0..GENERATIONS {
@@ -1141,7 +1154,7 @@ pub struct Problem {
 
 impl Problem {
     /// Nuome solves it as far as the parts go; a verdict of the sieve that the parts contradict is a bug
-    fn solve(&mut self) {
+    pub(crate) fn solve(&mut self) {
         let p = parts(&self.f, self.class, PARTS_MAX);
         for (n, rows) in p.decided {
             let v = rows.map_or(Verdict::Impossible(0), Verdict::Built);
@@ -1227,6 +1240,12 @@ impl Problem {
                 out.push(format!("  forced at n = {n}: {known} of {all} free cells; the choice left is the other {}", all - known));
             }
         }
+        out.push(format!("  the search's verdicts tried again one structure at a time, with no search: {} of the n's above agree (the larger have too many structures)", self.tried_again()));
+        out
+    }
+
+    /// the verdicts tried again one structure at a time, with no search: how many n's were small enough; a disagreement is a bug
+    pub fn tried_again(&self) -> usize {
         let mut again = 0;
         for (n, v) in &self.spectrum {
             if let Some(count) = enumerate(&self.f, self.class, *n) {
@@ -1234,14 +1253,13 @@ impl Problem {
                 assert_eq!(count > 0, matches!(v, Verdict::Built(_) | Verdict::Plain(_)), "the search and the enumeration disagree at n = {n}: a bug in the search");
             }
         }
-        out.push(format!("  the search's verdicts tried again one structure at a time, with no search: {again} of the n's above agree (the larger have too many structures)"));
-        out
+        again
     }
 }
 
 /// F's zeros on a fixed handful of structures: two questions the same here are taken to be the same question. A
 /// tournament with every game turned round is a tournament, so a question and its mirror are one
-fn fingerprint(f: &E, class: Class) -> u64 {
+pub(crate) fn fingerprint(f: &E, class: Class) -> u64 {
     let mut r = Rng(0xABCDEF0123456789);
     let (mut h, mut mirror) = (0xCBF29CE484222325u64, 0xCBF29CE484222325u64);
     for k in 0..150 {
@@ -1292,7 +1310,7 @@ fn looks_like_parity(spectrum: &[(usize, Verdict)]) -> bool {
 }
 
 /// looks further at a question, n by n, until two n's in a row are undecided
-fn look(f: &E, class: Class) -> Vec<(usize, Verdict)> {
+pub(crate) fn look(f: &E, class: Class) -> Vec<(usize, Verdict)> {
     let mut out = Vec::new();
     let mut open = 0;
     for n in 3..=LOOK_TO {
@@ -1336,13 +1354,18 @@ fn validated() -> Result<Vec<String>, String> {
 
 /// Golden writes its problems: the validation, then the kept ones, the shortest statement first
 pub fn invent(log: &mut dyn FnMut(String)) -> Result<Vec<Problem>, String> {
+    invent_from(0, log)
+}
+
+/// the same from another seed
+pub fn invent_from(seed: u64, log: &mut dyn FnMut(String)) -> Result<Vec<Problem>, String> {
     for l in validated()? {
         log(l);
     }
     let mut kept = Vec::new();
     for class in ASKED {
         let t0 = std::time::Instant::now();
-        let hall = grown(class);
+        let hall = grown(class, seed);
         let mut seen = std::collections::BTreeSet::new();
         let mut finalists: Vec<E> = hall.iter().map(|(_, e)| e.tidy()).filter(|e| seen.insert(fingerprint(e, class))).take(FINALISTS).collect();
         finalists.sort_by_key(|e| e.size());

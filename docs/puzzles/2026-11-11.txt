@@ -1,0 +1,15 @@
+For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: min(beat_both(x,y), out(y)) = 1 or both_beat(x,y) = 1?
+
+  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]
+  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]
+  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]
+  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]
+  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]
+  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]
+  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]
+  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 1>2 1>3 1>4 1>5 1>7 1>8 2>3 2>4 2>5 2>6 2>7 2>9 3>4 4>5 5>3 6>1 6>3 6>4 6>5 6>8 6>9 7>0 7>3 7>4 7>5 7>6 7>8 8>0 8>2 8>3 8>4 8>5 8>9 9>0 9>1 9>3 9>4 9>5 9>7   [built]
+  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0). None on 11 or more.   [parts]
+
+Answer: n = 4, 6, 7, 10
+  ok built: the condition holds on every ordered pair of each of the 4 structures, checked again from scratch
+  ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held

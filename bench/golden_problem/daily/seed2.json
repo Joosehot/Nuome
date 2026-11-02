@@ -1,0 +1,3500 @@
+[
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 10,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10
+    ],
+    "key": "tournament-6beb56630ee2691b",
+    "question": "For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: beat_both(x,y) = 1 or both_beat(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0). None on 11 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "sub",
+        [
+          "num",
+          1
+        ],
+        [
+          "read",
+          7
+        ]
+      ],
+      [
+        "sub",
+        [
+          "num",
+          1
+        ],
+        [
+          "read",
+          6
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7,
+      10
+    ],
+    "answer_line": "Answer: n = 4, 6, 7, 10",
+    "bound": 10,
+    "built": {
+      "10": [
+        126,
+        444,
+        760,
+        16,
+        32,
+        8,
+        826,
+        377,
+        573,
+        187
+      ],
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 4 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "out(y) is how many players y beats",
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9
+    ],
+    "key": "tournament-120b6bbd768d7dbb",
+    "question": "For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: min(beat_both(x,y), out(y)) = 1 or both_beat(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 1>2 1>3 1>4 1>5 1>7 1>8 2>3 2>4 2>5 2>6 2>7 2>9 3>4 4>5 5>3 6>1 6>3 6>4 6>5 6>8 6>9 7>0 7>3 7>4 7>5 7>6 7>8 8>0 8>2 8>3 8>4 8>5 8>9 9>0 9>1 9>3 9>4 9>5 9>7   [built]",
+      "  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0). None on 11 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "add",
+        [
+          "min",
+          [
+            "read",
+            7
+          ],
+          [
+            "read",
+            3
+          ]
+        ],
+        [
+          "num",
+          -1
+        ]
+      ],
+      [
+        "sub",
+        [
+          "read",
+          6
+        ],
+        [
+          "num",
+          1
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 10,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "beats(x,y) is 1 when x beats y, otherwise 0",
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10
+    ],
+    "key": "tournament-8a64f010e3278f2b",
+    "question": "For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: beats(x,y) = 0 or both_beat(x,y) = 1 or beat_both(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0). None on 11 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "read",
+          0
+        ],
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            6
+          ]
+        ]
+      ],
+      [
+        "sub",
+        [
+          "num",
+          1
+        ],
+        [
+          "read",
+          7
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 19,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        62,
+        12,
+        24,
+        48,
+        34,
+        6
+      ],
+      "7": [
+        14,
+        52,
+        88,
+        98,
+        41,
+        69,
+        19
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "key": "tournament-9c4a215c911f9fed",
+    "question": "For which n from 3 to 19 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: min(|(1 - beat_both(x,y))|, paths(x,y)) = 0 or both_beat(x,y) = paths(x,y)?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 0>4 0>5 1>2 1>3 2>3 2>4 3>4 3>5 4>1 4>5 5>1 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 2>6 3>1 3>5 3>6 4>0 4>3 4>5 5>0 5>2 5>6 6>0 6>1 6>4   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: none exists; the search ran to its end.   [ran_to_end]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: none exists; the search ran to its end.   [ran_to_end]",
+      " 13.  n = 15: none exists; the search ran to its end.   [ran_to_end]",
+      " 14.  n = 16: none exists; the search ran to its end.   [ran_to_end]",
+      " 15.  n = 17: none exists; the search ran to its end.   [ran_to_end]",
+      " 16.  n = 18: none exists; the search ran to its end.   [ran_to_end]",
+      " 17.  n = 19: none exists; the search ran to its end.   [ran_to_end]",
+      " 18.  Above 19: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "min",
+        [
+          "abs",
+          [
+            "sub",
+            [
+              "num",
+              1
+            ],
+            [
+              "read",
+              7
+            ]
+          ]
+        ],
+        [
+          "read",
+          8
+        ]
+      ],
+      [
+        "sub",
+        [
+          "read",
+          6
+        ],
+        [
+          "read",
+          8
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 11,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10,
+      11
+    ],
+    "key": "tournament-32b68ae3c6b1c1f9",
+    "question": "For which n from 3 to 11 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: both_beat(x,y) = 4 or both_beat(x,y) = 1 or beat_both(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  Above 11: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "sub",
+        [
+          "read",
+          6
+        ],
+        [
+          "num",
+          4
+        ]
+      ],
+      [
+        "mul",
+        [
+          "sub",
+          [
+            "read",
+            6
+          ],
+          [
+            "num",
+            1
+          ]
+        ],
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            7
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 12,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        30,
+        44,
+        24,
+        48,
+        34,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "key": "tournament-ce386f47ba8b5473",
+    "question": "For which n from 3 to 12 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: paths(x,y) = 1 or beat_both(x,y) = 1 or both_beat(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>5 2>3 2>4 3>4 3>5 4>1 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: none exists; the search ran to its end.   [ran_to_end]",
+      " 11.  Above 12: the parts such a tournament can hold, grown point by point, run out at 13 points (how many of each size from 1: 1, 1, 2, 5, 16, 71, 534, 2177, 1874, 916, 56, 40, 0). None on 13 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "add",
+          [
+            "read",
+            8
+          ],
+          [
+            "num",
+            -1
+          ]
+        ],
+        [
+          "add",
+          [
+            "read",
+            7
+          ],
+          [
+            "num",
+            -1
+          ]
+        ]
+      ],
+      [
+        "add",
+        [
+          "read",
+          6
+        ],
+        [
+          "num",
+          -1
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      9,
+      10,
+      11,
+      12
+    ],
+    "answer_line": "Answer: n = 4, 6, 9, 10, 11, 12",
+    "bound": 12,
+    "built": {
+      "10": [
+        510,
+        572,
+        568,
+        464,
+        480,
+        456,
+        646,
+        774,
+        582,
+        57
+      ],
+      "11": [
+        2046,
+        1020,
+        1144,
+        1136,
+        928,
+        960,
+        912,
+        1292,
+        1548,
+        1164,
+        114
+      ],
+      "12": [
+        3034,
+        2968,
+        611,
+        4020,
+        1636,
+        1603,
+        2442,
+        3124,
+        1204,
+        2496,
+        583,
+        1332
+      ],
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        12,
+        56,
+        48,
+        35,
+        3
+      ],
+      "9": [
+        30,
+        60,
+        456,
+        464,
+        452,
+        29,
+        163,
+        291,
+        99
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 6 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      7,
+      8
+    ],
+    "key": "tournament-09209e5ba2ffcb1b",
+    "question": "For which n from 3 to 12 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: (if (both_beat(x,y) - paths(x,y)) != 0 then 0 else max(-1, ((-1 + both_beat(x,y)) + beat_both(x,y)))) = 0?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>3 2>3 2>4 2>5 3>4 3>5 4>0 4>1 4>5 5>0 5>1   [built]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>6 2>7 2>8 3>4 3>6 3>7 3>8 4>2 4>6 4>7 4>8 5>0 5>2 5>3 5>4 6>0 6>1 6>5 6>7 7>0 7>1 7>5 7>8 8>0 8>1 8>5 8>6   [built]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 1>2 1>3 1>4 1>5 1>9 2>3 2>4 2>5 2>9 3>4 3>6 3>7 3>8 4>5 4>6 4>7 4>8 5>3 5>6 5>7 5>8 6>1 6>2 6>7 6>9 7>1 7>2 7>8 7>9 8>1 8>2 8>6 8>9 9>0 9>3 9>4 9>5   [built]",
+      "  9.  n = 11: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 0>9 0>10 1>2 1>3 1>4 1>5 1>6 1>7 1>8 1>9 2>3 2>4 2>5 2>6 2>10 3>4 3>5 3>6 3>10 4>5 4>7 4>8 4>9 5>6 5>7 5>8 5>9 6>4 6>7 6>8 6>9 7>2 7>3 7>8 7>10 8>2 8>3 8>9 8>10 9>2 9>3 9>7 9>10 10>1 10>4 10>5 10>6   [built]",
+      " 10.  n = 12: here is one: 0>1 0>3 0>4 0>6 0>7 0>8 0>9 0>11 1>3 1>4 1>7 1>8 1>9 1>11 2>0 2>1 2>5 2>6 2>9 3>2 3>4 3>5 3>7 3>8 3>9 3>10 3>11 4>2 4>5 4>6 4>9 4>10 5>0 5>1 5>6 5>9 5>10 6>1 6>3 6>7 6>8 6>11 7>2 7>4 7>5 7>10 7>11 8>2 8>4 8>5 8>7 8>10 9>6 9>7 9>8 9>11 10>0 10>1 10>2 10>6 10>9 11>2 11>4 11>5 11>8 11>10   [built]",
+      " 11.  Above 12: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "if",
+      [
+        "sub",
+        [
+          "read",
+          6
+        ],
+        [
+          "read",
+          8
+        ]
+      ],
+      [
+        "num",
+        0
+      ],
+      [
+        "max",
+        [
+          "num",
+          -1
+        ],
+        [
+          "add",
+          [
+            "add",
+            [
+              "num",
+              -1
+            ],
+            [
+              "read",
+              6
+            ]
+          ],
+          [
+            "read",
+            7
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 14,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "key": "tournament-0629585dbd25f6f2",
+    "question": "For which n from 3 to 14 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: both_beat(x,y) = paths(x,y) or both_beat(x,y) = 1 or beat_both(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: none exists; the search ran to its end.   [ran_to_end]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: none exists; the search ran to its end.   [ran_to_end]",
+      " 13.  Above 14: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "abs",
+          [
+            "sub",
+            [
+              "read",
+              6
+            ],
+            [
+              "read",
+              8
+            ]
+          ]
+        ],
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            6
+          ]
+        ]
+      ],
+      [
+        "sub",
+        [
+          "num",
+          1
+        ],
+        [
+          "read",
+          7
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "answer_line": "Answer: n = 4, 6, 9, 10, 11, 12, 13",
+    "bound": 13,
+    "built": {
+      "10": [
+        62,
+        124,
+        120,
+        976,
+        992,
+        968,
+        897,
+        263,
+        519,
+        135
+      ],
+      "11": [
+        490,
+        392,
+        1139,
+        1668,
+        459,
+        474,
+        906,
+        1796,
+        1548,
+        1079,
+        115
+      ],
+      "12": [
+        1156,
+        233,
+        3354,
+        3985,
+        2659,
+        205,
+        653,
+        3348,
+        627,
+        167,
+        2930,
+        867
+      ],
+      "13": [
+        772,
+        5889,
+        4370,
+        5639,
+        6027,
+        223,
+        2207,
+        4367,
+        3688,
+        2276,
+        6885,
+        191,
+        2913
+      ],
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        12,
+        56,
+        48,
+        35,
+        3
+      ],
+      "9": [
+        30,
+        60,
+        456,
+        464,
+        452,
+        29,
+        163,
+        291,
+        99
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 7 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      7,
+      8
+    ],
+    "key": "tournament-416925694dd7a769",
+    "question": "For which n from 3 to 13 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: (if min((beat_both(x,y) - paths(x,y)), both_beat(x,y)) != 0 then 0 else max(-1, ((-1 + both_beat(x,y)) + beat_both(x,y)))) = 0?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>3 2>3 2>4 2>5 3>4 3>5 4>0 4>1 4>5 5>0 5>1   [built]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>6 2>7 2>8 3>4 3>6 3>7 3>8 4>2 4>6 4>7 4>8 5>0 5>2 5>3 5>4 6>0 6>1 6>5 6>7 7>0 7>1 7>5 7>8 8>0 8>1 8>5 8>6   [built]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 1>2 1>3 1>4 1>5 1>6 2>3 2>4 2>5 2>6 3>4 3>6 3>7 3>8 3>9 4>5 4>6 4>7 4>8 4>9 5>3 5>6 5>7 5>8 5>9 6>0 6>7 6>8 6>9 7>0 7>1 7>2 7>8 8>0 8>1 8>2 8>9 9>0 9>1 9>2 9>7   [built]",
+      "  9.  n = 11: here is one: 0>1 0>3 0>5 0>6 0>7 0>8 1>3 1>7 1>8 2>0 2>1 2>4 2>5 2>6 2>10 3>2 3>7 3>9 3>10 4>0 4>1 4>3 4>6 4>7 4>8 5>1 5>3 5>4 5>6 5>7 5>8 6>1 6>3 6>7 6>8 6>9 7>2 7>8 7>9 7>10 8>2 8>3 8>9 8>10 9>0 9>1 9>2 9>4 9>5 9>10 10>0 10>1 10>4 10>5 10>6   [built]",
+      " 10.  n = 12: here is one: 0>2 0>7 0>10 1>0 1>3 1>5 1>6 1>7 2>1 2>3 2>4 2>8 2>10 2>11 3>0 3>4 3>7 3>8 3>9 3>10 3>11 4>0 4>1 4>5 4>6 4>9 4>11 5>0 5>2 5>3 5>6 5>7 6>0 6>2 6>3 6>7 6>9 7>2 7>4 7>8 7>10 7>11 8>0 8>1 8>4 8>5 8>6 8>9 9>0 9>1 9>2 9>5 9>7 10>1 10>4 10>5 10>6 10>8 10>9 10>11 11>0 11>1 11>5 11>6 11>8 11>9   [built]",
+      " 11.  n = 13: here is one: 0>2 0>8 0>9 1>0 1>8 1>9 1>10 1>12 2>1 2>4 2>8 2>12 3>0 3>1 3>2 3>9 3>10 3>12 4>0 4>1 4>3 4>7 4>8 4>9 4>10 4>12 5>0 5>1 5>2 5>3 5>4 5>6 5>7 6>0 6>1 6>2 6>3 6>4 6>7 6>11 7>0 7>1 7>2 7>3 7>8 7>12 8>3 8>5 8>6 8>9 8>10 8>11 9>2 9>5 9>6 9>7 9>11 10>0 10>2 10>5 10>6 10>7 10>9 10>11 10>12 11>0 11>1 11>2 11>3 11>4 11>5 11>7 12>0 12>5 12>6 12>8 12>9 12>11   [built]",
+      " 12.  Above 13: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "if",
+      [
+        "min",
+        [
+          "sub",
+          [
+            "read",
+            7
+          ],
+          [
+            "read",
+            8
+          ]
+        ],
+        [
+          "read",
+          6
+        ]
+      ],
+      [
+        "num",
+        0
+      ],
+      [
+        "max",
+        [
+          "num",
+          -1
+        ],
+        [
+          "add",
+          [
+            "add",
+            [
+              "num",
+              -1
+            ],
+            [
+              "read",
+              6
+            ]
+          ],
+          [
+            "read",
+            7
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7,
+      9,
+      11
+    ],
+    "answer_line": "Answer: n = 4, 6, 7, 9, 11",
+    "bound": 14,
+    "built": {
+      "11": [
+        62,
+        460,
+        1624,
+        944,
+        1250,
+        1798,
+        1321,
+        613,
+        1173,
+        339,
+        651
+      ],
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        14,
+        52,
+        88,
+        98,
+        41,
+        69,
+        19
+      ],
+      "9": [
+        30,
+        108,
+        184,
+        368,
+        450,
+        209,
+        389,
+        267,
+        39
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 5 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      10,
+      12,
+      13,
+      14
+    ],
+    "key": "tournament-690fc81c7e27b763",
+    "question": "For which n from 3 to 14 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: beat_both(x,y) = 2 or both_beat(x,y) = 1 or (beat_both(x,y) + (both_beat(x,y) + -1)) = 0?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 2>6 3>1 3>5 3>6 4>0 4>3 4>5 5>0 5>2 5>6 6>0 6>1 6>4   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>5 1>6 2>3 2>4 2>5 2>7 3>4 3>5 3>6 3>8 4>1 4>6 4>7 4>8 5>0 5>4 5>6 5>7 6>0 6>2 6>7 6>8 7>0 7>1 7>3 7>8 8>0 8>1 8>2 8>5   [built]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: here is one: 0>1 0>2 0>3 0>4 0>5 1>2 1>3 1>6 1>7 1>8 2>3 2>4 2>6 2>9 2>10 3>4 3>5 3>7 3>8 3>9 4>1 4>5 4>6 4>7 4>10 5>1 5>2 5>8 5>9 5>10 6>0 6>3 6>5 6>8 6>10 7>0 7>2 7>5 7>6 7>9 8>0 8>2 8>4 8>7 8>10 9>0 9>1 9>4 9>6 9>8 10>0 10>1 10>3 10>7 10>9   [built]",
+      " 10.  n = 12: none exists; the search ran to its end.   [ran_to_end]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: none exists; the search ran to its end.   [ran_to_end]",
+      " 13.  Above 14: the parts such a tournament can hold, grown point by point, run out at 15 points (how many of each size from 1: 1, 1, 2, 5, 16, 71, 444, 2374, 4710, 2125, 662, 158, 78, 12, 0). None on 15 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "add",
+          [
+            "read",
+            7
+          ],
+          [
+            "num",
+            -2
+          ]
+        ],
+        [
+          "add",
+          [
+            "read",
+            6
+          ],
+          [
+            "num",
+            -1
+          ]
+        ]
+      ],
+      [
+        "abs",
+        [
+          "add",
+          [
+            "read",
+            7
+          ],
+          [
+            "add",
+            [
+              "read",
+              6
+            ],
+            [
+              "num",
+              -1
+            ]
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7,
+      10
+    ],
+    "answer_line": "Answer: n = 4, 6, 7, 10",
+    "bound": 10,
+    "built": {
+      "10": [
+        126,
+        444,
+        760,
+        16,
+        32,
+        8,
+        826,
+        377,
+        573,
+        187
+      ],
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 4 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9
+    ],
+    "key": "tournament-380c0e3e9127c14f",
+    "question": "For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: min(0, (beat_both(x,y) - 4)) = 0 or beat_both(x,y) = 1 or both_beat(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 1>2 1>3 1>4 1>5 1>7 1>8 2>3 2>4 2>5 2>6 2>7 2>9 3>4 4>5 5>3 6>1 6>3 6>4 6>5 6>8 6>9 7>0 7>3 7>4 7>5 7>6 7>8 8>0 8>2 8>3 8>4 8>5 8>9 9>0 9>1 9>3 9>4 9>5 9>7   [built]",
+      "  9.  Above 10: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "abs",
+      [
+        "mul",
+        [
+          "abs",
+          [
+            "mul",
+            [
+              "min",
+              [
+                "num",
+                0
+              ],
+              [
+                "sub",
+                [
+                  "read",
+                  7
+                ],
+                [
+                  "num",
+                  4
+                ]
+              ]
+            ],
+            [
+              "sub",
+              [
+                "num",
+                1
+              ],
+              [
+                "read",
+                7
+              ]
+            ]
+          ]
+        ],
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            6
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 12,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "key": "tournament-906d8712712c8029",
+    "question": "For which n from 3 to 12 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: (both_beat(x,y) - 1) = 4 or beat_both(x,y) = 1 or both_beat(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: none exists; the search ran to its end.   [ran_to_end]",
+      " 11.  Above 12: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "abs",
+      [
+        "mul",
+        [
+          "abs",
+          [
+            "mul",
+            [
+              "sub",
+              [
+                "sub",
+                [
+                  "read",
+                  6
+                ],
+                [
+                  "num",
+                  1
+                ]
+              ],
+              [
+                "num",
+                4
+              ]
+            ],
+            [
+              "sub",
+              [
+                "num",
+                1
+              ],
+              [
+                "read",
+                7
+              ]
+            ]
+          ]
+        ],
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            6
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 10,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        12,
+        56,
+        48,
+        35,
+        3
+      ],
+      "7": [
+        30,
+        60,
+        104,
+        80,
+        68,
+        25,
+        35
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10
+    ],
+    "key": "tournament-3a257536993011ac",
+    "question": "For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: beat_both(x,y) = 1 or (beat_both(x,y) + (-2 + paths(x,y))) = 0 or both_beat(x,y) = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>3 2>3 2>4 2>5 3>4 3>5 4>0 4>1 4>5 5>0 5>1   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 71, 126, 81, 59, 30, 0). None on 11 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "add",
+          [
+            "read",
+            7
+          ],
+          [
+            "num",
+            -1
+          ]
+        ],
+        [
+          "abs",
+          [
+            "add",
+            [
+              "read",
+              7
+            ],
+            [
+              "add",
+              [
+                "num",
+                -2
+              ],
+              [
+                "read",
+                8
+              ]
+            ]
+          ]
+        ]
+      ],
+      [
+        "abs",
+        [
+          "add",
+          [
+            "read",
+            6
+          ],
+          [
+            "num",
+            -1
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      7
+    ],
+    "answer_line": "Answer: n = 4, 6, 7",
+    "bound": 10,
+    "built": {
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        52,
+        24,
+        34,
+        41,
+        5
+      ],
+      "7": [
+        14,
+        52,
+        88,
+        98,
+        41,
+        69,
+        19
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "out(x) is how many players x beats",
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      8,
+      9,
+      10
+    ],
+    "key": "tournament-60eb2f1538200f8a",
+    "question": "For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: max((max(beat_both(x,y), paths(x,y)) + -1), beat_both(x,y)) = 1 or out(x) = 0 or |both_beat(x,y)| = 1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]",
+      "  5.  n = 7: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 2>6 3>1 3>5 3>6 4>0 4>3 4>5 5>0 5>2 5>6 6>0 6>1 6>4   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 55, 76, 26, 18, 16, 0). None on 11 or more.   [parts]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "add",
+          [
+            "max",
+            [
+              "add",
+              [
+                "max",
+                [
+                  "read",
+                  7
+                ],
+                [
+                  "read",
+                  8
+                ]
+              ],
+              [
+                "num",
+                -1
+              ]
+            ],
+            [
+              "read",
+              7
+            ]
+          ],
+          [
+            "num",
+            -1
+          ]
+        ],
+        [
+          "read",
+          2
+        ]
+      ],
+      [
+        "add",
+        [
+          "abs",
+          [
+            "read",
+            6
+          ]
+        ],
+        [
+          "num",
+          -1
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20
+    ],
+    "answer_line": "Answer: n = 6, 8, 10, 12, 14, 16, 18, 20",
+    "bound": 20,
+    "built": {
+      "10": [
+        510,
+        765,
+        891,
+        951,
+        975,
+        975,
+        951,
+        891,
+        765,
+        510
+      ],
+      "12": [
+        2046,
+        3069,
+        3579,
+        3831,
+        3951,
+        3999,
+        3999,
+        3951,
+        3831,
+        3579,
+        3069,
+        2046
+      ],
+      "14": [
+        8190,
+        12285,
+        14331,
+        15351,
+        15855,
+        16095,
+        16191,
+        16191,
+        16095,
+        15855,
+        15351,
+        14331,
+        12285,
+        8190
+      ],
+      "16": [
+        32766,
+        49149,
+        57339,
+        61431,
+        63471,
+        64479,
+        64959,
+        65151,
+        65151,
+        64959,
+        64479,
+        63471,
+        61431,
+        57339,
+        49149,
+        32766
+      ],
+      "18": [
+        131070,
+        196605,
+        229371,
+        245751,
+        253935,
+        258015,
+        260031,
+        260991,
+        261375,
+        261375,
+        260991,
+        260031,
+        258015,
+        253935,
+        245751,
+        229371,
+        196605,
+        131070
+      ],
+      "20": [
+        524286,
+        786429,
+        917499,
+        983031,
+        1015791,
+        1032159,
+        1040319,
+        1044351,
+        1046271,
+        1047039,
+        1047039,
+        1046271,
+        1044351,
+        1040319,
+        1032159,
+        1015791,
+        983031,
+        917499,
+        786429,
+        524286
+      ],
+      "6": [
+        30,
+        45,
+        51,
+        51,
+        45,
+        30
+      ],
+      "8": [
+        126,
+        189,
+        219,
+        231,
+        231,
+        219,
+        189,
+        126
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 8 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "graph",
+    "definitions": [
+      "deg(x) is how many points x is joined to",
+      "common(x,y) is how many points are joined to both x and y",
+      "n is the number of points"
+    ],
+    "impossible": [
+      3,
+      4,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19
+    ],
+    "key": "graph-4454e3422b3ab790",
+    "question": "For which n from 3 to 20 is there a graph on n points (any two points are joined or not) such that, for every ordered pair (x, y) of different points: max((1 - common(x,y)), ((min((common(x,y) + (1 - common(x,y))), deg(x)) + max(deg(x), 4)) - n)) = -1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: none exists; the search ran to its end.   [ran_to_end]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0-1 0-2 0-3 0-4 1-2 1-3 1-5 2-4 2-5 3-4 3-5 4-5   [built]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 1-2 1-3 1-4 1-5 1-7 2-3 2-4 2-6 2-7 3-5 3-6 3-7 4-5 4-6 4-7 5-6 5-7 6-7   [built]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 1-2 1-3 1-4 1-5 1-6 1-7 1-9 2-3 2-4 2-5 2-6 2-8 2-9 3-4 3-5 3-7 3-8 3-9 4-6 4-7 4-8 4-9 5-6 5-7 5-8 5-9 6-7 6-8 6-9 7-8 7-9 8-9   [built]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-11 2-3 2-4 2-5 2-6 2-7 2-8 2-10 2-11 3-4 3-5 3-6 3-7 3-9 3-10 3-11 4-5 4-6 4-8 4-9 4-10 4-11 5-7 5-8 5-9 5-10 5-11 6-7 6-8 6-9 6-10 6-11 7-8 7-9 7-10 7-11 8-9 8-10 8-11 9-10 9-11 10-11   [built]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-13 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-12 2-13 3-4 3-5 3-6 3-7 3-8 3-9 3-11 3-12 3-13 4-5 4-6 4-7 4-8 4-10 4-11 4-12 4-13 5-6 5-7 5-9 5-10 5-11 5-12 5-13 6-8 6-9 6-10 6-11 6-12 6-13 7-8 7-9 7-10 7-11 7-12 7-13 8-9 8-10 8-11 8-12 8-13 9-10 9-11 9-12 9-13 10-11 10-12 10-13 11-12 11-13 12-13   [built]",
+      " 13.  n = 15: none exists; the search ran to its end.   [ran_to_end]",
+      " 14.  n = 16: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-12 1-13 1-15 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 2-12 2-14 2-15 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 3-13 3-14 3-15 4-5 4-6 4-7 4-8 4-9 4-10 4-12 4-13 4-14 4-15 5-6 5-7 5-8 5-9 5-11 5-12 5-13 5-14 5-15 6-7 6-8 6-10 6-11 6-12 6-13 6-14 6-15 7-9 7-10 7-11 7-12 7-13 7-14 7-15 8-9 8-10 8-11 8-12 8-13 8-14 8-15 9-10 9-11 9-12 9-13 9-14 9-15 10-11 10-12 10-13 10-14 10-15 11-12 11-13 11-14 11-15 12-13 12-14 12-15 13-14 13-15 14-15   [built]",
+      " 15.  n = 17: none exists; the search ran to its end.   [ran_to_end]",
+      " 16.  n = 18: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-12 1-13 1-14 1-15 1-17 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 2-12 2-13 2-14 2-16 2-17 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 3-12 3-13 3-15 3-16 3-17 4-5 4-6 4-7 4-8 4-9 4-10 4-11 4-12 4-14 4-15 4-16 4-17 5-6 5-7 5-8 5-9 5-10 5-11 5-13 5-14 5-15 5-16 5-17 6-7 6-8 6-9 6-10 6-12 6-13 6-14 6-15 6-16 6-17 7-8 7-9 7-11 7-12 7-13 7-14 7-15 7-16 7-17 8-10 8-11 8-12 8-13 8-14 8-15 8-16 8-17 9-10 9-11 9-12 9-13 9-14 9-15 9-16 9-17 10-11 10-12 10-13 10-14 10-15 10-16 10-17 11-12 11-13 11-14 11-15 11-16 11-17 12-13 12-14 12-15 12-16 12-17 13-14 13-15 13-16 13-17 14-15 14-16 14-17 15-16 15-17 16-17   [built]",
+      " 17.  n = 19: none exists; the search ran to its end.   [ran_to_end]",
+      " 18.  n = 20: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 0-17 0-18 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-12 1-13 1-14 1-15 1-16 1-17 1-19 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 2-12 2-13 2-14 2-15 2-16 2-18 2-19 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 3-12 3-13 3-14 3-15 3-17 3-18 3-19 4-5 4-6 4-7 4-8 4-9 4-10 4-11 4-12 4-13 4-14 4-16 4-17 4-18 4-19 5-6 5-7 5-8 5-9 5-10 5-11 5-12 5-13 5-15 5-16 5-17 5-18 5-19 6-7 6-8 6-9 6-10 6-11 6-12 6-14 6-15 6-16 6-17 6-18 6-19 7-8 7-9 7-10 7-11 7-13 7-14 7-15 7-16 7-17 7-18 7-19 8-9 8-10 8-12 8-13 8-14 8-15 8-16 8-17 8-18 8-19 9-11 9-12 9-13 9-14 9-15 9-16 9-17 9-18 9-19 10-11 10-12 10-13 10-14 10-15 10-16 10-17 10-18 10-19 11-12 11-13 11-14 11-15 11-16 11-17 11-18 11-19 12-13 12-14 12-15 12-16 12-17 12-18 12-19 13-14 13-15 13-16 13-17 13-18 13-19 14-15 14-16 14-17 14-18 14-19 15-16 15-17 15-18 15-19 16-17 16-18 16-19 17-18 17-19 18-19   [built]",
+      " 19.  Above 20: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "add",
+      [
+        "num",
+        1
+      ],
+      [
+        "max",
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            6
+          ]
+        ],
+        [
+          "sub",
+          [
+            "add",
+            [
+              "min",
+              [
+                "add",
+                [
+                  "read",
+                  6
+                ],
+                [
+                  "sub",
+                  [
+                    "num",
+                    1
+                  ],
+                  [
+                    "read",
+                    6
+                  ]
+                ]
+              ],
+              [
+                "read",
+                2
+              ]
+            ],
+            [
+              "max",
+              [
+                "read",
+                2
+              ],
+              [
+                "num",
+                4
+              ]
+            ]
+          ],
+          [
+            "read",
+            9
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22
+    ],
+    "answer_line": "Answer: n = 8, 10, 12, 14, 16, 18, 20, 22",
+    "bound": 23,
+    "built": {
+      "10": [
+        62,
+        61,
+        91,
+        199,
+        775,
+        899,
+        908,
+        872,
+        752,
+        496
+      ],
+      "12": [
+        126,
+        125,
+        123,
+        407,
+        399,
+        3591,
+        3591,
+        3864,
+        3736,
+        3552,
+        3040,
+        2016
+      ],
+      "14": [
+        254,
+        253,
+        251,
+        247,
+        1807,
+        1807,
+        14351,
+        14351,
+        15920,
+        15664,
+        15152,
+        14272,
+        12224,
+        8128
+      ],
+      "16": [
+        510,
+        509,
+        507,
+        503,
+        751,
+        3615,
+        7199,
+        57375,
+        61455,
+        64560,
+        64096,
+        63072,
+        61248,
+        57216,
+        49024,
+        32640
+      ],
+      "18": [
+        1022,
+        1021,
+        1019,
+        1015,
+        1007,
+        3295,
+        7231,
+        28735,
+        237599,
+        245791,
+        260192,
+        259168,
+        257216,
+        253312,
+        245376,
+        229120,
+        196352,
+        130816
+      ],
+      "20": [
+        2046,
+        2045,
+        2043,
+        2039,
+        2031,
+        2015,
+        14527,
+        14463,
+        245823,
+        835647,
+        983103,
+        1044672,
+        1042624,
+        1038528,
+        1030912,
+        1014528,
+        982272,
+        916736,
+        785920,
+        523776
+      ],
+      "22": [
+        4094,
+        4093,
+        4091,
+        4087,
+        4079,
+        4063,
+        4031,
+        61567,
+        61567,
+        983167,
+        3342463,
+        3932287,
+        4186496,
+        4182400,
+        4174208,
+        4157824,
+        4126208,
+        4060672,
+        3930624,
+        3668480,
+        3144704,
+        2096128
+      ],
+      "8": [
+        30,
+        29,
+        99,
+        163,
+        195,
+        204,
+        180,
+        120
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 8 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "graph",
+    "definitions": [
+      "adj(x,y) is 1 when x and y are joined, otherwise 0",
+      "deg(x) is how many points x is joined to",
+      "deg(y) is how many points y is joined to",
+      "common(x,y) is how many points are joined to both x and y",
+      "n is the number of points"
+    ],
+    "impossible": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21,
+      23
+    ],
+    "key": "graph-c2a5113e2993423e",
+    "question": "For which n from 3 to 23 is there a graph on n points (any two points are joined or not) such that, for every ordered pair (x, y) of different points: max(common(x,y), max(max(min(common(x,y), adj(x,y)), adj(x,y)), (n - deg(y)))) = (if common(x,y) != 0 then (if common(x,y) != 0 then deg(x) else 4) else |common(x,y)|)?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: none exists; the search ran to its end.   [ran_to_end]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: none exists; the search ran to its end.   [ran_to_end]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: here is one: 0-1 0-2 0-3 0-4 1-2 1-3 1-4 2-5 2-6 3-5 3-7 4-6 4-7 5-6 5-7 6-7   [built]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0-1 0-2 0-3 0-4 0-5 1-2 1-3 1-4 1-5 2-3 2-4 2-6 3-6 3-7 4-8 4-9 5-7 5-8 5-9 6-7 6-8 6-9 7-8 7-9 8-9   [built]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 1-2 1-3 1-4 1-5 1-6 2-3 2-4 2-5 2-6 3-4 3-7 3-8 4-7 4-8 5-9 5-10 5-11 6-9 6-10 6-11 7-8 7-9 7-10 7-11 8-9 8-10 8-11 9-10 9-11 10-11   [built]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 1-2 1-3 1-4 1-5 1-6 1-7 2-3 2-4 2-5 2-6 2-7 3-4 3-5 3-6 3-7 4-8 4-9 4-10 5-8 5-9 5-10 6-11 6-12 6-13 7-11 7-12 7-13 8-9 8-10 8-11 8-12 8-13 9-10 9-11 9-12 9-13 10-11 10-12 10-13 11-12 11-13 12-13   [built]",
+      " 13.  n = 15: none exists; the search ran to its end.   [ran_to_end]",
+      " 14.  n = 16: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 1-2 1-3 1-4 1-5 1-6 1-7 1-8 2-3 2-4 2-5 2-6 2-7 2-8 3-4 3-5 3-6 3-7 3-8 4-5 4-6 4-7 4-9 5-9 5-10 5-11 6-10 6-11 6-12 7-13 7-14 7-15 8-12 8-13 8-14 8-15 9-10 9-11 9-12 9-13 9-14 9-15 10-11 10-12 10-13 10-14 10-15 11-12 11-13 11-14 11-15 12-13 12-14 12-15 13-14 13-15 14-15   [built]",
+      " 15.  n = 17: none exists; the search ran to its end.   [ran_to_end]",
+      " 16.  n = 18: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 2-3 2-4 2-5 2-6 2-7 2-8 2-9 3-4 3-5 3-6 3-7 3-8 3-9 4-5 4-6 4-7 4-8 4-9 5-6 5-7 5-10 5-11 6-10 6-11 6-12 7-12 7-13 7-14 8-13 8-15 8-16 8-17 9-14 9-15 9-16 9-17 10-11 10-12 10-13 10-14 10-15 10-16 10-17 11-12 11-13 11-14 11-15 11-16 11-17 12-13 12-14 12-15 12-16 12-17 13-14 13-15 13-16 13-17 14-15 14-16 14-17 15-16 15-17 16-17   [built]",
+      " 17.  n = 19: none exists; the search ran to its end.   [ran_to_end]",
+      " 18.  n = 20: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 3-4 3-5 3-6 3-7 3-8 3-9 3-10 4-5 4-6 4-7 4-8 4-9 4-10 5-6 5-7 5-8 5-9 5-10 6-7 6-11 6-12 6-13 7-11 7-12 7-13 8-14 8-15 8-16 8-17 9-14 9-15 9-18 9-19 10-16 10-17 10-18 10-19 11-12 11-13 11-14 11-15 11-16 11-17 11-18 11-19 12-13 12-14 12-15 12-16 12-17 12-18 12-19 13-14 13-15 13-16 13-17 13-18 13-19 14-15 14-16 14-17 14-18 14-19 15-16 15-17 15-18 15-19 16-17 16-18 16-19 17-18 17-19 18-19   [built]",
+      " 19.  n = 21: none exists; the search ran to its end.   [ran_to_end]",
+      " 20.  n = 22: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 4-5 4-6 4-7 4-8 4-9 4-10 4-11 5-6 5-7 5-8 5-9 5-10 5-11 6-7 6-8 6-9 6-10 6-11 7-12 7-13 7-14 7-15 8-12 8-13 8-14 8-15 9-16 9-17 9-18 9-19 10-16 10-17 10-20 10-21 11-18 11-19 11-20 11-21 12-13 12-14 12-15 12-16 12-17 12-18 12-19 12-20 12-21 13-14 13-15 13-16 13-17 13-18 13-19 13-20 13-21 14-15 14-16 14-17 14-18 14-19 14-20 14-21 15-16 15-17 15-18 15-19 15-20 15-21 16-17 16-18 16-19 16-20 16-21 17-18 17-19 17-20 17-21 18-19 18-20 18-21 19-20 19-21 20-21   [built]",
+      " 21.  n = 23: none exists; the search ran to its end.   [ran_to_end]",
+      " 22.  Above 23: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "sub",
+      [
+        "max",
+        [
+          "read",
+          6
+        ],
+        [
+          "max",
+          [
+            "max",
+            [
+              "min",
+              [
+                "read",
+                6
+              ],
+              [
+                "read",
+                0
+              ]
+            ],
+            [
+              "read",
+              0
+            ]
+          ],
+          [
+            "sub",
+            [
+              "read",
+              9
+            ],
+            [
+              "read",
+              3
+            ]
+          ]
+        ]
+      ],
+      [
+        "if",
+        [
+          "read",
+          6
+        ],
+        [
+          "if",
+          [
+            "read",
+            6
+          ],
+          [
+            "read",
+            2
+          ],
+          [
+            "num",
+            4
+          ]
+        ],
+        [
+          "abs",
+          [
+            "read",
+            6
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      5,
+      6,
+      7,
+      9,
+      11,
+      13,
+      15,
+      16,
+      17,
+      19,
+      21
+    ],
+    "answer_line": "Answer: n = 5, 6, 7, 9, 11, 13, 15, 16, 17, 19, 21",
+    "bound": 21,
+    "built": {
+      "11": [
+        2046,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129,
+        1025,
+        513
+      ],
+      "13": [
+        8190,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129,
+        1025,
+        513,
+        4097,
+        2049
+      ],
+      "15": [
+        32766,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129,
+        1025,
+        513,
+        4097,
+        2049,
+        16385,
+        8193
+      ],
+      "16": [
+        2046,
+        14589,
+        23355,
+        27991,
+        30351,
+        39879,
+        44459,
+        46707,
+        52845,
+        54709,
+        58329,
+        61806,
+        60086,
+        56538,
+        48924,
+        32736
+      ],
+      "17": [
+        131070,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129,
+        1025,
+        513,
+        4097,
+        2049,
+        16385,
+        8193,
+        65537,
+        32769
+      ],
+      "19": [
+        524286,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129,
+        1025,
+        513,
+        4097,
+        2049,
+        16385,
+        8193,
+        65537,
+        32769,
+        262145,
+        131073
+      ],
+      "21": [
+        2097150,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129,
+        1025,
+        513,
+        4097,
+        2049,
+        16385,
+        8193,
+        65537,
+        32769,
+        262145,
+        131073,
+        1048577,
+        524289
+      ],
+      "5": [
+        30,
+        5,
+        3,
+        17,
+        9
+      ],
+      "6": [
+        30,
+        45,
+        51,
+        3,
+        5,
+        6
+      ],
+      "7": [
+        126,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33
+      ],
+      "9": [
+        510,
+        5,
+        3,
+        17,
+        9,
+        65,
+        33,
+        257,
+        129
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 11 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "graph",
+    "definitions": [
+      "adj(x,y) is 1 when x and y are joined, otherwise 0",
+      "deg(x) is how many points x is joined to",
+      "common(x,y) is how many points are joined to both x and y",
+      "n is the number of points"
+    ],
+    "impossible": [
+      3,
+      4,
+      8,
+      10,
+      12,
+      14,
+      18,
+      20
+    ],
+    "key": "graph-144da70138321beb",
+    "question": "For which n from 3 to 21 is there a graph on n points (any two points are joined or not) such that, for every ordered pair (x, y) of different points: max((1 - common(x,y)), ((min(((1 - adj(x,y)) + (1 - (1 - common(x,y)))), common(x,y)) + max(deg(x), 4)) - n)) = 0?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: none exists; the search ran to its end.   [ran_to_end]",
+      "  3.  n = 5: here is one: 0-1 0-2 0-3 0-4 1-2 3-4   [built]",
+      "  4.  n = 6: here is one: 0-1 0-2 0-3 0-4 1-2 1-3 1-5 2-4 2-5   [built]",
+      "  5.  n = 7: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 1-2 3-4 5-6   [built]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 1-2 3-4 5-6 7-8   [built]",
+      "  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]",
+      "  9.  n = 11: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 1-2 3-4 5-6 7-8 9-10   [built]",
+      " 10.  n = 12: none exists; the search ran to its end.   [ran_to_end]",
+      " 11.  n = 13: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 1-2 3-4 5-6 7-8 9-10 11-12   [built]",
+      " 12.  n = 14: none exists; the search ran to its end.   [ran_to_end]",
+      " 13.  n = 15: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 1-2 3-4 5-6 7-8 9-10 11-12 13-14   [built]",
+      " 14.  n = 16: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 1-2 1-3 1-4 1-5 1-6 1-7 1-11 1-12 1-13 2-3 2-4 2-5 2-8 2-9 2-11 2-12 2-14 3-4 3-6 3-8 3-10 3-11 3-13 3-14 4-7 4-9 4-10 4-12 4-13 4-14 5-6 5-7 5-8 5-9 5-11 5-12 5-15 6-7 6-8 6-10 6-11 6-13 6-15 7-9 7-10 7-12 7-13 7-15 8-9 8-10 8-11 8-14 8-15 9-10 9-12 9-14 9-15 10-13 10-14 10-15 11-12 11-13 11-14 11-15 12-13 12-14 12-15 13-14 13-15 14-15   [built]",
+      " 15.  n = 17: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 1-2 3-4 5-6 7-8 9-10 11-12 13-14 15-16   [built]",
+      " 16.  n = 18: none exists; the search ran to its end.   [ran_to_end]",
+      " 17.  n = 19: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 0-17 0-18 1-2 3-4 5-6 7-8 9-10 11-12 13-14 15-16 17-18   [built]",
+      " 18.  n = 20: none exists; the search ran to its end.   [ran_to_end]",
+      " 19.  n = 21: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 0-17 0-18 0-19 0-20 1-2 3-4 5-6 7-8 9-10 11-12 13-14 15-16 17-18 19-20   [built]",
+      " 20.  Above 21: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "max",
+      [
+        "sub",
+        [
+          "num",
+          1
+        ],
+        [
+          "read",
+          6
+        ]
+      ],
+      [
+        "sub",
+        [
+          "add",
+          [
+            "min",
+            [
+              "add",
+              [
+                "sub",
+                [
+                  "num",
+                  1
+                ],
+                [
+                  "read",
+                  0
+                ]
+              ],
+              [
+                "sub",
+                [
+                  "num",
+                  1
+                ],
+                [
+                  "sub",
+                  [
+                    "num",
+                    1
+                  ],
+                  [
+                    "read",
+                    6
+                  ]
+                ]
+              ]
+            ],
+            [
+              "read",
+              6
+            ]
+          ],
+          [
+            "max",
+            [
+              "read",
+              2
+            ],
+            [
+              "num",
+              4
+            ]
+          ]
+        ],
+        [
+          "read",
+          9
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20
+    ],
+    "answer_line": "Answer: n = 8, 10, 12, 14, 16, 18, 20",
+    "bound": 20,
+    "built": {
+      "10": [
+        510,
+        765,
+        891,
+        951,
+        975,
+        975,
+        951,
+        891,
+        765,
+        510
+      ],
+      "12": [
+        2046,
+        3069,
+        3579,
+        3831,
+        3951,
+        3999,
+        3999,
+        3951,
+        3831,
+        3579,
+        3069,
+        2046
+      ],
+      "14": [
+        8190,
+        12285,
+        14331,
+        15351,
+        15855,
+        16095,
+        16191,
+        16191,
+        16095,
+        15855,
+        15351,
+        14331,
+        12285,
+        8190
+      ],
+      "16": [
+        32766,
+        49149,
+        57339,
+        61431,
+        63471,
+        64479,
+        64959,
+        65151,
+        65151,
+        64959,
+        64479,
+        63471,
+        61431,
+        57339,
+        49149,
+        32766
+      ],
+      "18": [
+        131070,
+        196605,
+        229371,
+        245751,
+        253935,
+        258015,
+        260031,
+        260991,
+        261375,
+        261375,
+        260991,
+        260031,
+        258015,
+        253935,
+        245751,
+        229371,
+        196605,
+        131070
+      ],
+      "20": [
+        524286,
+        786429,
+        917499,
+        983031,
+        1015791,
+        1032159,
+        1040319,
+        1044351,
+        1046271,
+        1047039,
+        1047039,
+        1046271,
+        1044351,
+        1040319,
+        1032159,
+        1015791,
+        983031,
+        917499,
+        786429,
+        524286
+      ],
+      "8": [
+        126,
+        189,
+        219,
+        231,
+        231,
+        219,
+        189,
+        126
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 7 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "graph",
+    "definitions": [
+      "deg(x) is how many points x is joined to",
+      "common(x,y) is how many points are joined to both x and y",
+      "n is the number of points"
+    ],
+    "impossible": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19
+    ],
+    "key": "graph-c39ab6e645c11e44",
+    "question": "For which n from 3 to 20 is there a graph on n points (any two points are joined or not) such that, for every ordered pair (x, y) of different points: max((1 - common(x,y)), ((min((|max(4, common(x,y))| + (1 - common(x,y))), deg(x)) + max(deg(x), 4)) - n)) = -1?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: none exists; the search ran to its end.   [ran_to_end]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: none exists; the search ran to its end.   [ran_to_end]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 1-2 1-3 1-4 1-5 1-7 2-3 2-4 2-6 2-7 3-5 3-6 3-7 4-5 4-6 4-7 5-6 5-7 6-7   [built]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 1-2 1-3 1-4 1-5 1-6 1-7 1-9 2-3 2-4 2-5 2-6 2-8 2-9 3-4 3-5 3-7 3-8 3-9 4-6 4-7 4-8 4-9 5-6 5-7 5-8 5-9 6-7 6-8 6-9 7-8 7-9 8-9   [built]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-11 2-3 2-4 2-5 2-6 2-7 2-8 2-10 2-11 3-4 3-5 3-6 3-7 3-9 3-10 3-11 4-5 4-6 4-8 4-9 4-10 4-11 5-7 5-8 5-9 5-10 5-11 6-7 6-8 6-9 6-10 6-11 7-8 7-9 7-10 7-11 8-9 8-10 8-11 9-10 9-11 10-11   [built]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-13 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-12 2-13 3-4 3-5 3-6 3-7 3-8 3-9 3-11 3-12 3-13 4-5 4-6 4-7 4-8 4-10 4-11 4-12 4-13 5-6 5-7 5-9 5-10 5-11 5-12 5-13 6-8 6-9 6-10 6-11 6-12 6-13 7-8 7-9 7-10 7-11 7-12 7-13 8-9 8-10 8-11 8-12 8-13 9-10 9-11 9-12 9-13 10-11 10-12 10-13 11-12 11-13 12-13   [built]",
+      " 13.  n = 15: none exists; the search ran to its end.   [ran_to_end]",
+      " 14.  n = 16: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-12 1-13 1-15 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 2-12 2-14 2-15 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 3-13 3-14 3-15 4-5 4-6 4-7 4-8 4-9 4-10 4-12 4-13 4-14 4-15 5-6 5-7 5-8 5-9 5-11 5-12 5-13 5-14 5-15 6-7 6-8 6-10 6-11 6-12 6-13 6-14 6-15 7-9 7-10 7-11 7-12 7-13 7-14 7-15 8-9 8-10 8-11 8-12 8-13 8-14 8-15 9-10 9-11 9-12 9-13 9-14 9-15 10-11 10-12 10-13 10-14 10-15 11-12 11-13 11-14 11-15 12-13 12-14 12-15 13-14 13-15 14-15   [built]",
+      " 15.  n = 17: none exists; the search ran to its end.   [ran_to_end]",
+      " 16.  n = 18: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-12 1-13 1-14 1-15 1-17 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 2-12 2-13 2-14 2-16 2-17 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 3-12 3-13 3-15 3-16 3-17 4-5 4-6 4-7 4-8 4-9 4-10 4-11 4-12 4-14 4-15 4-16 4-17 5-6 5-7 5-8 5-9 5-10 5-11 5-13 5-14 5-15 5-16 5-17 6-7 6-8 6-9 6-10 6-12 6-13 6-14 6-15 6-16 6-17 7-8 7-9 7-11 7-12 7-13 7-14 7-15 7-16 7-17 8-10 8-11 8-12 8-13 8-14 8-15 8-16 8-17 9-10 9-11 9-12 9-13 9-14 9-15 9-16 9-17 10-11 10-12 10-13 10-14 10-15 10-16 10-17 11-12 11-13 11-14 11-15 11-16 11-17 12-13 12-14 12-15 12-16 12-17 13-14 13-15 13-16 13-17 14-15 14-16 14-17 15-16 15-17 16-17   [built]",
+      " 17.  n = 19: none exists; the search ran to its end.   [ran_to_end]",
+      " 18.  n = 20: here is one: 0-1 0-2 0-3 0-4 0-5 0-6 0-7 0-8 0-9 0-10 0-11 0-12 0-13 0-14 0-15 0-16 0-17 0-18 1-2 1-3 1-4 1-5 1-6 1-7 1-8 1-9 1-10 1-11 1-12 1-13 1-14 1-15 1-16 1-17 1-19 2-3 2-4 2-5 2-6 2-7 2-8 2-9 2-10 2-11 2-12 2-13 2-14 2-15 2-16 2-18 2-19 3-4 3-5 3-6 3-7 3-8 3-9 3-10 3-11 3-12 3-13 3-14 3-15 3-17 3-18 3-19 4-5 4-6 4-7 4-8 4-9 4-10 4-11 4-12 4-13 4-14 4-16 4-17 4-18 4-19 5-6 5-7 5-8 5-9 5-10 5-11 5-12 5-13 5-15 5-16 5-17 5-18 5-19 6-7 6-8 6-9 6-10 6-11 6-12 6-14 6-15 6-16 6-17 6-18 6-19 7-8 7-9 7-10 7-11 7-13 7-14 7-15 7-16 7-17 7-18 7-19 8-9 8-10 8-12 8-13 8-14 8-15 8-16 8-17 8-18 8-19 9-11 9-12 9-13 9-14 9-15 9-16 9-17 9-18 9-19 10-11 10-12 10-13 10-14 10-15 10-16 10-17 10-18 10-19 11-12 11-13 11-14 11-15 11-16 11-17 11-18 11-19 12-13 12-14 12-15 12-16 12-17 12-18 12-19 13-14 13-15 13-16 13-17 13-18 13-19 14-15 14-16 14-17 14-18 14-19 15-16 15-17 15-18 15-19 16-17 16-18 16-19 17-18 17-19 18-19   [built]",
+      " 19.  Above 20: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "add",
+      [
+        "num",
+        1
+      ],
+      [
+        "max",
+        [
+          "sub",
+          [
+            "num",
+            1
+          ],
+          [
+            "read",
+            6
+          ]
+        ],
+        [
+          "sub",
+          [
+            "add",
+            [
+              "min",
+              [
+                "add",
+                [
+                  "abs",
+                  [
+                    "max",
+                    [
+                      "num",
+                      4
+                    ],
+                    [
+                      "read",
+                      6
+                    ]
+                  ]
+                ],
+                [
+                  "sub",
+                  [
+                    "num",
+                    1
+                  ],
+                  [
+                    "read",
+                    6
+                  ]
+                ]
+              ],
+              [
+                "read",
+                2
+              ]
+            ],
+            [
+              "max",
+              [
+                "read",
+                2
+              ],
+              [
+                "num",
+                4
+              ]
+            ]
+          ],
+          [
+            "read",
+            9
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      8,
+      10,
+      11,
+      12,
+      14,
+      16,
+      18,
+      20
+    ],
+    "answer_line": "Answer: n = 4, 6, 8, 10, 11, 12, 14, 16, 18, 20",
+    "bound": 21,
+    "built": {
+      "10": [
+        62,
+        124,
+        248,
+        496,
+        992,
+        0,
+        929,
+        803,
+        551,
+        47
+      ],
+      "11": [
+        62,
+        460,
+        1624,
+        944,
+        1250,
+        1798,
+        1321,
+        613,
+        1173,
+        339,
+        651
+      ],
+      "12": [
+        126,
+        252,
+        504,
+        1008,
+        2016,
+        4032,
+        0,
+        3905,
+        3651,
+        3143,
+        2127,
+        95
+      ],
+      "14": [
+        254,
+        508,
+        1016,
+        2032,
+        4064,
+        8128,
+        16256,
+        0,
+        16001,
+        15491,
+        14471,
+        12431,
+        8351,
+        191
+      ],
+      "16": [
+        510,
+        1020,
+        2040,
+        4080,
+        8160,
+        16320,
+        32640,
+        65280,
+        0,
+        64769,
+        63747,
+        61703,
+        57615,
+        49439,
+        33087,
+        383
+      ],
+      "18": [
+        1022,
+        2044,
+        4088,
+        8176,
+        16352,
+        32704,
+        65408,
+        130816,
+        261632,
+        0,
+        260609,
+        258563,
+        254471,
+        246287,
+        229919,
+        197183,
+        131711,
+        767
+      ],
+      "20": [
+        2046,
+        4092,
+        8184,
+        16368,
+        32736,
+        65472,
+        130944,
+        261888,
+        523776,
+        1047552,
+        0,
+        1045505,
+        1041411,
+        1033223,
+        1016847,
+        984095,
+        918591,
+        787583,
+        525567,
+        1535
+      ],
+      "4": [
+        6,
+        12,
+        0,
+        5
+      ],
+      "6": [
+        14,
+        28,
+        56,
+        0,
+        41,
+        11
+      ],
+      "8": [
+        30,
+        60,
+        120,
+        240,
+        0,
+        209,
+        147,
+        23
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 10 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "beats(x,y) is 1 when x beats y, otherwise 0",
+      "out(x) is how many players x beats",
+      "out(y) is how many players y beats",
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      7,
+      9,
+      13,
+      15,
+      17,
+      19,
+      21
+    ],
+    "key": "tournament-24d4c3193a85f7e7",
+    "question": "For which n from 3 to 21 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: ((min(((out(x) - ((out(x) - beat_both(x,y)) + -1)) - out(x)), beat_both(x,y)) - both_beat(x,y)) + out(y)) = 0 or paths(x,y) = 0 or paths(x,y) = (3 - beats(x,y))?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 1>2 1>3 3>0 3>2   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>3 1>4 2>3 2>4 2>5 4>0 4>3 4>5 5>0 5>1 5>3   [built]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>4 2>5 2>6 3>4 3>5 3>6 3>7 5>0 5>4 5>6 5>7 6>0 6>1 6>4 6>7 7>0 7>1 7>2 7>4   [built]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 1>2 1>3 1>4 1>5 1>6 2>3 2>4 2>5 2>6 2>7 3>4 3>5 3>6 3>7 3>8 4>5 4>6 4>7 4>8 4>9 6>0 6>5 6>7 6>8 6>9 7>0 7>1 7>5 7>8 7>9 8>0 8>1 8>2 8>5 8>9 9>0 9>1 9>2 9>3 9>5   [built]",
+      "  9.  n = 11: here is one: 0>1 0>2 0>3 0>4 0>5 1>2 1>3 1>6 1>7 1>8 2>3 2>4 2>6 2>9 2>10 3>4 3>5 3>7 3>8 3>9 4>1 4>5 4>6 4>7 4>10 5>1 5>2 5>8 5>9 5>10 6>0 6>3 6>5 6>8 6>10 7>0 7>2 7>5 7>6 7>9 8>0 8>2 8>4 8>7 8>10 9>0 9>1 9>4 9>6 9>8 10>0 10>1 10>3 10>7 10>9   [built]",
+      " 10.  n = 12: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 1>2 1>3 1>4 1>5 1>6 1>7 2>3 2>4 2>5 2>6 2>7 2>8 3>4 3>5 3>6 3>7 3>8 3>9 4>5 4>6 4>7 4>8 4>9 4>10 5>6 5>7 5>8 5>9 5>10 5>11 7>0 7>6 7>8 7>9 7>10 7>11 8>0 8>1 8>6 8>9 8>10 8>11 9>0 9>1 9>2 9>6 9>10 9>11 10>0 10>1 10>2 10>3 10>6 10>11 11>0 11>1 11>2 11>3 11>4 11>6   [built]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 1>2 1>3 1>4 1>5 1>6 1>7 1>8 2>3 2>4 2>5 2>6 2>7 2>8 2>9 3>4 3>5 3>6 3>7 3>8 3>9 3>10 4>5 4>6 4>7 4>8 4>9 4>10 4>11 5>6 5>7 5>8 5>9 5>10 5>11 5>12 6>7 6>8 6>9 6>10 6>11 6>12 6>13 8>0 8>7 8>9 8>10 8>11 8>12 8>13 9>0 9>1 9>7 9>10 9>11 9>12 9>13 10>0 10>1 10>2 10>7 10>11 10>12 10>13 11>0 11>1 11>2 11>3 11>7 11>12 11>13 12>0 12>1 12>2 12>3 12>4 12>7 12>13 13>0 13>1 13>2 13>3 13>4 13>5 13>7   [built]",
+      " 13.  n = 15: none exists; the search ran to its end.   [ran_to_end]",
+      " 14.  n = 16: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 1>2 1>3 1>4 1>5 1>6 1>7 1>8 1>9 2>3 2>4 2>5 2>6 2>7 2>8 2>9 2>10 3>4 3>5 3>6 3>7 3>8 3>9 3>10 3>11 4>5 4>6 4>7 4>8 4>9 4>10 4>11 4>12 5>6 5>7 5>8 5>9 5>10 5>11 5>12 5>13 6>7 6>8 6>9 6>10 6>11 6>12 6>13 6>14 7>8 7>9 7>10 7>11 7>12 7>13 7>14 7>15 9>0 9>8 9>10 9>11 9>12 9>13 9>14 9>15 10>0 10>1 10>8 10>11 10>12 10>13 10>14 10>15 11>0 11>1 11>2 11>8 11>12 11>13 11>14 11>15 12>0 12>1 12>2 12>3 12>8 12>13 12>14 12>15 13>0 13>1 13>2 13>3 13>4 13>8 13>14 13>15 14>0 14>1 14>2 14>3 14>4 14>5 14>8 14>15 15>0 15>1 15>2 15>3 15>4 15>5 15>6 15>8   [built]",
+      " 15.  n = 17: none exists; the search ran to its end.   [ran_to_end]",
+      " 16.  n = 18: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 0>9 1>2 1>3 1>4 1>5 1>6 1>7 1>8 1>9 1>10 2>3 2>4 2>5 2>6 2>7 2>8 2>9 2>10 2>11 3>4 3>5 3>6 3>7 3>8 3>9 3>10 3>11 3>12 4>5 4>6 4>7 4>8 4>9 4>10 4>11 4>12 4>13 5>6 5>7 5>8 5>9 5>10 5>11 5>12 5>13 5>14 6>7 6>8 6>9 6>10 6>11 6>12 6>13 6>14 6>15 7>8 7>9 7>10 7>11 7>12 7>13 7>14 7>15 7>16 8>9 8>10 8>11 8>12 8>13 8>14 8>15 8>16 8>17 10>0 10>9 10>11 10>12 10>13 10>14 10>15 10>16 10>17 11>0 11>1 11>9 11>12 11>13 11>14 11>15 11>16 11>17 12>0 12>1 12>2 12>9 12>13 12>14 12>15 12>16 12>17 13>0 13>1 13>2 13>3 13>9 13>14 13>15 13>16 13>17 14>0 14>1 14>2 14>3 14>4 14>9 14>15 14>16 14>17 15>0 15>1 15>2 15>3 15>4 15>5 15>9 15>16 15>17 16>0 16>1 16>2 16>3 16>4 16>5 16>6 16>9 16>17 17>0 17>1 17>2 17>3 17>4 17>5 17>6 17>7 17>9   [built]",
+      " 17.  n = 19: none exists; the search ran to its end.   [ran_to_end]",
+      " 18.  n = 20: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 0>9 0>10 1>2 1>3 1>4 1>5 1>6 1>7 1>8 1>9 1>10 1>11 2>3 2>4 2>5 2>6 2>7 2>8 2>9 2>10 2>11 2>12 3>4 3>5 3>6 3>7 3>8 3>9 3>10 3>11 3>12 3>13 4>5 4>6 4>7 4>8 4>9 4>10 4>11 4>12 4>13 4>14 5>6 5>7 5>8 5>9 5>10 5>11 5>12 5>13 5>14 5>15 6>7 6>8 6>9 6>10 6>11 6>12 6>13 6>14 6>15 6>16 7>8 7>9 7>10 7>11 7>12 7>13 7>14 7>15 7>16 7>17 8>9 8>10 8>11 8>12 8>13 8>14 8>15 8>16 8>17 8>18 9>10 9>11 9>12 9>13 9>14 9>15 9>16 9>17 9>18 9>19 11>0 11>10 11>12 11>13 11>14 11>15 11>16 11>17 11>18 11>19 12>0 12>1 12>10 12>13 12>14 12>15 12>16 12>17 12>18 12>19 13>0 13>1 13>2 13>10 13>14 13>15 13>16 13>17 13>18 13>19 14>0 14>1 14>2 14>3 14>10 14>15 14>16 14>17 14>18 14>19 15>0 15>1 15>2 15>3 15>4 15>10 15>16 15>17 15>18 15>19 16>0 16>1 16>2 16>3 16>4 16>5 16>10 16>17 16>18 16>19 17>0 17>1 17>2 17>3 17>4 17>5 17>6 17>10 17>18 17>19 18>0 18>1 18>2 18>3 18>4 18>5 18>6 18>7 18>10 18>19 19>0 19>1 19>2 19>3 19>4 19>5 19>6 19>7 19>8 19>10   [built]",
+      " 19.  n = 21: none exists; the search ran to its end.   [ran_to_end]",
+      " 20.  Above 21: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "add",
+          [
+            "sub",
+            [
+              "min",
+              [
+                "sub",
+                [
+                  "sub",
+                  [
+                    "read",
+                    2
+                  ],
+                  [
+                    "add",
+                    [
+                      "sub",
+                      [
+                        "read",
+                        2
+                      ],
+                      [
+                        "read",
+                        7
+                      ]
+                    ],
+                    [
+                      "num",
+                      -1
+                    ]
+                  ]
+                ],
+                [
+                  "read",
+                  2
+                ]
+              ],
+              [
+                "read",
+                7
+              ]
+            ],
+            [
+              "read",
+              6
+            ]
+          ],
+          [
+            "read",
+            3
+          ]
+        ],
+        [
+          "read",
+          8
+        ]
+      ],
+      [
+        "sub",
+        [
+          "read",
+          8
+        ],
+        [
+          "sub",
+          [
+            "num",
+            3
+          ],
+          [
+            "read",
+            0
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      9,
+      10,
+      11
+    ],
+    "answer_line": "Answer: n = 4, 6, 9, 10, 11",
+    "bound": 11,
+    "built": {
+      "10": [
+        510,
+        572,
+        568,
+        464,
+        480,
+        456,
+        646,
+        774,
+        582,
+        57
+      ],
+      "11": [
+        2046,
+        1020,
+        1144,
+        1136,
+        928,
+        960,
+        912,
+        1292,
+        1548,
+        1164,
+        114
+      ],
+      "4": [
+        14,
+        4,
+        8,
+        2
+      ],
+      "6": [
+        14,
+        12,
+        56,
+        48,
+        35,
+        3
+      ],
+      "9": [
+        30,
+        60,
+        456,
+        464,
+        452,
+        29,
+        163,
+        291,
+        99
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 5 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "beats(x,y) is 1 when x beats y, otherwise 0",
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y"
+    ],
+    "impossible": [
+      3,
+      5,
+      7,
+      8
+    ],
+    "key": "tournament-2dab8a96a49dd401",
+    "question": "For which n from 3 to 11 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: (if min((both_beat(x,y) - paths(x,y)), both_beat(x,y)) != 0 then 0 else max((if beat_both(x,y) != 0 then paths(x,y) else (-1 + ((if beats(x,y) != 0 then -2 else 3) + 2))), ((-1 + both_beat(x,y)) + beat_both(x,y)))) = 0?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>3 2>3 2>4 2>5 3>4 3>5 4>0 4>1 4>5 5>0 5>1   [built]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]",
+      "  7.  n = 9: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>6 2>7 2>8 3>4 3>6 3>7 3>8 4>2 4>6 4>7 4>8 5>0 5>2 5>3 5>4 6>0 6>1 6>5 6>7 7>0 7>1 7>5 7>8 8>0 8>1 8>5 8>6   [built]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 1>2 1>3 1>4 1>5 1>9 2>3 2>4 2>5 2>9 3>4 3>6 3>7 3>8 4>5 4>6 4>7 4>8 5>3 5>6 5>7 5>8 6>1 6>2 6>7 6>9 7>1 7>2 7>8 7>9 8>1 8>2 8>6 8>9 9>0 9>3 9>4 9>5   [built]",
+      "  9.  n = 11: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 0>9 0>10 1>2 1>3 1>4 1>5 1>6 1>7 1>8 1>9 2>3 2>4 2>5 2>6 2>10 3>4 3>5 3>6 3>10 4>5 4>7 4>8 4>9 5>6 5>7 5>8 5>9 6>4 6>7 6>8 6>9 7>2 7>3 7>8 7>10 8>2 8>3 8>9 8>10 9>2 9>3 9>7 9>10 10>1 10>4 10>5 10>6   [built]",
+      " 10.  Above 11: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "if",
+      [
+        "min",
+        [
+          "sub",
+          [
+            "read",
+            6
+          ],
+          [
+            "read",
+            8
+          ]
+        ],
+        [
+          "read",
+          6
+        ]
+      ],
+      [
+        "num",
+        0
+      ],
+      [
+        "max",
+        [
+          "if",
+          [
+            "read",
+            7
+          ],
+          [
+            "read",
+            8
+          ],
+          [
+            "add",
+            [
+              "num",
+              -1
+            ],
+            [
+              "add",
+              [
+                "if",
+                [
+                  "read",
+                  0
+                ],
+                [
+                  "num",
+                  -2
+                ],
+                [
+                  "num",
+                  3
+                ]
+              ],
+              [
+                "num",
+                2
+              ]
+            ]
+          ]
+        ],
+        [
+          "add",
+          [
+            "add",
+            [
+              "num",
+              -1
+            ],
+            [
+              "read",
+              6
+            ]
+          ],
+          [
+            "read",
+            7
+          ]
+        ]
+      ]
+    ]
+  },
+  {
+    "answer": [
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18
+    ],
+    "answer_line": "Answer: n = 4, 6, 8, 10, 12, 14, 16, 18",
+    "bound": 19,
+    "built": {
+      "10": [
+        62,
+        124,
+        248,
+        496,
+        992,
+        0,
+        929,
+        803,
+        551,
+        47
+      ],
+      "12": [
+        126,
+        252,
+        504,
+        1008,
+        2016,
+        4032,
+        0,
+        3905,
+        3651,
+        3143,
+        2127,
+        95
+      ],
+      "14": [
+        254,
+        508,
+        1016,
+        2032,
+        4064,
+        8128,
+        16256,
+        0,
+        16001,
+        15491,
+        14471,
+        12431,
+        8351,
+        191
+      ],
+      "16": [
+        63876,
+        9969,
+        58762,
+        37331,
+        51877,
+        41677,
+        19349,
+        0,
+        43698,
+        27789,
+        4601,
+        38062,
+        1014,
+        23768,
+        7594,
+        30402
+      ],
+      "18": [
+        1022,
+        2044,
+        4088,
+        8176,
+        16352,
+        32704,
+        65408,
+        130816,
+        261632,
+        0,
+        260609,
+        258563,
+        254471,
+        246287,
+        229919,
+        197183,
+        131711,
+        767
+      ],
+      "4": [
+        6,
+        12,
+        0,
+        5
+      ],
+      "6": [
+        14,
+        28,
+        56,
+        0,
+        41,
+        11
+      ],
+      "8": [
+        30,
+        60,
+        120,
+        240,
+        0,
+        209,
+        147,
+        23
+      ]
+    },
+    "checks": [
+      "ok built: the condition holds on every ordered pair of each of the 8 structures, checked again from scratch",
+      "ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held"
+    ],
+    "class": "tournament",
+    "definitions": [
+      "out(x) is how many players x beats",
+      "out(y) is how many players y beats",
+      "both_beat(x,y) is how many players both x and y beat",
+      "beat_both(x,y) is how many players beat both x and y",
+      "paths(x,y) is how many players z have x beating z and z beating y",
+      "n is the number of points"
+    ],
+    "impossible": [
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19
+    ],
+    "key": "tournament-0bab8cb16a37ba5c",
+    "question": "For which n from 3 to 19 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: ((min(((out(x) - ((out(x) - beat_both(x,y)) + -1)) - out(x)), |n|) - both_beat(x,y)) + out(y)) = 0 or paths(x,y) = beat_both(x,y) or paths(x,y) = 0?",
+    "seed": 2,
+    "steps": [
+      "  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]",
+      "  2.  n = 4: here is one: 0>1 0>2 1>2 1>3 3>0 3>2   [built]",
+      "  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]",
+      "  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>3 1>4 2>3 2>4 2>5 4>0 4>3 4>5 5>0 5>1 5>3   [built]",
+      "  5.  n = 7: none exists; the search ran to its end.   [ran_to_end]",
+      "  6.  n = 8: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>4 2>5 2>6 3>4 3>5 3>6 3>7 5>0 5>4 5>6 5>7 6>0 6>1 6>4 6>7 7>0 7>1 7>2 7>4   [built]",
+      "  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]",
+      "  8.  n = 10: here is one: 0>1 0>2 0>3 0>4 0>5 1>2 1>3 1>4 1>5 1>6 2>3 2>4 2>5 2>6 2>7 3>4 3>5 3>6 3>7 3>8 4>5 4>6 4>7 4>8 4>9 6>0 6>5 6>7 6>8 6>9 7>0 7>1 7>5 7>8 7>9 8>0 8>1 8>2 8>5 8>9 9>0 9>1 9>2 9>3 9>5   [built]",
+      "  9.  n = 11: none exists; the search ran to its end.   [ran_to_end]",
+      " 10.  n = 12: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 1>2 1>3 1>4 1>5 1>6 1>7 2>3 2>4 2>5 2>6 2>7 2>8 3>4 3>5 3>6 3>7 3>8 3>9 4>5 4>6 4>7 4>8 4>9 4>10 5>6 5>7 5>8 5>9 5>10 5>11 7>0 7>6 7>8 7>9 7>10 7>11 8>0 8>1 8>6 8>9 8>10 8>11 9>0 9>1 9>2 9>6 9>10 9>11 10>0 10>1 10>2 10>3 10>6 10>11 11>0 11>1 11>2 11>3 11>4 11>6   [built]",
+      " 11.  n = 13: none exists; the search ran to its end.   [ran_to_end]",
+      " 12.  n = 14: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 1>2 1>3 1>4 1>5 1>6 1>7 1>8 2>3 2>4 2>5 2>6 2>7 2>8 2>9 3>4 3>5 3>6 3>7 3>8 3>9 3>10 4>5 4>6 4>7 4>8 4>9 4>10 4>11 5>6 5>7 5>8 5>9 5>10 5>11 5>12 6>7 6>8 6>9 6>10 6>11 6>12 6>13 8>0 8>7 8>9 8>10 8>11 8>12 8>13 9>0 9>1 9>7 9>10 9>11 9>12 9>13 10>0 10>1 10>2 10>7 10>11 10>12 10>13 11>0 11>1 11>2 11>3 11>7 11>12 11>13 12>0 12>1 12>2 12>3 12>4 12>7 12>13 13>0 13>1 13>2 13>3 13>4 13>5 13>7   [built]",
+      " 13.  n = 15: none exists; the search ran to its end.   [ran_to_end]",
+      " 14.  n = 16: here is one: 0>2 0>7 0>8 0>11 0>12 0>13 0>14 0>15 1>0 1>4 1>5 1>6 1>7 1>9 1>10 1>13 2>1 2>3 2>7 2>8 2>10 2>13 2>14 2>15 3>0 3>1 3>4 3>6 3>7 3>8 3>12 3>15 4>0 4>2 4>5 4>7 4>9 4>11 4>14 4>15 5>0 5>2 5>3 5>6 5>7 5>9 5>13 5>15 6>0 6>2 6>4 6>7 6>8 6>9 6>11 6>14 8>1 8>4 8>5 8>7 8>9 8>11 8>13 8>15 9>0 9>2 9>3 9>7 9>10 9>11 9>13 9>14 10>0 10>3 10>4 10>5 10>6 10>7 10>8 10>12 11>1 11>2 11>3 11>5 11>7 11>10 11>12 11>15 12>1 12>2 12>4 12>5 12>6 12>7 12>8 12>9 13>3 13>4 13>6 13>7 13>10 13>11 13>12 13>14 14>1 14>3 14>5 14>7 14>8 14>10 14>11 14>12 15>1 15>6 15>7 15>9 15>10 15>12 15>13 15>14   [built]",
+      " 15.  n = 17: none exists; the search ran to its end.   [ran_to_end]",
+      " 16.  n = 18: here is one: 0>1 0>2 0>3 0>4 0>5 0>6 0>7 0>8 0>9 1>2 1>3 1>4 1>5 1>6 1>7 1>8 1>9 1>10 2>3 2>4 2>5 2>6 2>7 2>8 2>9 2>10 2>11 3>4 3>5 3>6 3>7 3>8 3>9 3>10 3>11 3>12 4>5 4>6 4>7 4>8 4>9 4>10 4>11 4>12 4>13 5>6 5>7 5>8 5>9 5>10 5>11 5>12 5>13 5>14 6>7 6>8 6>9 6>10 6>11 6>12 6>13 6>14 6>15 7>8 7>9 7>10 7>11 7>12 7>13 7>14 7>15 7>16 8>9 8>10 8>11 8>12 8>13 8>14 8>15 8>16 8>17 10>0 10>9 10>11 10>12 10>13 10>14 10>15 10>16 10>17 11>0 11>1 11>9 11>12 11>13 11>14 11>15 11>16 11>17 12>0 12>1 12>2 12>9 12>13 12>14 12>15 12>16 12>17 13>0 13>1 13>2 13>3 13>9 13>14 13>15 13>16 13>17 14>0 14>1 14>2 14>3 14>4 14>9 14>15 14>16 14>17 15>0 15>1 15>2 15>3 15>4 15>5 15>9 15>16 15>17 16>0 16>1 16>2 16>3 16>4 16>5 16>6 16>9 16>17 17>0 17>1 17>2 17>3 17>4 17>5 17>6 17>7 17>9   [built]",
+      " 17.  n = 19: none exists; the search ran to its end.   [ran_to_end]",
+      " 18.  Above 19: not every n is decided. Left open here.   [open]"
+    ],
+    "tree": [
+      "mul",
+      [
+        "mul",
+        [
+          "add",
+          [
+            "sub",
+            [
+              "min",
+              [
+                "sub",
+                [
+                  "sub",
+                  [
+                    "read",
+                    2
+                  ],
+                  [
+                    "add",
+                    [
+                      "sub",
+                      [
+                        "read",
+                        2
+                      ],
+                      [
+                        "read",
+                        7
+                      ]
+                    ],
+                    [
+                      "num",
+                      -1
+                    ]
+                  ]
+                ],
+                [
+                  "read",
+                  2
+                ]
+              ],
+              [
+                "abs",
+                [
+                  "read",
+                  9
+                ]
+              ]
+            ],
+            [
+              "read",
+              6
+            ]
+          ],
+          [
+            "read",
+            3
+          ]
+        ],
+        [
+          "abs",
+          [
+            "sub",
+            [
+              "read",
+              8
+            ],
+            [
+              "read",
+              7
+            ]
+          ]
+        ]
+      ],
+      [
+        "abs",
+        [
+          "read",
+          8
+        ]
+      ]
+    ]
+  }
+]

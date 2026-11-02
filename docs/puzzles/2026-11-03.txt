@@ -1,0 +1,15 @@
+For which n from 3 to 10 is there a tournament on n players (every two players play once, and one of them wins) such that, for every ordered pair (x, y) of different players: beat_both(x,y) = 1 or both_beat(x,y) = 1?
+
+  1.  n = 3: none exists; the search ran to its end.   [ran_to_end]
+  2.  n = 4: here is one: 0>1 0>2 0>3 1>2 2>3 3>1   [built]
+  3.  n = 5: none exists; the search ran to its end.   [ran_to_end]
+  4.  n = 6: here is one: 0>1 0>2 0>3 1>2 1>4 1>5 2>3 2>4 3>1 3>5 4>0 4>3 4>5 5>0 5>2   [built]
+  5.  n = 7: here is one: 0>1 0>2 0>3 0>4 1>2 1>3 1>4 1>5 2>3 2>5 2>6 3>4 3>6 4>2 4>6 5>0 5>3 5>4 6>0 6>1 6>5   [built]
+  6.  n = 8: none exists; the search ran to its end.   [ran_to_end]
+  7.  n = 9: none exists; the search ran to its end.   [ran_to_end]
+  8.  n = 10: none exists; the search ran to its end.   [ran_to_end]
+  9.  Above 10: the parts such a tournament can hold, grown point by point, run out at 11 points (how many of each size from 1: 1, 1, 2, 5, 16, 55, 99, 76, 52, 30, 0). None on 11 or more.   [parts]
+
+Answer: n = 4, 6, 7
+  ok built: the condition holds on every ordered pair of each of the 3 structures, checked again from scratch
+  ok tried again: at 4 of the n's every structure was tried one by one, with no search, and the verdict held
