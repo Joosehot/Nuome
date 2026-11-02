@@ -1,7 +1,8 @@
 """Nuome Daily's puzzles: one for each day, none asked twice.
 
-Each day takes the shortest puzzle not yet used whose answer no earlier day had; when none is left, Golden grows
-more from the next seed (`nuome --ideas golden-daily SEED OUT`, about 3 minutes a seed). Days already written stay
+Each day takes the shortest puzzle not yet used whose answer no earlier day had, on another topic (graphs, tournaments)
+than the day before; when none is left, Golden grows more from the next seed (`nuome --ideas golden-daily SEED OUT`,
+about 3 minutes a seed), and after MOST_TOPIC_SEEDS seeds with no other topic the same topic may follow. Days already written stay
 as they are. Before a puzzle is written it is checked here with no code from Nuome: every structure built, and every
 structure there is on up to 6 points.
 
@@ -16,6 +17,7 @@ OUT = os.path.join(ROOT, "docs", "puzzles")
 # longer than this and it does not fit in a day's reading
 MOST_CHARS = 330
 MOST_SEEDS = 200
+MOST_TOPIC_SEEDS = 5
 BRUTE_TO = 6
 A, B, OUT_X, OUT_Y, IN_X, IN_Y, COMMON_OUT, COMMON_IN, PATHS, SIZE = range(10)
 LIMIT = 1_000_000_000
@@ -125,12 +127,13 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(SEEDS, exist_ok=True)
 
-    used, answers = set(), set()
+    used, answers, topics = set(), set(), {}
     for f in glob.glob(os.path.join(OUT, "*.json")):
         with open(f, encoding="utf-8") as h:
             p = json.load(h)
         used.add(p["key"])
         answers.add(tuple(p["answer"]))
+        topics[p["date"]] = p["class"]
 
     wrong = 0
     for k in range(args.days):
@@ -138,12 +141,15 @@ def main():
         path = os.path.join(OUT, f"{day}.json")
         if os.path.exists(path):
             continue
+        before = max((d for d in topics if d < str(day)), default=None)
+        grown_now = 0
         while True:
             seeds, pool = grown()
             free = [p for p in pool if p["key"] not in used and tuple(p["answer"]) not in answers and len(p["question"]) <= MOST_CHARS]
             free.sort(key=lambda p: (len(p["question"]), p["seed"], p["key"]))
+            other = [p for p in free if before is None or p["class"] != topics[before]]
             chosen = None
-            for p in free:
+            for p in other or (free if grown_now >= MOST_TOPIC_SEEDS else []):
                 why = checked(p)
                 if why is None:
                     chosen = p
@@ -157,10 +163,12 @@ def main():
             if seed > MOST_SEEDS:
                 sys.exit(f"{day}: no puzzle left after {MOST_SEEDS} seeds")
             grow(seed)
+            grown_now += 1
         p = dict(chosen)
         p["date"], p["number"] = str(day), (day - launch).days + 1
         used.add(p["key"])
         answers.add(tuple(p["answer"]))
+        topics[p["date"]] = p["class"]
         with open(path, "w", encoding="utf-8", newline="\n") as h:
             json.dump(p, h, indent=1)
         with open(os.path.join(OUT, f"{day}.txt"), "w", encoding="utf-8", newline="\n") as h:
