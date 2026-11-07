@@ -39,6 +39,7 @@ pub mod golden_bridge;
 pub mod golden_daily;
 pub mod golden_pattern;
 pub mod golden_problem;
+pub mod golden_tree;
 pub mod golden_grandmasters;
 pub mod golden_move;
 pub mod theory_engine;

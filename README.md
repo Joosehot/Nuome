@@ -194,6 +194,53 @@ nuome --graph graph.txt --repair  # repair it by the fitness search
 nuome --overnight 8               # a long round-by-round search for the 99-graph
 ```
 
+## Golden Tree: paths grown out of randomness
+
+`src/golden_tree.rs` is an engine, not a chatbot: Golden grows paths, and
+every path is a chain of small steps drawn from a seed. The steps are:
+
+- on a number: add, multiply, shift, xor, mod, or a step taken only when
+  x ≡ r (mod m);
+- on a ring of 256 cells: the row combined with itself turned.
+
+A finished path is a rule system. Golden keeps the ones that stay quiet for
+a long time and then turn complex, the way Collatz does. No rule is written
+in; the engine finds them.
+
+- **Render distance.** The tree exists only a few steps ahead of where
+  Golden stands (default 4). Golden takes the step whose branch holds the
+  best path, drops the others, and grows the frontier one step further.
+  Nothing is ever made deeper than the render distance.
+- **Watching, never looking back.** Each rule is iterated forward from plain
+  starts (all ones, a single bit, a single cell), in fixed memory:
+  - the quiet run: one flag for each candidate pattern (a period up to 8,
+    and for a row a turn up to 8), put out at the first break. A run counts
+    only if it repeated at least three times;
+  - Brent's loop finder;
+  - where the loop starts, found by walking forward again;
+  - what lies between the change and the loop, scored by entropy and by how
+    badly the last states predict it.
+- **Score.** The quiet run in bits × the complexity after it × how short the
+  rule is. Rejected: never changes, explodes, falls into a loop right after
+  the change, simple after the change.
+- **GPU.** A whole frontier is watched in one CUDA batch, one thread for each
+  rule and start. A batch under 4096 rules runs on the CPU, which is quicker
+  at that size. The CPU watch is the reference, and the tests check that the
+  GPU's numbers match it.
+
+```
+cargo run --release --bin golden-tree -- grow --steps 300 --render-distance 4 --seed 1
+cargo run --release --bin golden-tree -- vault list
+cargo run --release --bin golden-tree -- vault show 288751dc4b02    # checked again from scratch
+cargo run --release --bin golden-tree -- render 288751dc4b02        # out/golden_tree/<id>.png, golden on black
+nuome --answer logical "Grow golden tree paths."                     # the same through Golden Answer
+```
+
+Seed 1, 300 moves: 46 120 paths in 0.5 s. One rule it found was
+x ↦ x << 2 ; x >> 1 ; if x ≡ 0 (mod 3): 7x ; x >> 2 (that is, x/2, or 7x/2
+when 3 divides x). From 2^60 − 1 it falls on a regular saw for 60
+iterations, then turns into a Collatz-like random walk, then settles into a
+loop.
 ## Usage
 
 ```
