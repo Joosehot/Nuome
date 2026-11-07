@@ -50,6 +50,9 @@ pub enum World {
     Number,
     /// a is a ring of 256 cells, c the row before this iteration
     Row,
+    /// two numbers x and y: sums, differences and products of each other, squares, swaps; a recurrence on two
+    /// earlier values is a pair path (Fibonacci is "swap x, y ; x ← x + y")
+    Pair,
 }
 
 /// One step of a path. In a number path the steps act on x in turn; in a row path on a, with c the row the
@@ -69,6 +72,26 @@ pub enum Step {
     AndC(i8),
     Not,
     Rot(i8),
+    /// x ← x + y
+    PAdd,
+    /// y ← y + x
+    PAddY,
+    /// x ← |x − y|
+    PDiff,
+    /// x ← c·x
+    PMul(u8),
+    /// x ← x·y
+    PMulXY,
+    /// x ← x²
+    PSq,
+    /// x, y ← y, x
+    PSwap,
+    /// x ← x >> k
+    PShr(u8),
+    /// x ← x mod m
+    PMod(u8),
+    /// the inner step on x only when x ≡ r (mod m)
+    PIf { m: u8, r: u8, op: u8, arg: u8 },
 }
 
 const OP_ADD: u8 = 1;
@@ -83,11 +106,23 @@ const OP_ORC: u8 = 11;
 const OP_ANDC: u8 = 12;
 const OP_NOT: u8 = 13;
 const OP_ROT: u8 = 14;
+const OP_PADD: u8 = 20;
+const OP_PADDY: u8 = 21;
+const OP_PDIFF: u8 = 22;
+const OP_PMUL: u8 = 23;
+const OP_PMULXY: u8 = 24;
+const OP_PSQ: u8 = 25;
+const OP_PSWAP: u8 = 26;
+const OP_PSHR: u8 = 27;
+const OP_PMOD: u8 = 28;
+const OP_PIF: u8 = 29;
 
 impl Step {
     pub fn world(&self) -> World {
         match self {
             Step::XorC(_) | Step::OrC(_) | Step::AndC(_) | Step::Not | Step::Rot(_) => World::Row,
+            Step::PAdd | Step::PAddY | Step::PDiff | Step::PMul(_) | Step::PMulXY | Step::PSq | Step::PSwap | Step::PShr(_)
+            | Step::PMod(_) | Step::PIf { .. } => World::Pair,
             _ => World::Number,
         }
     }
@@ -107,6 +142,16 @@ impl Step {
             Step::AndC(k) => (OP_ANDC, k as u8, 0, 0),
             Step::Not => (OP_NOT, 0, 0, 0),
             Step::Rot(k) => (OP_ROT, k as u8, 0, 0),
+            Step::PAdd => (OP_PADD, 0, 0, 0),
+            Step::PAddY => (OP_PADDY, 0, 0, 0),
+            Step::PDiff => (OP_PDIFF, 0, 0, 0),
+            Step::PMul(c) => (OP_PMUL, c, 0, 0),
+            Step::PMulXY => (OP_PMULXY, 0, 0, 0),
+            Step::PSq => (OP_PSQ, 0, 0, 0),
+            Step::PSwap => (OP_PSWAP, 0, 0, 0),
+            Step::PShr(k) => (OP_PSHR, k, 0, 0),
+            Step::PMod(m) => (OP_PMOD, m, 0, 0),
+            Step::PIf { m, r, op, arg } => (OP_PIF, m, r, (op & 15) | (arg << 4)),
         };
         op as u32 | (a as u32) << 8 | (b as u32) << 16 | (c as u32) << 24
     }
@@ -143,6 +188,16 @@ impl Step {
             Step::AndC(k) => format!("a and {}", turn(k)),
             Step::Not => "not a".into(),
             Step::Rot(k) => format!("rot(a, {k})"),
+            Step::PAdd => "x ← x + y".into(),
+            Step::PAddY => "y ← y + x".into(),
+            Step::PDiff => "x ← |x − y|".into(),
+            Step::PMul(c) => format!("x ← {c}x"),
+            Step::PMulXY => "x ← x·y".into(),
+            Step::PSq => "x ← x²".into(),
+            Step::PSwap => "swap x, y".into(),
+            Step::PShr(k) => format!("x ← x >> {k}"),
+            Step::PMod(m) => format!("x ← x mod {m}"),
+            Step::PIf { m, r, op, arg } => format!("if x ≡ {r} (mod {m}): x ← {}", basic(op, arg)),
         }
     }
 }
@@ -163,6 +218,7 @@ impl Rule {
         match self.world() {
             World::Number => format!("x ↦ {}", body.join(" ; ")),
             World::Row => format!("c ← a ; {}", body.iter().map(|b| format!("a ← {b}")).collect::<Vec<_>>().join(" ; ")),
+            World::Pair => format!("(x, y) ↦ {}", body.join(" ; ")),
         }
     }
 
@@ -190,6 +246,16 @@ fn decode(c: u32) -> Step {
         OP_ORC => Step::OrC(a as i8),
         OP_ANDC => Step::AndC(a as i8),
         OP_NOT => Step::Not,
+        OP_PADD => Step::PAdd,
+        OP_PADDY => Step::PAddY,
+        OP_PDIFF => Step::PDiff,
+        OP_PMUL => Step::PMul(a),
+        OP_PMULXY => Step::PMulXY,
+        OP_PSQ => Step::PSq,
+        OP_PSWAP => Step::PSwap,
+        OP_PSHR => Step::PShr(a),
+        OP_PMOD => Step::PMod(a),
+        OP_PIF => Step::PIf { m: a, r: b, op: cc & 15, arg: cc >> 4 },
         _ => Step::Rot(a as i8),
     }
 }
@@ -219,6 +285,29 @@ impl Rng {
 /// One step drawn at random in a world.
 pub fn draw_step(rng: &mut Rng, world: World) -> Step {
     match world {
+        World::Pair => match rng.below(12) {
+            0..=1 => Step::PAdd,
+            2 => Step::PAddY,
+            3 => Step::PDiff,
+            4 => Step::PMul(2 + rng.below(8) as u8),
+            5 => Step::PMulXY,
+            6 => Step::PSq,
+            7 => Step::PSwap,
+            8 => Step::PShr(1 + rng.below(3) as u8),
+            9 => Step::PMod(2 + rng.below(254) as u8),
+            _ => {
+                let m = 2 + rng.below(4) as u8;
+                let r = rng.below(m as u64) as u8;
+                let (op, arg) = match rng.below(5) {
+                    0 => (OP_ADD, 1 + rng.below(9) as u8),
+                    1 => (OP_MUL, 2 + rng.below(8) as u8),
+                    2 => (OP_SHR, 1 + rng.below(3) as u8),
+                    3 => (OP_SHL, 1 + rng.below(3) as u8),
+                    _ => (OP_XOR, 1 + rng.below(15) as u8),
+                };
+                Step::PIf { m, r, op, arg }
+            }
+        },
         World::Number => {
             let basic = |rng: &mut Rng| -> (u8, u8) {
                 match rng.below(5) {
@@ -266,6 +355,44 @@ pub fn draw_step(rng: &mut Rng, world: World) -> Step {
 /// The plain starts every rule is iterated from.
 pub fn number_starts() -> Vec<u128> {
     vec![(1u128 << 40) - 1, (1u128 << 60) - 1, 1u128 << 40, 1_000_003]
+}
+
+/// Pair paths start from (1, 1), (2^40 − 1, 1), (3, 2^20) and (1000003, 7).
+pub fn pair_starts() -> Vec<(u128, u128)> {
+    vec![(1, 1), ((1u128 << 40) - 1, 1), (3, 1u128 << 20), (1_000_003, 7)]
+}
+
+/// One iteration of a pair path; None when a number blows past 2^120.
+pub fn step_pair(rule: &[u32], (mut x, mut y): (u128, u128)) -> Option<(u128, u128)> {
+    let lim = 1u128 << LIMIT_BITS;
+    for &c in rule {
+        let (op, a, b, cc) = ((c & 0xff) as u8, ((c >> 8) & 0xff) as u8, ((c >> 16) & 0xff) as u8, ((c >> 24) & 0xff) as u8);
+        match op {
+            OP_PADD => x = x.checked_add(y)?,
+            OP_PADDY => y = y.checked_add(x)?,
+            OP_PDIFF => x = x.abs_diff(y),
+            OP_PMUL => x = x.checked_mul(a as u128)?,
+            OP_PMULXY => x = x.checked_mul(y)?,
+            OP_PSQ => x = x.checked_mul(x)?,
+            OP_PSWAP => std::mem::swap(&mut x, &mut y),
+            OP_PSHR => x >>= a,
+            OP_PMOD => {
+                if a > 0 {
+                    x %= a as u128
+                }
+            }
+            OP_PIF => {
+                if a > 0 && x % a as u128 == b as u128 {
+                    x = basic_num(cc & 15, cc >> 4, x)?;
+                }
+            }
+            _ => {}
+        }
+        if x > lim || y > lim {
+            return None;
+        }
+    }
+    Some((x, y))
 }
 
 pub fn row_starts() -> Vec<[u64; ROW_WORDS]> {
@@ -486,7 +613,19 @@ fn symbol(x: u128, y: u128) -> u8 {
 /// Watch a number path from one start. Three walks forward, none looking back: the quiet run and Brent's loop
 /// finder; where the loop starts; then what lies between the change and the loop (or the end).
 pub fn watch_number(rule: &[u32], start: u128) -> Watch {
-    let f = |x: u128| step_number(rule, x).unwrap_or(0);
+    watch_seq(start, |x| step_number(rule, x), symbol, 6)
+}
+
+/// Watch a pair path (x, y) from one start: x's direction and parity, and y's parity.
+pub fn watch_pair(rule: &[u32], start: (u128, u128)) -> Watch {
+    watch_seq(start, |s| step_pair(rule, s), |a, b| symbol(a.0, b.0) * 2 + (a.1 & 1) as u8, 12)
+}
+
+/// Watch any path whose states can blow up, through its symbols (an alphabet of `alpha`). Three walks forward,
+/// none looking back: the quiet run and Brent's loop finder; where the loop starts; then what lies between the
+/// change and the loop (or the end).
+fn watch_seq<S: Copy + PartialEq>(start: S, step: impl Fn(S) -> Option<S>, sym: impl Fn(S, S) -> u8, alpha: usize) -> Watch {
+    let f = |x: S| step(x).unwrap_or(start);
     // 1. the quiet run, the loop, a blow-up
     let mut ring = [0u8; MAX_PERIOD];
     let mut alive: u32 = (1 << MAX_PERIOD) - 1;
@@ -496,11 +635,11 @@ pub fn watch_number(rule: &[u32], start: u128) -> Watch {
     let (mut lambda, mut blew) = (None::<u64>, false);
     let mut x = start;
     for t in 0..T as u32 {
-        let Some(y) = step_number(rule, x) else {
+        let Some(y) = step(x) else {
             blew = true;
             break;
         };
-        let s = symbol(x, y);
+        let s = sym(x, y);
         if quiet.is_none() {
             for p in 1..=MAX_PERIOD as u32 {
                 if t >= p && alive >> (p - 1) & 1 == 1 && ring[((t - p) % MAX_PERIOD as u32) as usize] != s {
@@ -539,20 +678,20 @@ pub fn watch_number(rule: &[u32], start: u128) -> Watch {
     }
     // 3. what follows the change: its symbols one and three at a time, and how well a period up to PREDICT foretells it
     let stop = end.min(q + AFTER_MAX as u32);
-    let mut c1 = [0u32; 6];
-    let mut c3 = [0u32; 216];
+    let mut c1 = vec![0u32; alpha];
+    let mut c3 = vec![0u32; alpha * alpha * alpha];
     let mut ring = [0u8; PREDICT];
     let (mut miss, mut tot) = ([0u32; PREDICT + 1], [0u32; PREDICT + 1]);
     let mut x = start;
     for t in 0..stop {
         let y = f(x);
-        let s = symbol(x, y);
+        let s = sym(x, y);
         if t >= q {
             c1[s as usize] += 1;
             if t >= q + 2 {
                 let a = ring[((t - 2) % PREDICT as u32) as usize] as usize;
                 let b = ring[((t - 1) % PREDICT as u32) as usize] as usize;
-                c3[a * 36 + b * 6 + s as usize] += 1;
+                c3[a * alpha * alpha + b * alpha + s as usize] += 1;
             }
             for p in 1..=PREDICT as u32 {
                 if t >= q + p {
@@ -564,12 +703,12 @@ pub fn watch_number(rule: &[u32], start: u128) -> Watch {
         ring[(t % PREDICT as u32) as usize] = s;
         x = y;
     }
-    Watch { quiet: q, post, code, after: after_number(&c1, &c3, &miss, &tot) }
+    Watch { quiet: q, post, code, after: after_seq(&c1, &c3, &miss, &tot) }
 }
 
-/// How complex what follows the change in a number path is: the entropy of its symbols, one and three at a time,
-/// times how badly any period up to PREDICT foretells it (0 when one does).
-fn after_number(c1: &[u32; 6], c3: &[u32; 216], miss: &[u32], tot: &[u32]) -> f64 {
+/// How complex what follows the change is: the entropy of its symbols, one and three at a time, times how badly
+/// any period up to PREDICT foretells it (0 when one does).
+fn after_seq(c1: &[u32], c3: &[u32], miss: &[u32], tot: &[u32]) -> f64 {
     let used = c1.iter().filter(|&&c| c > 0).count();
     if used < 2 {
         return 0.0;
@@ -586,7 +725,6 @@ fn after_number(c1: &[u32; 6], c3: &[u32; 216], miss: &[u32], tot: &[u32]) -> f6
     }
     h * (2.0 * novelty).min(1.0)
 }
-
 /// Watch a row path from one start: the same three walks.
 pub fn watch_row(rule: &[u32], start: &[u64; ROW_WORDS]) -> Watch {
     const DRIFTS: usize = (2 * MAX_DRIFT + 1) as usize;
@@ -741,6 +879,7 @@ pub fn weigh_watches(rule: &Rule, watches: &[Watch]) -> Weighed {
 pub fn watches(rule: &Rule) -> Vec<Watch> {
     let codes = rule.codes();
     match rule.world() {
+        World::Pair => pair_starts().into_iter().map(|s| watch_pair(&codes, s)).collect(),
         World::Number => number_starts().into_iter().map(|s| watch_number(&codes, s)).collect(),
         World::Row => row_starts().iter().map(|s| watch_row(&codes, s)).collect(),
     }
@@ -1096,6 +1235,7 @@ impl Gpu {
         let s = match world {
             World::Number => number_starts().len(),
             World::Row => row_starts().len(),
+            World::Pair => return Err("pair paths are watched on the CPU".into()),
         };
         let n = r * s;
         let mut quiet = self.dev.alloc_zeros::<u32>(n).map_err(e)?;
@@ -1118,6 +1258,7 @@ impl Gpu {
                 let f = self.dev.get_func("tree", "rows").ok_or("no kernel")?;
                 unsafe { f.launch(cfg, (&codes_d, &lens_d, maxs as i32, r as i32, &st_d, s as i32, &mut quiet, &mut post, &mut code, &mut after)) }.map_err(e)?;
             }
+            World::Pair => unreachable!(),
         }
         let (quiet, post, code, after) = (
             self.dev.dtoh_sync_copy(&quiet).map_err(e)?,
@@ -1141,13 +1282,14 @@ impl Gpu {
 /// Weigh many rules: watched on the GPU when there is one, else on the CPU in parallel; read on the CPU.
 pub fn weigh_all(rules: &[Rule], gpu: Option<&Gpu>) -> Vec<Weighed> {
     let mut out: Vec<Option<Weighed>> = vec![None; rules.len()];
-    for world in [World::Number, World::Row] {
+    for world in [World::Number, World::Row, World::Pair] {
         let idx: Vec<usize> = (0..rules.len()).filter(|&i| rules[i].world() == world && !rules[i].steps.is_empty()).collect();
         if idx.is_empty() {
             continue;
         }
         // a small batch is quicker on the CPU than the trip to the GPU and back
-        let gpu = if idx.len() >= GPU_MIN { gpu } else { None };
+        // pair paths are watched on the CPU only
+        let gpu = if idx.len() >= GPU_MIN && world != World::Pair { gpu } else { None };
         let on_gpu: Option<Vec<Vec<Watch>>> = gpu.and_then(|g| {
             let refs: Vec<&Rule> = idx.iter().map(|&i| &rules[i]).collect();
             g.watches(&refs, world).ok()
@@ -1191,6 +1333,8 @@ pub struct Node {
 
 /// A grown tree: its nodes, the trunk of steps Golden took, and the deepest any node was made beyond where it stood.
 pub struct Tree {
+    /// the worlds the root's children are drawn from, in turn
+    pub worlds: Vec<World>,
     pub seed: u64,
     pub render_distance: usize,
     pub nodes: Vec<Node>,
@@ -1243,7 +1387,7 @@ impl Tree {
                         break;
                     }
                     // the first step chooses the world: half the root's children each
-                    let w = world.unwrap_or(if k % 2 == 0 { World::Number } else { World::Row });
+                    let w = world.unwrap_or(self.worlds[k % self.worlds.len()]);
                     let step = draw_step(&mut rng, w);
                     if !seen.insert(step) {
                         continue;
@@ -1275,7 +1419,13 @@ impl Tree {
 /// Grow a tree: `steps` moves, each one step ahead, with the tree only `render_distance` steps beyond where Golden
 /// stands. A path that reaches the longest length starts again from the root, its old branches dropped.
 pub fn grow(steps: usize, render_distance: usize, seed: u64, gpu: Option<&Gpu>) -> Tree {
+    grow_in(&[World::Number, World::Row], steps, render_distance, seed, gpu)
+}
+
+/// Grow a tree whose paths are drawn from the given worlds.
+pub fn grow_in(worlds: &[World], steps: usize, render_distance: usize, seed: u64, gpu: Option<&Gpu>) -> Tree {
     let mut tree = Tree {
+        worlds: worlds.to_vec(),
         seed,
         render_distance: render_distance.max(1),
         nodes: vec![Node { id: 0, parent: None, step: None, depth: 0, children: vec![], weighed: None, alive: true }],
@@ -1382,7 +1532,7 @@ impl Entry {
         serde_json::json!({
             "id": self.id, "rule": self.rule, "codes": self.codes, "seed": self.seed, "score": self.score,
             "quiet": self.quiet, "after": self.after, "start": self.start,
-            "world": match self.world { World::Number => "number", World::Row => "row" },
+            "world": match self.world { World::Number => "number", World::Row => "row", World::Pair => "pair" },
         })
         .to_string()
     }
@@ -1398,7 +1548,11 @@ impl Entry {
             quiet: v["quiet"].as_u64()? as usize,
             after: v["after"].as_f64()?,
             start: v["start"].as_u64()? as usize,
-            world: if v["world"].as_str()? == "row" { World::Row } else { World::Number },
+            world: match v["world"].as_str()? {
+                "row" => World::Row,
+                "pair" => World::Pair,
+                _ => World::Number,
+            },
         })
     }
 }
@@ -1546,11 +1700,25 @@ pub fn render(e: &Entry) -> Result<PathBuf, String> {
     let codes = e.codes.clone();
     let path = Path::new(OUT).join(format!("{}.png", e.id));
     match e.world {
-        World::Number => {
-            let start = number_starts()[e.start.min(3)];
-            let Trace::Number { xs, .. } = trace_number(&codes, start) else { unreachable!() };
+        World::Number | World::Pair => {
+            // a pair path is drawn by its x
+            let (xs, w0) = if e.world == World::Number {
+                let start = number_starts()[e.start.min(3)];
+                let Trace::Number { xs, .. } = trace_number(&codes, start) else { unreachable!() };
+                (xs, watch_number(&codes, start))
+            } else {
+                let start = pair_starts()[e.start.min(3)];
+                let (mut xs, mut s) = (Vec::with_capacity(T), start);
+                for _ in 0..T {
+                    xs.push(s.0);
+                    match step_pair(&codes, s) {
+                        Some(n) => s = n,
+                        None => break,
+                    }
+                }
+                (xs, watch_pair(&codes, start))
+            };
             // what is worth seeing: the quiet run, the change, a little of the loop it settles into
-            let w0 = watch_number(&codes, start);
             let shown = ((w0.quiet + w0.post) as usize + 64).min(xs.len());
             let xs = &xs[..shown];
             let (w, h) = (1024usize, 512usize);

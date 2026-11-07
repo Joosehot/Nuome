@@ -268,6 +268,45 @@ lengthened; each was iterated again from scratch):
 Number 5, for example, is 7x/2 when 4 divides x and ⌊x/2⌋ otherwise: two
 steps, quiet for 39 iterations, then a walk like Collatz's.
 
+**Equations in two numbers.** A third world has two numbers, x and y, with
+these steps: x ← x + y, y ← y + x, x ← |x − y|, x ← cx, x ← x·y, x ← x²,
+swap, shift, mod and conditions. A recurrence on two earlier values is a
+path here; Fibonacci is `swap x, y ; x ← x + y`. Ten found equations are in
+`bench/golden_tree/found.md`, for example
+`(x, y) ↦ swap x, y ; x ← x mod 222 ; x ← 4x ; x ← |x − y|`, quiet for 2210
+iterations. Their quiet runs (853 to 7855) are mostly a slow countdown from
+the large start 2^20 or 2^40 − 1, until the numbers are small and the play
+turns complex. This world is watched on the CPU only.
+
+**Golden's conjectures** (`src/golden_conjecture.rs`;
+`golden-tree conjectures`; `nuome --answer logical "Make conjectures from
+golden tree paths."`). Every number path Golden keeps is a question of
+Collatz's kind, and Golden asks it: the cycles the numbers 1 to 10^4 fall
+into make the conjecture that every positive integer reaches one of them.
+Nuome then decides it as far as it can, following CLAUDE.md's way for open
+problems:
+
+1. **Forcing.** Every residue class x = N·m + r (N up to 2^22) is followed
+   symbolically as A·m + B, for as long as the class decides the step. A
+   class whose coefficient falls below N descends.
+2. **Search.** Every n up to 10^7 is followed until it falls below n or meets
+   a cycle.
+3. **Which of three.** Proved (every class descends and the numbers below
+   the bound are checked), refuted (a cycle the conjecture does not name), or
+   open.
+
+Halving (`x >> 1`) is proved, and Collatz stays open. Of the ten
+conjectures in `bench/golden_tree/conjectures.md`, all ten are open:
+
+- **Seven hold for every n up to 10^7.** Descent is forced for 86 to 99 % of
+  the residue classes.
+- **Three have an orbit that never seems to come down.** It passes 2^120 or
+  100 000 steps, at n = 21 568, 2 348 787 and 2 973 508. These are
+  candidate counterexamples, not proved ones.
+
+Open means Nuome did not decide it. Whether anyone has asked the same
+question is not checked.
+
 **What doesn't work yet:**
 
 - **The row world has found nothing real.** Every row rule that looked quiet

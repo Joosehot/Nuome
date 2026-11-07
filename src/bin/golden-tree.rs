@@ -41,6 +41,14 @@ enum Cmd {
     },
     /// Draw a kept path, golden on black.
     Render { id: String },
+    /// Golden's conjectures from the number paths of seeds 1 to SEEDS, decided as far as Nuome can; the first COUNT
+    /// that stay open, and every one decided on the way, written to bench/golden_tree/conjectures.md.
+    Conjectures {
+        #[arg(long, default_value_t = 20)]
+        seeds: u64,
+        #[arg(long, default_value_t = 10)]
+        count: usize,
+    },
     /// The fixed examples: seeds 1 to 5, each grown the same way, the best paths checked again from scratch;
     /// written to bench/golden_tree/found.md.
     Bench {
@@ -124,7 +132,7 @@ fn main() -> Result<(), String> {
                     let ok = gt::check(e).is_ok();
                     match e.world {
                         gt::World::Number => number += 1,
-                        gt::World::Row => row += 1,
+                        gt::World::Row | gt::World::Pair => row += 1,
                     }
                     md.push_str(&format!("| {:.3} | {} | {:.2} | {} | `{}` | {} |\n", e.score, e.quiet, e.after, e.start, e.rule, if ok { "the same" } else { "DOES NOT CHECK" }));
                 }
@@ -152,9 +160,72 @@ fn main() -> Result<(), String> {
                 println!("{:>2}. {}  quiet {}  after {:.2}  score {:.3}  {}", i + 1, e.rule, e.quiet, e.after, e.score, if ok { "checked" } else { "DOES NOT CHECK" });
             }
             gt::save(&distinct.iter().take(10).cloned().collect::<Vec<_>>())?;
+            // ten equations in two numbers: pair paths only, seeds 1 to 20
+            let mut pairs: Vec<gt::Entry> = Vec::new();
+            for seed in 1..=20u64 {
+                pairs.extend(gt::best(&gt::grow_in(&[gt::World::Pair], steps, render_distance, seed, gpu.as_ref()), 40));
+            }
+            pairs.sort_by(|a, b| a.codes.len().cmp(&b.codes.len()).then(b.score.partial_cmp(&a.score).unwrap()));
+            let mut two: Vec<gt::Entry> = Vec::new();
+            for e in pairs {
+                if !two.iter().any(|d| e.codes.starts_with(&d.codes)) {
+                    two.push(e);
+                }
+            }
+            two.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap().then(a.id.cmp(&b.id)));
+            md.push_str("\n## Ten equations in two numbers\n\nPair paths (x, y): sums, differences and products of each other, squares, swaps, conditions; seeds 1 to 20 grown in this world only, the ten best that are not a shorter one lengthened, each iterated again on the CPU from scratch. Starts: (1, 1), (2^40 - 1, 1), (3, 2^20), (1000003, 7) (0 to 3).\n\n| # | equation | quiet | after | score | seed | start | checked |\n|---|---|---|---|---|---|---|---|\n");
+            for (i, e) in two.iter().take(10).enumerate() {
+                let ok = gt::check(e).is_ok();
+                md.push_str(&format!("| {} | `{}` | {} | {:.2} | {:.3} | {} | {} | {} |\n", i + 1, e.rule, e.quiet, e.after, e.score, e.seed, e.start, if ok { "the same" } else { "DOES NOT CHECK" }));
+                println!("{:>2}. {}  quiet {}  after {:.2}  score {:.3}  {}", i + 1, e.rule, e.quiet, e.after, e.score, if ok { "checked" } else { "DOES NOT CHECK" });
+            }
+            gt::save(&two.iter().take(10).cloned().collect::<Vec<_>>())?;
             std::fs::create_dir_all("bench/golden_tree").map_err(|e| e.to_string())?;
             std::fs::write("bench/golden_tree/found.md", md).map_err(|e| e.to_string())?;
             println!("bench/golden_tree/found.md");
+        }
+        Cmd::Conjectures { seeds, count } => {
+            use nuome::golden_conjecture as gc;
+            let gpu = gt::Gpu::new().ok();
+            let rules = gc::candidates(seeds, gpu.as_ref());
+            let (mut open, mut proved, mut refuted, mut skipped) = (Vec::new(), Vec::new(), Vec::new(), 0);
+            for rule in rules {
+                if open.len() == count {
+                    break;
+                }
+                let t0 = std::time::Instant::now();
+                let Some(c) = gc::conjecture(&rule) else {
+                    skipped += 1;
+                    continue;
+                };
+                println!("{}\n  {} ({:.1} s)", c.statement(), c.verdict(), t0.elapsed().as_secs_f64());
+                match c.status {
+                    gc::Status::Open { .. } => open.push(c),
+                    gc::Status::Proved { .. } => proved.push(c),
+                    gc::Status::Refuted { .. } => refuted.push(c),
+                }
+            }
+            let mut md = format!(
+                "# Golden's conjectures\n\nFrom the number paths Golden Tree kept (seeds 1 to {seeds}, none a shorter one lengthened, best first). For each rule f, the cycles the numbers 1 to {} fall into make the conjecture: every positive integer reaches one of them. Then Nuome decides it as far as it can: the forcing follows every residue class x = N*m + r symbolically until it descends; the search follows every n up to {} until it falls below n or meets a cycle. Proved: every class descends and every n up to the bound reaches the cycles. Refuted: a cycle the conjecture does not name. Open: neither; open means Nuome did not decide it, and whether anyone has asked the same question is not checked. The drift is a heuristic (the mean growth in bits of one iteration over evenly spread residues).\n\n## {} open conjectures\n\n",
+                gc::ASK_TO,
+                gc::CHECK_TO,
+                open.len()
+            );
+            let section = |md: &mut String, cs: &[gc::Conjecture]| {
+                for (i, c) in cs.iter().enumerate() {
+                    md.push_str(&format!("{}. {}\n   {}; drift {:+.3} bits an iteration.\n\n", i + 1, c.statement(), c.verdict(), c.drift));
+                }
+            };
+            section(&mut md, &open);
+            md.push_str(&format!("## Decided on the way: {} proved, {} refuted\n\n", proved.len(), refuted.len()));
+            section(&mut md, &proved);
+            section(&mut md, &refuted);
+            if skipped > 0 {
+                md.push_str(&format!("{skipped} rules made no conjecture: an orbit of a number up to {} blew past 2^120.\n", gc::ASK_TO));
+            }
+            std::fs::create_dir_all("bench/golden_tree").map_err(|e| e.to_string())?;
+            std::fs::write("bench/golden_tree/conjectures.md", md).map_err(|e| e.to_string())?;
+            println!("{} open, {} proved, {} refuted, {skipped} without a conjecture -> bench/golden_tree/conjectures.md", open.len(), proved.len(), refuted.len());
         }
         Cmd::Render { id } => {
             let e = gt::find(&id).ok_or(format!("no path {id} in the vault"))?;

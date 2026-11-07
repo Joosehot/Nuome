@@ -28,7 +28,7 @@ Seeds 1 to 5, each 300 moves at render distance 4; the 5 best paths of each, eve
 
 ## Seed 3
 
-46120 paths weighed in 0.4 s.
+46120 paths weighed in 0.5 s.
 
 | score | quiet | after | start | rule | checked |
 |---|---|---|---|---|---|
@@ -80,3 +80,20 @@ From seeds 1 to 20 (each as above), the ten best that are not a shorter one leng
 | 8 | `x ↦ if x ≡ 1 (mod 2): x << 3 ; if x ≡ 0 (mod 2): x << 1 ; x >> 3 ; if x ≡ 1 (mod 3): 7x` | 75 | 0.90 | 3.202 | 8 | the same |
 | 9 | `x ↦ x >> 1 ; if x ≡ 1 (mod 2): x xor 10 ; if x ≡ 2 (mod 3): 7x` | 39 | 0.90 | 3.189 | 18 | the same |
 | 10 | `x ↦ if x ≡ 2 (mod 3): x xor 4 ; if x ≡ 0 (mod 2): 3x ; x >> 1` | 40 | 0.89 | 3.179 | 2 | the same |
+
+## Ten equations in two numbers
+
+Pair paths (x, y): sums, differences and products of each other, squares, swaps, conditions; seeds 1 to 20 grown in this world only, the ten best that are not a shorter one lengthened, each iterated again on the CPU from scratch. Starts: (1, 1), (2^40 - 1, 1), (3, 2^20), (1000003, 7) (0 to 3).
+
+| # | equation | quiet | after | score | seed | start | checked |
+|---|---|---|---|---|---|---|---|
+| 1 | `(x, y) ↦ swap x, y ; x ← x mod 222 ; x ← 4x ; x ← |x − y|` | 2210 | 0.73 | 4.638 | 6 | 3 | the same |
+| 2 | `(x, y) ↦ y ← y + x ; swap x, y ; if x ≡ 1 (mod 2): x ← x xor 13 ; x ← x mod 191 ; x ← |x − y| ; y ← y + x` | 7855 | 0.72 | 4.155 | 14 | 3 | the same |
+| 3 | `(x, y) ↦ swap x, y ; x ← x mod 222 ; x ← 4x ; if x ≡ 3 (mod 4): x ← 5x ; x ← |x − y|` | 2210 | 0.73 | 4.058 | 6 | 3 | the same |
+| 4 | `(x, y) ↦ y ← y + x ; swap x, y ; if x ≡ 1 (mod 2): x ← x xor 13 ; x ← x mod 191 ; if x ≡ 2 (mod 4): x ← x << 3 ; x ← |x − y| ; y ← y + x` | 7855 | 0.76 | 3.944 | 14 | 3 | the same |
+| 5 | `(x, y) ↦ swap x, y ; x ← 9x ; x ← x mod 136 ; x ← 7x ; x ← |x − y|` | 1867 | 0.68 | 3.701 | 17 | 3 | the same |
+| 6 | `(x, y) ↦ x ← 6x ; x ← x >> 2 ; x ← 8x ; x ← |x − y| ; swap x, y ; x ← x mod 231` | 853 | 0.84 | 3.614 | 12 | 2 | the same |
+| 7 | `(x, y) ↦ swap x, y ; x ← x mod 225 ; x ← 6x ; if x ≡ 0 (mod 5): x ← x >> 3 ; x ← |x − y|` | 1551 | 0.67 | 3.558 | 17 | 3 | the same |
+| 8 | `(x, y) ↦ y ← y + x ; swap x, y ; x ← x mod 161 ; swap x, y ; x ← |x − y| ; x ← |x − y| ; x ← |x − y|` | 6212 | 0.68 | 3.406 | 15 | 3 | the same |
+| 9 | `(x, y) ↦ y ← y + x ; swap x, y ; x ← x + y ; x ← x mod 100 ; x ← 6x ; x ← |x − y|` | 3334 | 0.65 | 3.404 | 5 | 3 | the same |
+| 10 | `(x, y) ↦ swap x, y ; x ← x mod 168 ; x ← 2x ; x ← |x − y|` | 5957 | 0.44 | 3.181 | 19 | 3 | the same |

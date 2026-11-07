@@ -377,6 +377,8 @@ pub enum Task {
     Bridges,
     /// paths grown from randomness: long quiet runs that turn complex (golden_tree)
     Tree,
+    /// conjectures of Collatz's kind from the paths, decided as far as Nuome can (golden_conjecture)
+    Conjectures,
     /// what a table is, and when one answers
     TableConcept,
     /// the net's tables for every phase
@@ -446,6 +448,9 @@ pub fn task_of(q: &str) -> Task {
     }
     if crate::golden_tree::read_question(q) {
         return Task::Tree;
+    }
+    if crate::golden_conjecture::read_question(q) {
+        return Task::Conjectures;
     }
     if crate::golden_problem::read(q) {
         return Task::Problems;
@@ -898,6 +903,19 @@ fn answer_task(kind: Kind, question: &str, task: &Task) -> Answer {
             }
         },
         Task::Bridges => match crate::golden_bridge::answer(a.kind == Kind::Logical, a.kind == Kind::Abstract) {
+            Err(why) => a.none(why),
+            Ok((short, lines, sources)) => {
+                let mut a = a.says(short);
+                for l in lines {
+                    a = a.line(l);
+                }
+                for s in sources {
+                    a = a.source(s);
+                }
+                a
+            }
+        },
+        Task::Conjectures => match crate::golden_conjecture::answer(a.kind == Kind::Logical, a.kind == Kind::Abstract) {
             Err(why) => a.none(why),
             Ok((short, lines, sources)) => {
                 let mut a = a.says(short);

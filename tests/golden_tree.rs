@@ -90,3 +90,46 @@ fn the_gpu_iterates_as_the_cpu() {
         }
     }
 }
+
+#[test]
+fn a_pair_path_computes_fibonacci_and_explodes() {
+    // swap x, y ; x <- x + y: (1, 1) -> (2, 1) -> (3, 2) -> (5, 3) ...
+    let fib = rule(&[Step::PSwap, Step::PAdd]);
+    assert_eq!(fib.world(), World::Pair);
+    let codes = fib.codes();
+    let mut s = (1u128, 1u128);
+    let mut xs = vec![];
+    for _ in 0..8 {
+        s = gt::step_pair(&codes, s).unwrap();
+        xs.push(s.0);
+    }
+    assert_eq!(xs, vec![2, 3, 5, 8, 13, 21, 34, 55]);
+    let w = gt::weigh(&fib);
+    assert_eq!(w.score, 0.0);
+    assert!(w.reading.rejected.is_some());
+}
+
+#[test]
+fn halving_reaches_zero_proved() {
+    use nuome::golden_conjecture as gc;
+    let c = gc::conjecture(&rule(&[Step::Shr(1)])).unwrap();
+    assert_eq!(c.cycles, vec![vec![0u128]]);
+    assert!(matches!(c.status, gc::Status::Proved { .. }), "{:?}", c.status);
+}
+
+#[test]
+fn collatz_stays_open() {
+    use nuome::golden_conjecture as gc;
+    let collatz = rule(&[Step::If { m: 2, r: 1, op: 2, arg: 3 }, Step::If { m: 2, r: 1, op: 1, arg: 1 }, Step::Shr(1)]);
+    let c = gc::conjecture(&collatz).unwrap();
+    assert_eq!(c.cycles, vec![vec![1u128, 2]]);
+    match c.status {
+        gc::Status::Open { checked, descends, classes, trouble, .. } => {
+            assert_eq!(checked, gc::CHECK_TO);
+            assert!(trouble.is_none());
+            assert!(descends < classes && descends > classes / 2, "{descends} of {classes}");
+        }
+        s => panic!("Collatz decided? {s:?}"),
+    }
+    assert!(c.drift < 0.0, "drift {}", c.drift);
+}
