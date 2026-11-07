@@ -249,6 +249,25 @@ number paths of the same kind: conditional maps like Collatz's, quiet for 19
 to 60 iterations from their start, then complex. The shortest is two steps,
 x ↦ x >> 3 ; 7x (that is, 7·⌊x/8⌋).
 
+Ten equations Golden grew (seeds 1 to 20; none of them is a shorter one
+lengthened; each was iterated again from scratch):
+
+| # | equation | quiet | score |
+|---|---|---|---|
+| 1 | `x ↦ x xor 14 ; x >> 1 ; if x ≡ 1 (mod 3): 5x` | 57 | 3.53 |
+| 2 | `x ↦ if x ≡ 0 (mod 4): 7x ; if x ≡ 0 (mod 2): x >> 2 ; x xor 1` | 39 | 3.33 |
+| 3 | `x ↦ if x ≡ 0 (mod 4): 7x ; x >> 2 ; if x ≡ 0 (mod 4): 2x` | 38 | 3.33 |
+| 4 | `x ↦ if x ≡ 0 (mod 2): 5x ; if x ≡ 0 (mod 5): x << 1 ; x >> 2` | 40 | 3.32 |
+| 5 | `x ↦ if x ≡ 0 (mod 4): 7x ; x >> 1` | 39 | 3.30 |
+| 6 | `x ↦ x << 1 ; if x ≡ 1 (mod 5): 7x ; x >> 2` | 60 | 3.28 |
+| 7 | `x ↦ if x ≡ 0 (mod 2): x >> 2 ; if x ≡ 3 (mod 4): 7x ; x + 1` | 59 | 3.27 |
+| 8 | `x ↦ if x ≡ 1 (mod 2): x << 3 ; if x ≡ 0 (mod 2): x << 1 ; x >> 3 ; if x ≡ 1 (mod 3): 7x` | 75 | 3.20 |
+| 9 | `x ↦ x >> 1 ; if x ≡ 1 (mod 2): x xor 10 ; if x ≡ 2 (mod 3): 7x` | 39 | 3.19 |
+| 10 | `x ↦ if x ≡ 2 (mod 3): x xor 4 ; if x ≡ 0 (mod 2): 3x ; x >> 1` | 40 | 3.18 |
+
+Number 5, for example, is 7x/2 when 4 divides x and ⌊x/2⌋ otherwise: two
+steps, quiet for 39 iterations, then a walk like Collatz's.
+
 **What doesn't work yet:**
 
 - **The row world has found nothing real.** Every row rule that looked quiet

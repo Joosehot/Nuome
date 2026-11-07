@@ -63,3 +63,20 @@ Seeds 1 to 5, each 300 moves at render distance 4; the 5 best paths of each, eve
 | 2.315 | 20 | 0.66 | 1 | `x ↦ x >> 3 ; 5x` | the same |
 
 Of the 25 kept, 25 are number paths and 0 row paths.
+
+## Ten equations
+
+From seeds 1 to 20 (each as above), the ten best that are not a shorter one lengthened; each iterated again on the CPU from scratch.
+
+| # | equation | quiet | after | score | seed | checked |
+|---|---|---|---|---|---|---|
+| 1 | `x ↦ x xor 14 ; x >> 1 ; if x ≡ 1 (mod 3): 5x` | 57 | 0.90 | 3.531 | 19 | the same |
+| 2 | `x ↦ if x ≡ 0 (mod 4): 7x ; if x ≡ 0 (mod 2): x >> 2 ; x xor 1` | 39 | 0.94 | 3.326 | 20 | the same |
+| 3 | `x ↦ if x ≡ 0 (mod 4): 7x ; x >> 2 ; if x ≡ 0 (mod 4): 2x` | 38 | 0.94 | 3.325 | 20 | the same |
+| 4 | `x ↦ if x ≡ 0 (mod 2): 5x ; if x ≡ 0 (mod 5): x << 1 ; x >> 2` | 40 | 0.93 | 3.315 | 3 | the same |
+| 5 | `x ↦ if x ≡ 0 (mod 4): 7x ; x >> 1` | 39 | 0.77 | 3.296 | 20 | the same |
+| 6 | `x ↦ x << 1 ; if x ≡ 1 (mod 5): 7x ; x >> 2` | 60 | 0.83 | 3.276 | 13 | the same |
+| 7 | `x ↦ if x ≡ 0 (mod 2): x >> 2 ; if x ≡ 3 (mod 4): 7x ; x + 1` | 59 | 0.83 | 3.269 | 14 | the same |
+| 8 | `x ↦ if x ≡ 1 (mod 2): x << 3 ; if x ≡ 0 (mod 2): x << 1 ; x >> 3 ; if x ≡ 1 (mod 3): 7x` | 75 | 0.90 | 3.202 | 8 | the same |
+| 9 | `x ↦ x >> 1 ; if x ≡ 1 (mod 2): x xor 10 ; if x ≡ 2 (mod 3): 7x` | 39 | 0.90 | 3.189 | 18 | the same |
+| 10 | `x ↦ if x ≡ 2 (mod 3): x xor 4 ; if x ≡ 0 (mod 2): 3x ; x >> 1` | 40 | 0.89 | 3.179 | 2 | the same |

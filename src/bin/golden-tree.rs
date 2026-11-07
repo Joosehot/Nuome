@@ -132,6 +132,26 @@ fn main() -> Result<(), String> {
                 println!("seed {seed}: {} kept", found.len());
             }
             md.push_str(&format!("\nOf the {} kept, {number} are number paths and {row} row paths.\n", number + row));
+            // ten equations: seeds 1 to 20, a rule that only lengthens a shorter one kept is the same equation
+            let mut all: Vec<gt::Entry> = Vec::new();
+            for seed in 1..=20u64 {
+                all.extend(gt::best(&gt::grow(steps, render_distance, seed, gpu.as_ref()), 40));
+            }
+            all.sort_by(|a, b| a.codes.len().cmp(&b.codes.len()).then(b.score.partial_cmp(&a.score).unwrap()));
+            let mut distinct: Vec<gt::Entry> = Vec::new();
+            for e in all {
+                if !distinct.iter().any(|d| e.codes.starts_with(&d.codes)) {
+                    distinct.push(e);
+                }
+            }
+            distinct.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap().then(a.id.cmp(&b.id)));
+            md.push_str("\n## Ten equations\n\nFrom seeds 1 to 20 (each as above), the ten best that are not a shorter one lengthened; each iterated again on the CPU from scratch.\n\n| # | equation | quiet | after | score | seed | checked |\n|---|---|---|---|---|---|---|\n");
+            for (i, e) in distinct.iter().take(10).enumerate() {
+                let ok = gt::check(e).is_ok();
+                md.push_str(&format!("| {} | `{}` | {} | {:.2} | {:.3} | {} | {} |\n", i + 1, e.rule, e.quiet, e.after, e.score, e.seed, if ok { "the same" } else { "DOES NOT CHECK" }));
+                println!("{:>2}. {}  quiet {}  after {:.2}  score {:.3}  {}", i + 1, e.rule, e.quiet, e.after, e.score, if ok { "checked" } else { "DOES NOT CHECK" });
+            }
+            gt::save(&distinct.iter().take(10).cloned().collect::<Vec<_>>())?;
             std::fs::create_dir_all("bench/golden_tree").map_err(|e| e.to_string())?;
             std::fs::write("bench/golden_tree/found.md", md).map_err(|e| e.to_string())?;
             println!("bench/golden_tree/found.md");
