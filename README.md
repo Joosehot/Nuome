@@ -233,6 +233,7 @@ cargo run --release --bin golden-tree -- grow --steps 300 --render-distance 4 --
 cargo run --release --bin golden-tree -- vault list
 cargo run --release --bin golden-tree -- vault show 288751dc4b02    # checked again from scratch
 cargo run --release --bin golden-tree -- render 288751dc4b02        # out/golden_tree/<id>.png, golden on black
+cargo run --release --bin golden-tree -- bench                       # the fixed examples: bench/golden_tree/found.md
 nuome --answer logical "Grow golden tree paths."                     # the same through Golden Answer
 ```
 
@@ -241,7 +242,19 @@ x ↦ x << 2 ; x >> 1 ; if x ≡ 0 (mod 3): 7x ; x >> 2 (that is, x/2, or 7x/2
 when 3 divides x). From 2^60 − 1 it falls on a regular saw for 60
 iterations, then turns into a Collatz-like random walk, then settles into a
 loop.
-## Usage
+
+The fixed examples in `bench/golden_tree/found.md` cover seeds 1 to 5, the
+five best paths of each, every one iterated again from scratch. All 25 are
+number paths of the same kind: conditional maps like Collatz's, quiet for 19
+to 60 iterations from their start, then complex. The shortest is two steps,
+x ↦ x >> 3 ; 7x (that is, 7·⌊x/8⌋).
+
+**What doesn't work yet:**
+
+- **The row world has found nothing real.** Every row rule that looked quiet
+  was not, once a quiet run had to repeat three times.
+- **The quiet runs come largely from the starts.** All ones, 2^40 − 1 and
+  2^60 − 1, give the regular saw its length.## Usage
 
 ```
 nuome "solve x^2 - 5x + 6 = 0"
