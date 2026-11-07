@@ -35,6 +35,7 @@ pub mod golden_ntables;
 pub mod golden_optimal;
 pub mod golden_grow;
 pub mod star_search;
+pub mod golden_bridge;
 pub mod golden_daily;
 pub mod golden_pattern;
 pub mod golden_problem;
